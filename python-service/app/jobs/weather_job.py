@@ -10,25 +10,47 @@ from app.database.connection import SessionLocal
 
 
 # =========================================================
-# CONFIG
+# GET BMKG WEATHER SOURCES
 # =========================================================
 
-PULAU_SEBESI_ADM4 = "18.01.16.2014"
-ANAK_KRAKATAU_ID = 1
+def get_weather_sources():
+    db = SessionLocal()
+
+    try:
+        rows = db.execute(
+            text("""
+                SELECT
+                    volcano_id,
+                    source,
+                    adm4,
+                    location_name
+                FROM volcano_weather_sources
+                WHERE source = 'BMKG'
+                ORDER BY volcano_id
+            """)
+        ).fetchall()
+
+        return rows
+
+    finally:
+        db.close()
 
 
 # =========================================================
 # SAVE WEATHER FORECAST
 # =========================================================
 
-def save_weather_forecasts(volcano_id: int, adm4: str):
-
+def save_weather_forecasts(
+    volcano_id: int,
+    adm4: str,
+    source: str,
+):
     print("=" * 60)
     print("BMKG WEATHER FORECAST JOB")
     print("=" * 60)
-
     print(f"Volcano ID : {volcano_id}")
     print(f"ADM4       : {adm4}")
+    print(f"Source     : {source}")
     print()
 
     # =====================================================
@@ -38,7 +60,6 @@ def save_weather_forecasts(volcano_id: int, adm4: str):
     print("Mengambil data cuaca dari BMKG...")
 
     data = get_weather(adm4)
-
     forecasts = extract_forecasts(data)
 
     if not forecasts:
@@ -81,13 +102,11 @@ def save_weather_forecasts(volcano_id: int, adm4: str):
             # =============================================
 
             try:
-
                 forecast_at = datetime.fromisoformat(
                     local_datetime
                 )
 
             except ValueError:
-
                 print(
                     f"SKIP | datetime tidak valid: "
                     f"{local_datetime}"
@@ -162,7 +181,7 @@ def save_weather_forecasts(volcano_id: int, adm4: str):
                     """),
                     {
                         "id": existing.id,
-                        "source": "BMKG - Pulau Sebesi",
+                        "source": source,
                         "temperature": temperature,
                         "humidity": humidity,
                         "wind_speed": wind_speed,
@@ -216,7 +235,7 @@ def save_weather_forecasts(volcano_id: int, adm4: str):
                     """),
                     {
                         "volcano_id": volcano_id,
-                        "source": "BMKG - Pulau Sebesi",
+                        "source": source,
                         "forecast_at": forecast_at,
                         "temperature": temperature,
                         "humidity": humidity,
@@ -247,6 +266,7 @@ def save_weather_forecasts(volcano_id: int, adm4: str):
         # =================================================
 
         print()
+
         print("=" * 60)
         print("WEATHER JOB SELESAI")
         print("=" * 60)
@@ -274,6 +294,7 @@ def save_weather_forecasts(volcano_id: int, adm4: str):
         db.rollback()
 
         print()
+
         print("=" * 60)
         print("WEATHER JOB ERROR")
         print("=" * 60)
@@ -283,7 +304,6 @@ def save_weather_forecasts(volcano_id: int, adm4: str):
         raise
 
     finally:
-
         db.close()
 
 
@@ -293,7 +313,35 @@ def save_weather_forecasts(volcano_id: int, adm4: str):
 
 if __name__ == "__main__":
 
-    save_weather_forecasts(
-        ANAK_KRAKATAU_ID,
-        PULAU_SEBESI_ADM4,
+    weather_sources = get_weather_sources()
+
+    print("=" * 60)
+    print("BMKG WEATHER SOURCES")
+    print("=" * 60)
+    print(
+        f"Total mapping : {len(weather_sources)}"
     )
+    print()
+
+    if not weather_sources:
+        print(
+            "Tidak ada mapping BMKG "
+            "di volcano_weather_sources."
+        )
+
+    for source in weather_sources:
+
+        print(
+            f"[Volcano ID {source.volcano_id}] "
+            f"{source.location_name} "
+            f"({source.adm4})"
+        )
+
+        save_weather_forecasts(
+            volcano_id=source.volcano_id,
+            adm4=source.adm4,
+            source=(
+                f"BMKG - "
+                f"{source.location_name}"
+            ),
+        )

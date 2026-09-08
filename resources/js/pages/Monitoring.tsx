@@ -21,6 +21,16 @@ interface Weather {
     weather: string | null;
 }
 
+interface WeatherForecast {
+    id: number;
+    forecast_at: string;
+    temperature: number | null;
+    humidity: number | null;
+    wind_speed: number | null;
+    wind_direction: string | null;
+    weather: string | null;
+}
+
 interface Activity {
     occurred_at: string;
     activity_level: string | null;
@@ -49,6 +59,7 @@ interface MonitoringData {
     volcano: Volcano;
     activity: Activity | null;
     weather: Weather | null;
+    weather_forecasts: WeatherForecast[];
     ash_prediction: AshPrediction | null;
     ash_predictions: AshPrediction[];
 }
@@ -61,22 +72,49 @@ interface MonitoringAlert {
 }
 
 export default function Monitoring() {
-    const [data, setData] = useState<MonitoringData | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    // ==========================================
+    // DAFTAR GUNUNG
+    // ==========================================
+
+    const [volcanoes, setVolcanoes] = useState<Volcano[]>([]);
+
+    const [selectedVolcanoId, setSelectedVolcanoId] =
+        useState<number>(1);
+
+    const [volcanoLoading, setVolcanoLoading] =
+        useState(true);
+
+    const [volcanoError, setVolcanoError] =
+        useState<string | null>(null);
+
+    // ==========================================
+    // DATA MONITORING
+    // ==========================================
+
+    const [data, setData] =
+        useState<MonitoringData | null>(null);
+
+    const [loading, setLoading] =
+        useState(true);
+
+    const [error, setError] =
+        useState<string | null>(null);
+
     const [selectedForecastId, setSelectedForecastId] =
         useState<number | null>(null);
 
-    /*
-     * ==========================================
-     * AMBIL DATA MONITORING
-     * ==========================================
-     */
+    // ==========================================
+    // AMBIL DAFTAR SEMUA GUNUNG
+    // ==========================================
+
     useEffect(() => {
-        const fetchMonitoringData = async () => {
+        const fetchVolcanoes = async () => {
             try {
+                setVolcanoLoading(true);
+                setVolcanoError(null);
+
                 const response = await fetch(
-                    '/api/monitoring/volcano/1',
+                    '/api/volcanoes',
                     {
                         headers: {
                             Accept: 'application/json',
@@ -86,76 +124,168 @@ export default function Monitoring() {
 
                 if (!response.ok) {
                     throw new Error(
-                        'Gagal mengambil data monitoring',
+                        'Gagal mengambil daftar gunung api.',
+                    );
+                }
+
+                const result: Volcano[] =
+                    await response.json();
+
+                setVolcanoes(result);
+
+                // Kalau gunung yang sedang dipilih
+                // masih ada di database, pertahankan.
+                setSelectedVolcanoId((currentId) => {
+                    const exists = result.some(
+                        (volcano) =>
+                            volcano.id === currentId,
+                    );
+
+                    if (exists) {
+                        return currentId;
+                    }
+
+                    // Kalau tidak ada, gunakan gunung pertama.
+                    return result[0]?.id ?? 1;
+                });
+            } catch (err) {
+                setVolcanoError(
+                    err instanceof Error
+                        ? err.message
+                        : 'Gagal mengambil daftar gunung.',
+                );
+            } finally {
+                setVolcanoLoading(false);
+            }
+        };
+
+        fetchVolcanoes();
+    }, []);
+
+    // ==========================================
+    // AMBIL DATA MONITORING GUNUNG TERPILIH
+    // ==========================================
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const fetchMonitoringData = async () => {
+            try {
+                setLoading(true);
+                setError(null);
+
+                const response = await fetch(
+                    `/api/monitoring/volcano/${selectedVolcanoId}`,
+                    {
+                        headers: {
+                            Accept: 'application/json',
+                        },
+                    },
+                );
+
+                if (!response.ok) {
+                    throw new Error(
+                        'Gagal mengambil data monitoring.',
                     );
                 }
 
                 const result: MonitoringData =
                     await response.json();
 
+                if (cancelled) {
+                    return;
+                }
+
                 setData(result);
 
-                /*
-                 * Pertahankan forecast yang sedang dipilih
-                 * selama ID tersebut masih tersedia.
-                 *
-                 * Kalau belum ada pilihan, gunakan forecast pertama.
-                 */
+                // Reset / pertahankan forecast
+                // sesuai gunung yang sedang aktif.
                 if (
                     result.ash_predictions &&
                     result.ash_predictions.length > 0
                 ) {
-                    setSelectedForecastId((currentId) => {
-                        const stillExists =
-                            currentId !== null &&
-                            result.ash_predictions.some(
-                                (prediction) =>
-                                    prediction.id === currentId,
-                            );
+                    setSelectedForecastId(
+                        (currentId) => {
+                            const stillExists =
+                                currentId !== null &&
+                                result.ash_predictions.some(
+                                    (prediction) =>
+                                        prediction.id ===
+                                        currentId,
+                                );
 
-                        if (stillExists) {
-                            return currentId;
-                        }
+                            if (stillExists) {
+                                return currentId;
+                            }
 
-                        return result.ash_predictions[0].id;
-                    });
+                            return result
+                                .ash_predictions[0]
+                                .id;
+                        },
+                    );
                 } else {
                     setSelectedForecastId(null);
                 }
-
-                setError(null);
             } catch (err) {
+                if (cancelled) {
+                    return;
+                }
+
+                setData(null);
+
                 setError(
                     err instanceof Error
                         ? err.message
-                        : 'Terjadi kesalahan',
+                        : 'Terjadi kesalahan.',
                 );
             } finally {
-                setLoading(false);
+                if (!cancelled) {
+                    setLoading(false);
+                }
             }
         };
 
         fetchMonitoringData();
 
-        /*
-         * Refresh data setiap 60 detik.
-         */
+        // Refresh monitoring setiap 60 detik.
         const interval = setInterval(
             fetchMonitoringData,
             60 * 1000,
         );
 
         return () => {
+            cancelled = true;
             clearInterval(interval);
         };
-    }, []);
+    }, [selectedVolcanoId]);
 
-    /*
-     * ==========================================
-     * LOADING
-     * ==========================================
-     */
-    if (loading) {
+    // ==========================================
+    // HANDLER PILIH GUNUNG
+    // ==========================================
+
+    const handleVolcanoChange = (
+        event: React.ChangeEvent<HTMLSelectElement>,
+    ) => {
+        const volcanoId = Number(event.target.value);
+
+        setSelectedVolcanoId(volcanoId);
+
+        // Reset forecast ketika gunung berubah.
+        setSelectedForecastId(null);
+
+        // Bersihkan data lama agar tidak terlihat
+        // seolah-olah masih milik gunung sebelumnya.
+        setData(null);
+    };
+
+    // ==========================================
+    // LOADING
+    // ==========================================
+
+    if (
+        volcanoLoading &&
+        volcanoes.length === 0
+    ) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
                 <div className="text-center">
@@ -164,33 +294,195 @@ export default function Monitoring() {
                     </div>
 
                     <p className="text-slate-300">
-                        Memuat data monitoring...
+                        Memuat daftar gunung api...
                     </p>
                 </div>
             </div>
         );
     }
 
-    /*
-     * ==========================================
-     * ERROR
-     * ==========================================
-     */
-    if (error) {
+    // ==========================================
+    // ERROR DAFTAR GUNUNG
+    // ==========================================
+
+    if (
+        volcanoError &&
+        volcanoes.length === 0
+    ) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-slate-950">
-                <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-red-300">
-                    Error: {error}
+            <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6">
+                <div className="max-w-lg rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-red-300">
+                    <h2 className="font-semibold">
+                        Gagal memuat daftar gunung
+                    </h2>
+
+                    <p className="mt-2 text-sm">
+                        {volcanoError}
+                    </p>
+
+                    <p className="mt-4 text-xs text-red-400">
+                        Pastikan endpoint
+                        {' '}
+                        <code>/api/volcanoes</code>
+                        {' '}
+                        sudah tersedia.
+                    </p>
                 </div>
             </div>
         );
     }
 
-    /*
-     * ==========================================
-     * DATA KOSONG
-     * ==========================================
-     */
+    // ==========================================
+    // LOADING MONITORING
+    // ==========================================
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-slate-950 text-white">
+                <header className="border-b border-white/10 bg-slate-950/90">
+                    <div className="mx-auto max-w-7xl px-6 py-5">
+                        <div className="flex items-center gap-3">
+                            <span className="text-3xl">
+                                🌋
+                            </span>
+
+                            <div>
+                                <h1 className="text-2xl font-bold">
+                                    Volcano Monitoring
+                                </h1>
+
+                                <p className="text-sm text-slate-400">
+                                    Sistem monitoring gunung api & cuaca
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <main className="mx-auto max-w-7xl px-6 py-6">
+                    <div className="mb-6 rounded-2xl border border-white/10 bg-slate-900 p-5">
+                        <label className="text-xs font-medium uppercase tracking-widest text-slate-500">
+                            Pilih Gunung Api
+                        </label>
+
+                        <select
+                            value={selectedVolcanoId}
+                            onChange={handleVolcanoChange}
+                            className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-orange-500/50"
+                        >
+                            {volcanoes.map(
+                                (volcano) => (
+                                    <option
+                                        key={
+                                            volcano.id
+                                        }
+                                        value={
+                                            volcano.id
+                                        }
+                                    >
+                                        {volcano.name}
+                                    </option>
+                                ),
+                            )}
+                        </select>
+                    </div>
+
+                    <div className="flex min-h-[300px] items-center justify-center">
+                        <div className="text-center">
+                            <div className="mb-3 text-4xl">
+                                🌋
+                            </div>
+
+                            <p className="text-slate-300">
+                                Memuat data monitoring...
+                            </p>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        );
+    }
+
+    // ==========================================
+    // ERROR
+    // ==========================================
+
+    if (error) {
+        return (
+            <div className="min-h-screen bg-slate-950 text-white">
+                <header className="border-b border-white/10 bg-slate-950/90">
+                    <div className="mx-auto max-w-7xl px-6 py-5">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                            <div className="flex items-center gap-3">
+                                <span className="text-3xl">
+                                    🌋
+                                </span>
+
+                                <div>
+                                    <h1 className="text-2xl font-bold">
+                                        Volcano Monitoring
+                                    </h1>
+
+                                    <p className="text-sm text-slate-400">
+                                        Sistem monitoring gunung api & cuaca
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                <span className="flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400">
+                                    <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                                    ONLINE
+                                </span>
+
+                                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-400">
+                                    BMKG + PVMBG
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <main className="mx-auto max-w-7xl px-6 py-6">
+                    <div className="mb-6 rounded-2xl border border-white/10 bg-slate-900 p-5">
+                        <label className="text-xs font-medium uppercase tracking-widest text-slate-500">
+                            Pilih Gunung Api
+                        </label>
+
+                        <select
+                            value={selectedVolcanoId}
+                            onChange={handleVolcanoChange}
+                            className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-orange-500/50"
+                        >
+                            {volcanoes.map(
+                                (volcano) => (
+                                    <option
+                                        key={
+                                            volcano.id
+                                        }
+                                        value={
+                                            volcano.id
+                                        }
+                                    >
+                                        {volcano.name}
+                                    </option>
+                                ),
+                            )}
+                        </select>
+                    </div>
+
+                    <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-red-300">
+                        Error: {error}
+                    </div>
+                </main>
+            </div>
+        );
+    }
+
+    // ==========================================
+    // DATA KOSONG
+    // ==========================================
+
     if (!data) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-300">
@@ -199,29 +491,30 @@ export default function Monitoring() {
         );
     }
 
-    /*
-     * ==========================================
-     * FORMAT WIB
-     * ==========================================
-     */
+    // ==========================================
+    // FORMAT WIB
+    // ==========================================
+
     const formatWIB = (date: string) => {
-        return new Intl.DateTimeFormat('id-ID', {
-            timeZone: 'Asia/Jakarta',
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false,
-        }).format(new Date(date));
+        return new Intl.DateTimeFormat(
+            'id-ID',
+            {
+                timeZone: 'Asia/Jakarta',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+            },
+        ).format(new Date(date));
     };
 
-    /*
-     * ==========================================
-     * FORMAT JAM FORECAST
-     * ==========================================
-     */
+    // ==========================================
+    // FORMAT JAM FORECAST
+    // ==========================================
+
     const formatForecastTime = (
         date: string | null,
     ) => {
@@ -229,19 +522,21 @@ export default function Monitoring() {
             return '-';
         }
 
-        return new Intl.DateTimeFormat('id-ID', {
-            timeZone: 'Asia/Jakarta',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false,
-        }).format(new Date(date));
+        return new Intl.DateTimeFormat(
+            'id-ID',
+            {
+                timeZone: 'Asia/Jakarta',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+            },
+        ).format(new Date(date));
     };
 
-    /*
-     * ==========================================
-     * STATUS GUNUNG
-     * ==========================================
-     */
+    // ==========================================
+    // STATUS GUNUNG
+    // ==========================================
+
     const status =
         data.volcano.status.toLowerCase();
 
@@ -253,26 +548,47 @@ export default function Monitoring() {
     const statusClass =
         status === 'siaga'
             ? 'bg-orange-500/15 text-orange-400 border-orange-500/30'
-            : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
+            : status === 'waspada'
+                ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30'
+                : status === 'awas'
+                    ? 'bg-red-500/15 text-red-400 border-red-500/30'
+                    : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30';
 
-    /*
-     * ==========================================
-     * FORECAST YANG DIPILIH
-     * ==========================================
-     */
+    // ==========================================
+    // FORECAST YANG DIPILIH
+    // ==========================================
+
     const selectedForecast =
         data.ash_predictions?.find(
             (prediction) =>
-                prediction.id === selectedForecastId,
+                prediction.id ===
+                selectedForecastId,
         ) ??
         data.ash_predictions?.[0] ??
         data.ash_prediction;
 
-    /*
-     * ==========================================
-     * RISIKO ABU
-     * ==========================================
-     */
+    // ==========================================
+    // WEATHER SESUAI FORECAST
+    // ==========================================
+
+    const selectedWeather =
+        data.weather_forecasts?.find(
+            (forecast) =>
+                selectedForecast?.forecast_at &&
+                new Date(
+                    forecast.forecast_at,
+                ).getTime() ===
+                    new Date(
+                        selectedForecast.forecast_at,
+                    ).getTime(),
+        ) ??
+        data.weather ??
+        null;
+
+    // ==========================================
+    // RISIKO ABU
+    // ==========================================
+
     const riskLevel =
         selectedForecast?.risk_level?.toLowerCase() ??
         '';
@@ -281,16 +597,15 @@ export default function Monitoring() {
         riskLevel === 'high'
             ? 'text-orange-400'
             : riskLevel === 'extreme'
-              ? 'text-red-400'
-              : riskLevel === 'medium'
-                ? 'text-yellow-400'
-                : 'text-emerald-400';
+                ? 'text-red-400'
+                : riskLevel === 'medium'
+                    ? 'text-yellow-400'
+                    : 'text-emerald-400';
 
-    /*
-     * ==========================================
-     * ALERT / NOTIFICATION
-     * ==========================================
-     */
+    // ==========================================
+    // ALERT / NOTIFICATION
+    // ==========================================
+
     const alerts: MonitoringAlert[] = [];
 
     if (riskLevel === 'extreme') {
@@ -324,7 +639,9 @@ export default function Monitoring() {
 
     const ashHeight =
         data.activity?.ash_height != null
-            ? Number(data.activity.ash_height)
+            ? Number(
+                  data.activity.ash_height,
+              )
             : null;
 
     if (
@@ -357,9 +674,10 @@ export default function Monitoring() {
             {/* =====================================
                 HEADER
             ====================================== */}
+
             <header className="border-b border-white/10 bg-slate-950/90">
                 <div className="mx-auto max-w-7xl px-6 py-5">
-                    <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                         <div>
                             <div className="flex items-center gap-3">
                                 <span className="text-3xl">
@@ -378,27 +696,93 @@ export default function Monitoring() {
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-3">
-                            <span className="flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400">
-                                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                                ONLINE
-                            </span>
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                            {/* SELECT GUNUNG */}
 
-                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-400">
-                                BMKG + PVMBG
-                            </span>
+                            <div className="min-w-[280px]">
+                                <label
+                                    htmlFor="volcano-select"
+                                    className="mb-1 block text-xs font-medium uppercase tracking-widest text-slate-500"
+                                >
+                                    Pilih Gunung Api
+                                </label>
+
+                                <select
+                                    id="volcano-select"
+                                    value={
+                                        selectedVolcanoId
+                                    }
+                                    onChange={
+                                        handleVolcanoChange
+                                    }
+                                    className="w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-2.5 text-sm font-medium text-white outline-none transition focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/30"
+                                >
+                                    {volcanoes.map(
+                                        (
+                                            volcano,
+                                        ) => (
+                                            <option
+                                                key={
+                                                    volcano.id
+                                                }
+                                                value={
+                                                    volcano.id
+                                                }
+                                            >
+                                                {volcano.name} —{' '}
+                                                {
+                                                    volcano.code
+                                                }
+                                            </option>
+                                        ),
+                                    )}
+                                </select>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                                <span className="flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400">
+                                    <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                                    ONLINE
+                                </span>
+
+                                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-400">
+                                    BMKG + PVMBG
+                                </span>
+                            </div>
                         </div>
+                    </div>
+
+                    {/* INFO GUNUNG TERPILIH */}
+
+                    <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                        <span>
+                            Gunung aktif:
+                        </span>
+
+                        <span className="font-medium text-slate-300">
+                            {data.volcano.name}
+                        </span>
+
+                        <span>•</span>
+
+                        <span>
+                            {data.volcano.code}
+                        </span>
+
+                        <span>•</span>
+
+                        <span>
+                            Update monitoring otomatis setiap 60 detik
+                        </span>
                     </div>
                 </div>
             </header>
 
-            {/* =====================================
-                MAIN
-            ====================================== */}
             <main className="mx-auto max-w-7xl space-y-6 px-6 py-6">
                 {/* =================================
                     ALERT & NOTIFIKASI
                 ================================== */}
+
                 <section className="space-y-3">
                     <div className="flex items-center justify-between">
                         <div>
@@ -419,25 +803,31 @@ export default function Monitoring() {
                     <div className="space-y-3">
                         {alerts.map((alert) => {
                             const alertClass =
-                                alert.level === 'critical'
+                                alert.level ===
+                                'critical'
                                     ? 'border-red-500/30 bg-red-500/10'
-                                    : alert.level === 'warning'
-                                      ? 'border-orange-500/30 bg-orange-500/10'
-                                      : 'border-emerald-500/30 bg-emerald-500/10';
+                                    : alert.level ===
+                                        'warning'
+                                        ? 'border-orange-500/30 bg-orange-500/10'
+                                        : 'border-emerald-500/30 bg-emerald-500/10';
 
                             const titleClass =
-                                alert.level === 'critical'
+                                alert.level ===
+                                'critical'
                                     ? 'text-red-400'
-                                    : alert.level === 'warning'
-                                      ? 'text-orange-400'
-                                      : 'text-emerald-400';
+                                    : alert.level ===
+                                        'warning'
+                                        ? 'text-orange-400'
+                                        : 'text-emerald-400';
 
                             const icon =
-                                alert.level === 'critical'
+                                alert.level ===
+                                'critical'
                                     ? '🚨'
-                                    : alert.level === 'warning'
-                                      ? '⚠️'
-                                      : '🟢';
+                                    : alert.level ===
+                                        'warning'
+                                        ? '⚠️'
+                                        : '🟢';
 
                             return (
                                 <div
@@ -453,11 +843,15 @@ export default function Monitoring() {
                                             <h3
                                                 className={`font-semibold ${titleClass}`}
                                             >
-                                                {alert.title}
+                                                {
+                                                    alert.title
+                                                }
                                             </h3>
 
                                             <p className="mt-1 text-sm leading-6 text-slate-400">
-                                                {alert.message}
+                                                {
+                                                    alert.message
+                                                }
                                             </p>
                                         </div>
                                     </div>
@@ -470,6 +864,7 @@ export default function Monitoring() {
                 {/* =================================
                     VOLCANO OVERVIEW
                 ================================== */}
+
                 <section className="grid gap-4 lg:grid-cols-3">
                     <div className="rounded-2xl border border-white/10 bg-slate-900 p-5 shadow-xl lg:col-span-2">
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -479,11 +874,20 @@ export default function Monitoring() {
                                 </p>
 
                                 <h2 className="mt-1 text-2xl font-bold">
-                                    {data.volcano.name}
+                                    {
+                                        data
+                                            .volcano
+                                            .name
+                                    }
                                 </h2>
 
                                 <p className="mt-1 text-sm text-slate-400">
-                                    Kode: {data.volcano.code}
+                                    Kode:{' '}
+                                    {
+                                        data
+                                            .volcano
+                                            .code
+                                    }
                                 </p>
                             </div>
 
@@ -501,7 +905,12 @@ export default function Monitoring() {
                                 </p>
 
                                 <p className="mt-1 text-lg font-semibold">
-                                    {data.volcano.elevation ?? '-'}
+                                    {
+                                        data
+                                            .volcano
+                                            .elevation ??
+                                        '-'
+                                    }
 
                                     <span className="ml-1 text-xs font-normal text-slate-500">
                                         mdpl
@@ -515,7 +924,11 @@ export default function Monitoring() {
                                 </p>
 
                                 <p className="mt-1 text-sm font-semibold">
-                                    {data.volcano.latitude}
+                                    {
+                                        data
+                                            .volcano
+                                            .latitude
+                                    }
                                 </p>
                             </div>
 
@@ -525,7 +938,11 @@ export default function Monitoring() {
                                 </p>
 
                                 <p className="mt-1 text-sm font-semibold">
-                                    {data.volcano.longitude}
+                                    {
+                                        data
+                                            .volcano
+                                            .longitude
+                                    }
                                 </p>
                             </div>
 
@@ -535,13 +952,18 @@ export default function Monitoring() {
                                 </p>
 
                                 <p className="mt-1 text-sm font-semibold uppercase">
-                                    {data.volcano.status}
+                                    {
+                                        data
+                                            .volcano
+                                            .status
+                                    }
                                 </p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Activity */}
+                    {/* ACTIVITY */}
+
                     <div className="rounded-2xl border border-orange-500/20 bg-orange-500/5 p-5">
                         <div className="flex items-center justify-between">
                             <p className="text-xs font-medium uppercase tracking-widest text-orange-400">
@@ -554,20 +976,29 @@ export default function Monitoring() {
                         </div>
 
                         <h3 className="mt-3 text-xl font-bold">
-                            {data.activity?.activity_level ??
-                                'Tidak ada data'}
+                            {
+                                data.activity
+                                    ?.activity_level ??
+                                'Tidak ada data'
+                            }
                         </h3>
 
                         <p className="mt-3 text-sm leading-6 text-slate-400">
-                            {data.activity?.description ??
-                                'Belum tersedia informasi aktivitas terbaru.'}
+                            {
+                                data.activity
+                                    ?.description ??
+                                'Belum tersedia informasi aktivitas terbaru.'
+                            }
                         </p>
 
-                        {data.activity?.occurred_at && (
+                        {data.activity
+                            ?.occurred_at && (
                             <p className="mt-4 text-xs text-slate-500">
                                 Update:{' '}
                                 {formatWIB(
-                                    data.activity.occurred_at,
+                                    data
+                                        .activity
+                                        .occurred_at,
                                 )}{' '}
                                 WIB
                             </p>
@@ -578,6 +1009,7 @@ export default function Monitoring() {
                 {/* =================================
                     WEATHER
                 ================================== */}
+
                 <section>
                     <div className="mb-3 flex items-center justify-between">
                         <div>
@@ -586,21 +1018,22 @@ export default function Monitoring() {
                             </h2>
 
                             <p className="text-sm text-slate-500">
-                                Data forecast dari BMKG
+                                Data forecast dari BMKG • sinkron dengan timeline abu
                             </p>
                         </div>
 
                         <span className="text-xs text-slate-500">
-                            {data.weather?.forecast_at
+                            {selectedWeather?.forecast_at
                                 ? `${formatWIB(
-                                      data.weather.forecast_at,
+                                      selectedWeather.forecast_at,
                                   )} WIB`
                                 : '-'}
                         </span>
                     </div>
 
                     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                        {/* Suhu */}
+                        {/* SUHU */}
+
                         <div className="rounded-2xl border border-white/10 bg-slate-900 p-5">
                             <p className="text-sm text-slate-400">
                                 Suhu
@@ -608,7 +1041,11 @@ export default function Monitoring() {
 
                             <div className="mt-3 flex items-end gap-2">
                                 <span className="text-3xl font-bold">
-                                    {data.weather?.temperature ?? '-'}
+                                    {
+                                        selectedWeather
+                                            ?.temperature ??
+                                        '-'
+                                    }
                                 </span>
 
                                 <span className="mb-1 text-sm text-slate-500">
@@ -621,7 +1058,8 @@ export default function Monitoring() {
                             </p>
                         </div>
 
-                        {/* Kelembapan */}
+                        {/* KELEMBAPAN */}
+
                         <div className="rounded-2xl border border-white/10 bg-slate-900 p-5">
                             <p className="text-sm text-slate-400">
                                 Kelembapan
@@ -629,7 +1067,11 @@ export default function Monitoring() {
 
                             <div className="mt-3 flex items-end gap-2">
                                 <span className="text-3xl font-bold">
-                                    {data.weather?.humidity ?? '-'}
+                                    {
+                                        selectedWeather
+                                            ?.humidity ??
+                                        '-'
+                                    }
                                 </span>
 
                                 <span className="mb-1 text-sm text-slate-500">
@@ -642,7 +1084,8 @@ export default function Monitoring() {
                             </p>
                         </div>
 
-                        {/* Kecepatan Angin */}
+                        {/* KECEPATAN ANGIN */}
+
                         <div className="rounded-2xl border border-white/10 bg-slate-900 p-5">
                             <p className="text-sm text-slate-400">
                                 Kecepatan Angin
@@ -650,7 +1093,11 @@ export default function Monitoring() {
 
                             <div className="mt-3 flex items-end gap-2">
                                 <span className="text-3xl font-bold">
-                                    {data.weather?.wind_speed ?? '-'}
+                                    {
+                                        selectedWeather
+                                            ?.wind_speed ??
+                                        '-'
+                                    }
                                 </span>
 
                                 <span className="mb-1 text-sm text-slate-500">
@@ -663,7 +1110,8 @@ export default function Monitoring() {
                             </p>
                         </div>
 
-                        {/* Arah Angin */}
+                        {/* ARAH ANGIN */}
+
                         <div className="rounded-2xl border border-white/10 bg-slate-900 p-5">
                             <p className="text-sm text-slate-400">
                                 Arah Angin
@@ -675,7 +1123,11 @@ export default function Monitoring() {
                                 </span>
 
                                 <span className="text-2xl font-bold">
-                                    {data.weather?.wind_direction ?? '-'}
+                                    {
+                                        selectedWeather
+                                            ?.wind_direction ??
+                                        '-'
+                                    }
                                 </span>
                             </div>
 
@@ -689,6 +1141,7 @@ export default function Monitoring() {
                 {/* =================================
                     MAP
                 ================================== */}
+
                 <section className="overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-xl">
                     <div className="border-b border-white/10 px-5 py-4">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -716,7 +1169,9 @@ export default function Monitoring() {
 
                                 {selectedForecast?.geometry && (
                                     <>
-                                        <span>•</span>
+                                        <span>
+                                            •
+                                        </span>
 
                                         <span className="text-orange-400">
                                             Prediksi Abu
@@ -728,20 +1183,29 @@ export default function Monitoring() {
                     </div>
 
                     <VolcanoMap
-                        latitude={data.volcano.latitude}
-                        longitude={data.volcano.longitude}
+                        latitude={
+                            data.volcano
+                                .latitude
+                        }
+                        longitude={
+                            data.volcano
+                                .longitude
+                        }
                         ashGeometry={
-                            selectedForecast?.geometry ?? null
+                            selectedForecast?.geometry ??
+                            null
                         }
                         windDirection={
-                            selectedForecast?.direction != null
+                            selectedForecast?.direction !=
+                            null
                                 ? Number(
                                       selectedForecast.direction,
                                   )
                                 : null
                         }
                         windSpeed={
-                            selectedForecast?.speed != null
+                            selectedForecast?.speed !=
+                            null
                                 ? Number(
                                       selectedForecast.speed,
                                   )
@@ -757,6 +1221,7 @@ export default function Monitoring() {
                 {/* =================================
                     FORECAST TIMELINE
                 ================================== */}
+
                 <section className="rounded-2xl border border-white/10 bg-slate-900 p-5">
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <div>
@@ -765,21 +1230,24 @@ export default function Monitoring() {
                             </h2>
 
                             <p className="text-sm text-slate-500">
-                                Pilih waktu forecast untuk melihat perubahan
-                                sebaran abu pada peta
+                                Pilih waktu forecast untuk melihat perubahan sebaran abu pada peta dan kondisi cuaca
                             </p>
                         </div>
 
                         <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-400">
-                            {data.ash_predictions?.length ?? 0}{' '}
+                            {data.ash_predictions
+                                ?.length ?? 0}{' '}
                             Forecast
                         </span>
                     </div>
 
-                    {data.ash_predictions?.length > 0 ? (
+                    {data.ash_predictions
+                        ?.length > 0 ? (
                         <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                             {data.ash_predictions.map(
-                                (prediction) => {
+                                (
+                                    prediction,
+                                ) => {
                                     const isSelected =
                                         prediction.id ===
                                         selectedForecastId;
@@ -789,17 +1257,22 @@ export default function Monitoring() {
                                         '';
 
                                     const predictionRiskClass =
-                                        predictionRisk === 'extreme'
+                                        predictionRisk ===
+                                        'extreme'
                                             ? 'text-red-400'
-                                            : predictionRisk === 'high'
-                                              ? 'text-orange-400'
-                                              : predictionRisk === 'medium'
-                                                ? 'text-yellow-400'
-                                                : 'text-emerald-400';
+                                            : predictionRisk ===
+                                                'high'
+                                                ? 'text-orange-400'
+                                                : predictionRisk ===
+                                                    'medium'
+                                                    ? 'text-yellow-400'
+                                                    : 'text-emerald-400';
 
                                     return (
                                         <button
-                                            key={prediction.id}
+                                            key={
+                                                prediction.id
+                                            }
                                             type="button"
                                             onClick={() =>
                                                 setSelectedForecastId(
@@ -883,7 +1356,7 @@ export default function Monitoring() {
 
                                             {isSelected && (
                                                 <div className="mt-3 border-t border-orange-500/20 pt-3 text-xs font-medium text-orange-400">
-                                                    ● Forecast aktif di peta
+                                                    ● Forecast aktif di peta & cuaca
                                                 </div>
                                             )}
                                         </button>
@@ -901,6 +1374,7 @@ export default function Monitoring() {
                 {/* =================================
                     ASH PREDICTION DETAIL
                 ================================== */}
+
                 <section className="rounded-2xl border border-white/10 bg-slate-900 p-5">
                     <div className="flex items-center justify-between">
                         <div>
@@ -941,7 +1415,8 @@ export default function Monitoring() {
                             </div>
 
                             <div className="mt-5 grid gap-4 sm:grid-cols-4">
-                                {/* Arah */}
+                                {/* ARAH */}
+
                                 <div className="rounded-xl bg-slate-950 p-4">
                                     <p className="text-xs text-slate-500">
                                         Arah Sebaran
@@ -959,7 +1434,8 @@ export default function Monitoring() {
                                     </p>
                                 </div>
 
-                                {/* Kecepatan */}
+                                {/* KECEPATAN */}
+
                                 <div className="rounded-xl bg-slate-950 p-4">
                                     <p className="text-xs text-slate-500">
                                         Kecepatan Angin
@@ -977,7 +1453,8 @@ export default function Monitoring() {
                                     </p>
                                 </div>
 
-                                {/* Risiko */}
+                                {/* RISIKO */}
+
                                 <div className="rounded-xl bg-slate-950 p-4">
                                     <p className="text-xs text-slate-500">
                                         Risiko
@@ -992,7 +1469,8 @@ export default function Monitoring() {
                                     </p>
                                 </div>
 
-                                {/* Confidence */}
+                                {/* CONFIDENCE */}
+
                                 <div className="rounded-xl bg-slate-950 p-4">
                                     <p className="text-xs text-slate-500">
                                         Confidence
@@ -1013,11 +1491,15 @@ export default function Monitoring() {
 
                             <div className="mt-4 rounded-xl border border-white/10 bg-slate-950 p-4">
                                 <p className="text-xs leading-5 text-slate-500">
-                                    Catatan: prediksi sebaran abu ini
-                                    merupakan estimasi model untuk
-                                    visualisasi berdasarkan kondisi angin,
-                                    bukan pengganti informasi bahaya resmi
-                                    dari PVMBG/VAAC.
+                                    Catatan: prediksi
+                                    sebaran abu ini
+                                    merupakan estimasi
+                                    model untuk
+                                    visualisasi berdasarkan
+                                    kondisi angin, bukan
+                                    pengganti informasi
+                                    bahaya resmi dari
+                                    PVMBG/VAAC.
                                 </p>
                             </div>
                         </>
@@ -1034,10 +1516,10 @@ export default function Monitoring() {
             {/* =====================================
                 FOOTER
             ====================================== */}
+
             <footer className="border-t border-white/10 py-6 text-center text-xs text-slate-600">
                 Volcano Monitoring System • BMKG / PVMBG Data
             </footer>
         </div>
     );
 }
-
