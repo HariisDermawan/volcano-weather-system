@@ -1,11 +1,15 @@
 import 'leaflet/dist/leaflet.css';
 
-import { useEffect } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+import { Maximize2 } from 'lucide-react';
+
 import L from 'leaflet';
 
 import {
     CircleMarker,
     MapContainer,
+    Marker,
     Polygon,
     Polyline,
     Popup,
@@ -28,6 +32,32 @@ interface AshLayerDisplay {
     fillOpacity?: number;
 }
 
+interface VolcanoMarkerInfo {
+    id: number;
+    name: string;
+    latitude: number | string;
+    longitude: number | string;
+    status?: string | null;
+}
+
+interface EarthquakeMarkerInfo {
+    id: string;
+    latitude: number | null;
+    longitude: number | null;
+    magnitude: number | null;
+    region: string | null;
+    datetime: string | null;
+    depth: string | null;
+    felt: string | null;
+}
+
+interface VolcanoQuakeInfo {
+    magnitude: string | null;
+    region: string | null;
+    datetime: string | null;
+    distanceKm: number;
+}
+
 interface VolcanoMapProps {
     latitude?: number;
     longitude?: number;
@@ -44,6 +74,312 @@ interface VolcanoMapProps {
     volcanoStatus?: string | null;
     volcanoElevation?: number | null;
     dark?: boolean;
+    volcanoes?: VolcanoMarkerInfo[];
+    selectedVolcanoId?: number | null;
+    activeVolcanoIds?: number[];
+    onSelectVolcano?: (id: number) => void;
+    earthquakes?: EarthquakeMarkerInfo[];
+    selectedQuakeId?: string | null;
+    onSelectEarthquake?: (quake: EarthquakeMarkerInfo) => void;
+    volcanoQuakes?: Record<number, VolcanoQuakeInfo | null>;
+}
+
+/*
+ * ==========================================
+ * WARNA STATUS (seperti MAGMA ESDM)
+ * ==========================================
+ */
+
+function statusColor(status?: string | null): string {
+    const value = status?.toLowerCase() ?? '';
+
+    if (value.includes('awas')) {
+        return '#ef4444';
+    }
+
+    if (value.includes('siaga')) {
+        return '#f97316';
+    }
+
+    if (value.includes('waspada')) {
+        return '#eab308';
+    }
+
+    return '#22c55e';
+}
+
+/*
+ * ==========================================
+ * MARKER GUNUNG (ikon segitiga ala MAGMA)
+ * ==========================================
+ */
+
+function renderVolcanoSvg(color: string): string {
+    return `
+        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="38" viewBox="0 0 30 38">
+            <path d="M15 2 L27 34 L3 34 Z" fill="${color}" stroke="rgba(0,0,0,0.6)" stroke-width="1.5" stroke-linejoin="round"/>
+            <path d="M15 10 L24 34 L6 34 Z" fill="rgba(255,255,255,0.16)"/>
+            <circle cx="15" cy="12" r="3" fill="rgba(0,0,0,0.35)"/>
+        </svg>
+    `;
+}
+
+/*
+ * ==========================================
+ * PENANDA GEMPA DEKAT GUNUNG
+ *
+ * Gunung tetap tampil sebagai segitiga seperti
+ * biasa; bila berada dekat gempa terkini (BMKG)
+ * ditambah cincin merah berdenyut di belakangnya.
+ * ==========================================
+ */
+
+function renderQuakeHtml(inner: string): string {
+    return `
+        <div style="width:44px;height:50px;position:relative;">
+            <style>
+                .vg-quake-ring{
+                    position:absolute;left:5px;top:8px;width:34px;height:34px;
+                    border-radius:9999px;
+                    border:2px solid rgba(239,68,68,0.9);
+                    box-shadow:0 0 14px rgba(239,68,68,0.7);
+                    animation:vg-quake-pulse 1.6s ease-out infinite;
+                }
+                @keyframes vg-quake-pulse{
+                    0%{transform:scale(0.55);opacity:1;}
+                    70%{transform:scale(1.25);opacity:0;}
+                    100%{opacity:0;}
+                }
+            </style>
+            <span class="vg-quake-ring"></span>
+            <div style="position:absolute;bottom:0;left:7px;">${inner}</div>
+        </div>
+    `;
+}
+
+/*
+ * ==========================================
+ * IKON ERUPSI REAL-TIME
+ *
+ * Level II (Waspada) memakai gn2.gif,
+ * selain itu memakai gn.gif.
+ * ==========================================
+ */
+
+function eruptingImage(status?: string | null): string {
+    return (status?.toLowerCase() ?? '').includes('waspada')
+        ? '/icons/gn2.gif'
+        : '/icons/gn.gif';
+}
+
+function renderEruptingHtml(src: string): string {
+    return `
+        <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;">
+            <img src="${src}" alt="Erupsi" width="36" height="36" style="object-fit:contain;filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6));" />
+        </div>
+    `;
+}
+
+/*
+ * ==========================================
+ * MARKER GEMPABUMI (simpul berdenyut)
+ *
+ * Simbol klasik episenter: cincin yang memancar
+ * ke luar + titik berlabel magnitude. Warna
+ * mengikuti skala kekuatan (earthquakeColor).
+ * ==========================================
+ */
+
+function earthquakeHtml(
+    magnitude: number | null,
+    color: string,
+    selected: boolean,
+): string {
+    const label = magnitude !== null ? `M${magnitude.toFixed(1)}` : 'M?';
+
+    return `
+        <div style="width:44px;height:44px;position:relative;">
+            <style>
+                .vg-eq-ring{
+                    position:absolute;inset:0;border-radius:9999px;border:2px solid ${color};
+                    box-shadow:0 0 14px ${color}99, inset 0 0 10px ${color}44;
+                    animation:vg-eq-pulse 1.8s ease-out infinite;
+                }
+                .vg-eq-core{
+                    position:absolute;inset:13px;border-radius:9999px;
+                    background:${color}30;border:2px solid ${color};
+                    display:flex;align-items:center;justify-content:center;
+                }
+                .vg-eq-core--selected{
+                    border-color:#ffffff;
+                    background:${color}66;
+                    box-shadow:0 0 0 2px rgba(255,255,255,.9), 0 0 16px ${color};
+                }
+                .vg-eq-mag{
+                    font:700 9.5px/1 system-ui;color:#fff;
+                    text-shadow:0 0 5px rgba(0,0,0,.9);
+                }
+                @keyframes vg-eq-pulse{
+                    0%{transform:scale(.45);opacity:1}
+                    70%{transform:scale(1.55);opacity:0}
+                    100%{opacity:0}
+                }
+            </style>
+            <span class="vg-eq-ring"></span>
+            <span class="vg-eq-core${selected ? ' vg-eq-core--selected' : ''}"><span class="vg-eq-mag">${label}</span></span>
+        </div>
+    `;
+}
+
+function EarthquakeMarker({
+    quake,
+    selected,
+    onSelect,
+}: {
+    quake: EarthquakeMarkerInfo;
+    selected?: boolean;
+    onSelect?: () => void;
+}) {
+    const color = earthquakeColor(quake.magnitude);
+
+    const icon = useMemo(
+        () =>
+            L.divIcon({
+                className: 'vg-eq-icon',
+                html: earthquakeHtml(quake.magnitude, color, selected ?? false),
+                iconSize: [44, 44],
+                iconAnchor: [22, 22],
+                popupAnchor: [-2, -18],
+            }),
+        [color, quake.magnitude, selected],
+    );
+
+    return (
+        <Marker
+            position={[Number(quake.latitude), Number(quake.longitude)]}
+            icon={icon}
+            eventHandlers={{ click: () => onSelect?.() }}
+        >
+            <Popup>
+                <strong>Gempa M{quake.magnitude ?? '-'}</strong>
+                <br />
+                {quake.depth || '-'}
+                <br />
+                {quake.region ?? '-'}
+                {quake.datetime && (
+                    <>
+                        <br />
+                        {new Date(quake.datetime).toLocaleString('id-ID')}
+                    </>
+                )}
+                {quake.felt && (
+                    <>
+                        <br />
+                        <span style={{ color: '#f59e0b' }}>
+                            Dirasakan: {quake.felt}
+                        </span>
+                    </>
+                )}
+            </Popup>
+        </Marker>
+    );
+}
+
+function VolcanoMarker({
+    volcano,
+    isSelected,
+    active,
+    quake,
+    onSelect,
+}: {
+    volcano: VolcanoMarkerInfo;
+    isSelected: boolean;
+    active: boolean;
+    quake?: VolcanoQuakeInfo | null;
+    onSelect?: (id: number) => void;
+}) {
+    const icon = useMemo(() => {
+        const size = active || quake ? [44, 50] : [30, 38];
+
+        const eventIcon = active
+            ? renderEruptingHtml(eruptingImage(volcano.status))
+            : quake
+              ? renderQuakeHtml(renderVolcanoSvg(statusColor(volcano.status)))
+              : renderVolcanoSvg(statusColor(volcano.status));
+
+        return L.divIcon({
+            html: eventIcon,
+            className: 'vg-marker',
+            iconSize: [size[0], size[1]],
+            iconAnchor: [size[0] / 2, size[1] - 2],
+            popupAnchor: [0, -(size[1] - 4)],
+        });
+    }, [volcano.status, isSelected, active, quake]);
+
+    return (
+        <Marker
+            position={[Number(volcano.latitude), Number(volcano.longitude)]}
+            icon={icon}
+            zIndexOffset={isSelected ? 1000 : 0}
+            eventHandlers={{
+                click: () => onSelect?.(volcano.id),
+            }}
+        >
+            <Popup>
+                <strong>{volcano.name}</strong>
+                <br />
+                Status: {volcano.status ?? '-'}
+                {quake && (
+                    <>
+                        <br />
+                        <span style={{ color: '#ef4444' }}>
+                            Gempa terdekat M{quake.magnitude ?? '-'}
+                            {quake.distanceKm != null &&
+                                ` • ${quake.distanceKm.toFixed(0)} km`}
+                        </span>
+                        {quake.region && (
+                            <>
+                                <br />
+                                {quake.region}
+                            </>
+                        )}
+                    </>
+                )}
+                <br />
+                <span style={{ color: '#f97316' }}>Klik untuk pantau →</span>
+            </Popup>
+        </Marker>
+    );
+}
+
+/*
+ * ==========================================
+ * MARKER GEMPABUMI (warna berdasarkan magnitudo)
+ * ==========================================
+ */
+
+function earthquakeColor(magnitude: number | null): string {
+    if (magnitude === null) {
+        return '#22c55e';
+    }
+
+    if (magnitude < 4) {
+        return '#22c55e';
+    }
+
+    if (magnitude < 5) {
+        return '#eab308';
+    }
+
+    if (magnitude < 6) {
+        return '#f97316';
+    }
+
+    if (magnitude < 7) {
+        return '#ef4444';
+    }
+
+    return '#a855f7';
 }
 
 /*
@@ -60,10 +396,9 @@ function DarkTiles({ enabled }: { enabled: boolean }) {
 
     useEffect(() => {
         map.whenReady(() => {
-            const pane =
-                map.getContainer().querySelector<HTMLElement>(
-                    '.leaflet-tile-pane',
-                );
+            const pane = map
+                .getContainer()
+                .querySelector<HTMLElement>('.leaflet-tile-pane');
 
             if (pane) {
                 pane.style.filter = enabled
@@ -72,6 +407,54 @@ function DarkTiles({ enabled }: { enabled: boolean }) {
             }
         });
     }, [map, enabled]);
+
+    return null;
+}
+
+/*
+ * ==========================================
+ * MAP BRIDGE
+ *
+ * Ekspos instance peta Leaflet ke luar
+ * agar overlay (tombol) bisa memakai-nya.
+ * ==========================================
+ */
+
+function MapBridge({ onMap }: { onMap: (map: L.Map) => void }) {
+    const map = useMap();
+
+    useEffect(() => {
+        onMap(map);
+    }, [map, onMap]);
+
+    return null;
+}
+
+/*
+ * ==========================================
+ * MAP FLY
+ *
+ * Terbang mengikuti gunung yang dipilih.
+ * Melewatkan render pertama supaya view
+ * awal tetap seperti yang sudah diatur.
+ * ==========================================
+ */
+
+function MapFly({ target, zoom }: { target: [number, number]; zoom: number }) {
+    const map = useMap();
+
+    const first = useRef(true);
+
+    const [lat, lng] = target;
+
+    useEffect(() => {
+        if (first.current) {
+            first.current = false;
+            return;
+        }
+
+        map.flyTo([lat, lng], zoom, { duration: 0.9 });
+    }, [map, lat, lng, zoom]);
 
     return null;
 }
@@ -237,8 +620,18 @@ export default function VolcanoMap({
     volcanoStatus,
     volcanoElevation,
     dark = false,
+    volcanoes = [],
+    selectedVolcanoId = null,
+    activeVolcanoIds = [],
+    earthquakes = [],
+    selectedQuakeId = null,
+    volcanoQuakes = {},
+    onSelectVolcano,
+    onSelectEarthquake,
 }: VolcanoMapProps) {
     const position: [number, number] = [Number(latitude), Number(longitude)];
+
+    const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
 
     const direction = windDirection != null ? Number(windDirection) : null;
 
@@ -262,6 +655,41 @@ export default function VolcanoMap({
                 : '#22c55e';
 
     const polygonColor = ashColor ?? plumeColor;
+
+    /*
+     * ==========================================
+     * DEDUPE MARKER GUNUNG
+     *
+     * Database punya baris ganda per gunung
+     * (mis. `Semeru` & `Gunung Semeru` dengan
+     * koordinat sama). Kelompokkan per titik dan
+     * prioritaskan baris yang sedang erupsi.
+     * ==========================================
+     */
+
+    const markerVolcanoes = useMemo(() => {
+        const groups = new Map<string, VolcanoMarkerInfo>();
+
+        for (const volcano of volcanoes) {
+            const key = `${Number(volcano.latitude).toFixed(4)}-${Number(
+                volcano.longitude,
+            ).toFixed(4)}`;
+
+            const existing = groups.get(key);
+
+            const isActive = activeVolcanoIds.includes(volcano.id);
+
+            const existingActive = existing
+                ? activeVolcanoIds.includes(existing.id)
+                : false;
+
+            if (!existing || (isActive && !existingActive)) {
+                groups.set(key, volcano);
+            }
+        }
+
+        return [...groups.values()];
+    }, [volcanoes, activeVolcanoIds]);
 
     const toPolygonPositions = (
         geometry: AshGeometry | null | undefined,
@@ -354,6 +782,38 @@ export default function VolcanoMap({
 
                 <DarkTiles enabled={dark} />
 
+                <MapBridge onMap={setMapInstance} />
+
+                {/* ==================================
+                    SEMUA GUNUNG (IKON ALa MAGMA)
+                ================================== */}
+
+                {markerVolcanoes.map((volcano) => (
+                    <VolcanoMarker
+                        key={volcano.id}
+                        volcano={volcano}
+                        isSelected={volcano.id === selectedVolcanoId}
+                        active={activeVolcanoIds.includes(volcano.id)}
+                        quake={volcanoQuakes[volcano.id] ?? null}
+                        onSelect={onSelectVolcano}
+                    />
+                ))}
+
+                {/* ==================================
+                    GEMPA TERKINI (BMKG)
+                ================================== */}
+
+                {(earthquakes ?? []).map((quake) => (
+                    <EarthquakeMarker
+                        key={quake.id}
+                        quake={quake}
+                        selected={selectedQuakeId != null && selectedQuakeId === quake.id}
+                        onSelect={() => onSelectEarthquake?.(quake)}
+                    />
+                ))}
+
+                <MapFly target={position} zoom={10} />
+
                 {/* ==================================
                     LIVE WAVE
                 ================================== */}
@@ -375,9 +835,7 @@ export default function VolcanoMap({
                     }}
                 >
                     <Popup>
-                        <strong>
-                            🌋 {volcanoName ?? 'Gunung Anak Krakatau'}
-                        </strong>
+                        <strong>{volcanoName ?? 'Gunung Anak Krakatau'}</strong>
                         <br />
                         Status: {volcanoStatus ?? 'Siaga'}
                         <br />
@@ -391,7 +849,7 @@ export default function VolcanoMap({
                         Longitude: {position[1]}
                         <br />
                         <br />
-                        <strong>🔴 LIVE MONITORING</strong>
+                        <strong>LIVE MONITORING</strong>
                     </Popup>
                 </CircleMarker>
 
@@ -518,6 +976,36 @@ export default function VolcanoMap({
                     />
                 )}
             </MapContainer>
+
+            {/* ==================================
+                SELURUH GUNUNG (ZOOM KELUAR)
+            ================================== */}
+
+            {mapInstance && markerVolcanoes.length > 1 && (
+                <button
+                    type="button"
+                    onClick={() => {
+                        const latLngs = markerVolcanoes.map((volcano) =>
+                            L.latLng(
+                                Number(volcano.latitude),
+                                Number(volcano.longitude),
+                            ),
+                        );
+
+                        mapInstance.fitBounds(
+                            L.latLngBounds(latLngs).pad(0.12),
+                            {
+                                duration: 0.9,
+                            },
+                        );
+                    }}
+                    title="Tampilkan semua gunung api"
+                    className="absolute bottom-[14px] left-[14px] z-[1000] flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[11px] font-bold text-slate-200 shadow-xl shadow-black/40 backdrop-blur-xl transition hover:bg-white/10"
+                >
+                    <Maximize2 size={12} strokeWidth={2.5} />
+                    Seluruh Gunung
+                </button>
+            )}
 
             {/* ==================================
                 LIVE LABEL

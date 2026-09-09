@@ -1,6 +1,4 @@
 {
-    "agents": [
-        "opencode"
-    ],
+    "agents": ["opencode"],
     "guidelines": true
 }

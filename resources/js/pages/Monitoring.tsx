@@ -1,4 +1,28 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+
+import {
+    Activity,
+    AlertTriangle,
+    ChevronDown,
+    CircleCheck,
+    CloudSun,
+    Droplets,
+    ExternalLink,
+    Gauge,
+    LandPlot,
+    Layers,
+    MountainSnow,
+    Navigation,
+    Pause,
+    Play,
+    Radio,
+    RefreshCw,
+    ShieldCheck,
+    Siren,
+    Thermometer,
+    TriangleAlert,
+    Wind,
+} from 'lucide-react';
 
 import VolcanoMap from '@/components/VolcanoMap';
 
@@ -10,6 +34,7 @@ interface Volcano {
     longitude: number;
     elevation: number | null;
     status: string;
+    ash_active?: boolean;
 }
 
 interface Weather {
@@ -93,16 +118,109 @@ interface MonitoringAlert {
     message: string;
 }
 
+interface GempaItem {
+    eventid?: string | null;
+    status?: string | null;
+    datetime: string | null;
+    tanggal: string | null;
+    jam: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    lintang: string | null;
+    bujur: string | null;
+    magnitude: string | null;
+    depth: string | null;
+    region: string | null;
+    potential: string | null;
+    felt: string | null;
+    shakemap: string | null;
+}
+
+interface GempaData {
+    latest: GempaItem | null;
+    list: GempaItem[];
+    error?: string | null;
+}
+
+interface GerakanTanahItem {
+    id: string | number | null;
+    title: string | null;
+    date: string | null;
+    url: string | null;
+}
+
+interface GerakanTanahData {
+    list: GerakanTanahItem[];
+    error?: string | null;
+}
+
+interface EarthquakeMarkerInfo {
+    id: string;
+    latitude: number | null;
+    longitude: number | null;
+    magnitude: number | null;
+    region: string | null;
+    datetime: string | null;
+    depth: string | null;
+    felt: string | null;
+}
+
+interface VolcanoQuakeInfo {
+    magnitude: string | null;
+    region: string | null;
+    datetime: string | null;
+    distanceKm: number;
+}
+
+/*
+ * ==========================================
+ * JARAK AMBANG GEMPA "DEKAT GUNUNG" (KM)
+ * ==========================================
+ */
+
+const QUIKE_NEAR_KM = 150;
+
+function haversineKm(
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number,
+): number {
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+
+    const earthRadiusKm = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+
+    return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 /*
  * ==========================================
  * JUDUL SEKSI (PANEL DECK / SIDE)
  * ==========================================
  */
 
-function PanelTitle({ children }: { children: ReactNode }) {
+function PanelTitle({
+    icon,
+    children,
+}: {
+    icon?: ReactNode;
+    children: ReactNode;
+}) {
     return (
-        <p className="mb-2.5 flex items-center gap-1.5 text-[10.5px] font-extrabold tracking-[1px] text-slate-400 uppercase">
-            {children}
+        <p className="mb-2.5 flex items-center gap-2 text-[10.5px] font-extrabold tracking-[1px] text-slate-400 uppercase">
+            {icon && (
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-[10.5px] text-orange-400">
+                    {icon}
+                </span>
+            )}
+
+            <span>{children}</span>
 
             <span className="h-px flex-1 bg-gradient-to-r from-white/15 to-transparent" />
         </p>
@@ -149,6 +267,24 @@ export default function Monitoring() {
     const [volcanoQuery, setVolcanoQuery] = useState('');
 
     const [timelinePlaying, setTimelinePlaying] = useState(false);
+
+    // ==========================================
+    // DATA GEO (GEMPA & GERAKAN TANAH)
+    // ==========================================
+
+    const [gempa, setGempa] = useState<GempaData | null>(null);
+
+    const [gerakanTanah, setGerakanTanah] = useState<GerakanTanahData | null>(
+        null,
+    );
+
+    const [showGempaMarkers, setShowGempaMarkers] = useState(true);
+
+    const [selectedGempa, setSelectedGempa] = useState<GempaItem | null>(null);
+
+    const selectedQuakeId = selectedGempa?.eventid ?? null;
+
+    const displayGempa = selectedGempa ?? gempa?.latest ?? null;
 
     // ==========================================
     // AMBIL DAFTAR SEMUA GUNUNG
@@ -290,6 +426,61 @@ export default function Monitoring() {
     }, [selectedVolcanoId, refreshKey]);
 
     // ==========================================
+    // AMBIL GEMPA TERKINI & GERAKAN TANAH
+    // (refresh 60 detik, sama seperti monitoring)
+    // ==========================================
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const fetchJson = async (url: string) => {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        Accept: 'application/json',
+                    },
+                });
+
+                if (!response.ok) {
+                    return null;
+                }
+
+                return await response.json();
+            } catch {
+                return null;
+            }
+        };
+
+        const fetchGeoData = async () => {
+            const [gempaResult, gerakanTanahResult] = await Promise.all([
+                fetchJson('/api/gempa'),
+                fetchJson('/api/gerakan-tanah'),
+            ]);
+
+            if (cancelled) {
+                return;
+            }
+
+            if (gempaResult) {
+                setGempa(gempaResult as GempaData);
+            }
+
+            if (gerakanTanahResult) {
+                setGerakanTanah(gerakanTanahResult as GerakanTanahData);
+            }
+        };
+
+        void fetchGeoData();
+
+        const interval = setInterval(fetchGeoData, 60 * 1000);
+
+        return () => {
+            cancelled = true;
+            clearInterval(interval);
+        };
+    }, [refreshKey]);
+
+    // ==========================================
     // HANDLER PILIH GUNUNG
     // ==========================================
 
@@ -357,6 +548,108 @@ export default function Monitoring() {
         );
     });
 
+    const eruptingVolcanoIds = volcanoes
+        .filter((volcano) => volcano.ash_active)
+        .map((volcano) => volcano.id);
+
+    // ==========================================
+    // GEMPA → MARKER PETA
+    // ==========================================
+
+    const gempaMarkers: EarthquakeMarkerInfo[] = (gempa?.list ?? [])
+        .map((item, index) => ({
+            id: `gempa-${index}`,
+            latitude: item.latitude,
+            longitude: item.longitude,
+            magnitude: item.magnitude != null ? Number(item.magnitude) : null,
+            region: item.region,
+            datetime: item.datetime,
+            depth: item.depth,
+            felt: item.felt,
+        }))
+        .filter(
+            (marker) =>
+                !Number.isNaN(Number(marker.latitude)) &&
+                !Number.isNaN(Number(marker.longitude)) &&
+                marker.latitude !== null &&
+                marker.longitude !== null,
+        );
+
+    const gempaMagColor = (magnitude: number | null) => {
+        if (magnitude === null) {
+            return '#22c55e';
+        }
+
+        if (magnitude < 4) {
+            return '#22c55e';
+        }
+
+        if (magnitude < 5) {
+            return '#eab308';
+        }
+
+        if (magnitude < 6) {
+            return '#f97316';
+        }
+
+        if (magnitude < 7) {
+            return '#ef4444';
+        }
+
+        return '#a855f7';
+    };
+
+    // ==========================================
+    // STATUS GEMPA REAL-TIME PER GUNUNG
+    //
+    // Setiap gunung = titik pemantau. Bila gempa
+    // BMKG terbaru berada dalam ambang jarak,
+    // gunung itu dianggap "sedang dekat gempa"
+    // dan ikonnya berubah menjadi ikon seismik.
+    // ==========================================
+
+    const volcanoQuakes = useMemo(() => {
+        const quakes = gempa?.list ?? [];
+        const result: Record<number, VolcanoQuakeInfo | null> = {};
+
+        for (const volcano of volcanoes) {
+            let nearest: VolcanoQuakeInfo | null = null;
+
+            for (const quake of quakes) {
+                if (quake.latitude === null || quake.longitude === null) {
+                    continue;
+                }
+
+                const distanceKm = haversineKm(
+                    Number(volcano.latitude),
+                    Number(volcano.longitude),
+                    quake.latitude,
+                    quake.longitude,
+                );
+
+                if (distanceKm > QUIKE_NEAR_KM) {
+                    continue;
+                }
+
+                if (nearest === null || distanceKm < nearest.distanceKm) {
+                    nearest = {
+                        magnitude: quake.magnitude,
+                        region: quake.region,
+                        datetime: quake.datetime,
+                        distanceKm,
+                    };
+                }
+            }
+
+            result[volcano.id] = nearest;
+        }
+
+        return result;
+    }, [volcanoes, gempa]);
+
+    const volcanoQuakesCount =
+        Object.values(volcanoQuakes).filter(Boolean).length;
+
     // ==========================================
     // TIMELINE PLAY (PUTAR OTOMATIS)
     // ==========================================
@@ -407,7 +700,11 @@ export default function Monitoring() {
         return (
             <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
                 <div className="text-center">
-                    <div className="mb-3 text-4xl">🌋</div>
+                    <div className="mb-3 flex justify-center">
+                        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 shadow-[0_0_24px_rgba(255,110,20,0.5)]">
+                            <MountainSnow size={22} className="text-white" />
+                        </span>
+                    </div>
 
                     <p className="text-slate-300">
                         Memuat daftar gunung api...
@@ -450,7 +747,12 @@ export default function Monitoring() {
                 <header className="border-b border-white/10 bg-slate-950/90">
                     <div className="mx-auto max-w-7xl px-6 py-5">
                         <div className="flex items-center gap-3">
-                            <span className="text-3xl">🌋</span>
+                            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 shadow-lg">
+                                <MountainSnow
+                                    size={18}
+                                    className="text-white"
+                                />
+                            </span>
 
                             <div>
                                 <h1 className="text-2xl font-bold">
@@ -486,7 +788,14 @@ export default function Monitoring() {
 
                     <div className="flex min-h-[300px] items-center justify-center">
                         <div className="text-center">
-                            <div className="mb-3 text-4xl">🌋</div>
+                            <div className="mb-3 flex justify-center">
+                                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 shadow-[0_0_24px_rgba(255,110,20,0.5)]">
+                                    <MountainSnow
+                                        size={22}
+                                        className="text-white"
+                                    />
+                                </span>
+                            </div>
 
                             <p className="text-slate-300">
                                 Memuat data monitoring...
@@ -509,7 +818,12 @@ export default function Monitoring() {
                     <div className="mx-auto max-w-7xl px-6 py-5">
                         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                             <div className="flex items-center gap-3">
-                                <span className="text-3xl">🌋</span>
+                                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 shadow-lg">
+                                    <MountainSnow
+                                        size={18}
+                                        className="text-white"
+                                    />
+                                </span>
 
                                 <div>
                                     <h1 className="text-2xl font-bold">
@@ -1216,6 +1530,14 @@ export default function Monitoring() {
                     volcanoName={data.volcano.name}
                     volcanoStatus={data.volcano.status}
                     volcanoElevation={data.volcano.elevation}
+                    volcanoes={volcanoes}
+                    selectedVolcanoId={selectedVolcanoId}
+                    activeVolcanoIds={eruptingVolcanoIds}
+                    onSelectVolcano={selectVolcanoById}
+                    earthquakes={showGempaMarkers ? gempaMarkers : []}
+                    selectedQuakeId={selectedQuakeId}
+                    onSelectEarthquake={setSelectedGempa}
+                    volcanoQuakes={volcanoQuakes}
                     dark
                 />
             </div>
@@ -1228,8 +1550,12 @@ export default function Monitoring() {
                 <div className="pointer-events-auto rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-xl">
                     <div className="flex items-center justify-between gap-3">
                         <div className="flex min-w-0 items-center gap-2.5">
-                            <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-gradient-to-br from-orange-500 to-red-500 text-lg shadow-[0_0_18px_rgba(255,110,20,0.5)]">
-                                🌋
+                            <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-gradient-to-br from-orange-500 to-red-500 shadow-[0_0_18px_rgba(255,110,20,0.5)]">
+                                <MountainSnow
+                                    size={18}
+                                    className="text-white"
+                                    strokeWidth={2.5}
+                                />
                             </span>
 
                             <div className="min-w-0">
@@ -1270,7 +1596,7 @@ export default function Monitoring() {
                                     refreshing ? 'animate-spin' : ''
                                 }`}
                             >
-                                ⟳
+                                <RefreshCw size={14} strokeWidth={2.5} />
                             </button>
                         </div>
                     </div>
@@ -1313,7 +1639,7 @@ export default function Monitoring() {
                                 }`}
                                 aria-label="Buka daftar gunung"
                             >
-                                ▼
+                                <ChevronDown size={12} strokeWidth={2.5} />
                             </button>
                         </div>
 
@@ -1345,7 +1671,12 @@ export default function Monitoring() {
                                                 }`}
                                             >
                                                 <span className="flex min-w-0 items-center gap-2 font-bold text-white">
-                                                    🌋 {volcano.name}
+                                                    <MountainSnow
+                                                        size={12}
+                                                        className="shrink-0 text-slate-500"
+                                                        strokeWidth={2}
+                                                    />{' '}
+                                                    {volcano.name}
                                                     {volcano.id ===
                                                         selectedVolcanoId && (
                                                         <span className="shrink-0 text-[9px] font-extrabold text-red-500 uppercase">
@@ -1379,7 +1710,9 @@ export default function Monitoring() {
                 {/* STATUS ERUPSI */}
 
                 <section>
-                    <PanelTitle>Status Erupsi</PanelTitle>
+                    <PanelTitle icon={<Activity size={11} strokeWidth={2.5} />}>
+                        Status Erupsi
+                    </PanelTitle>
 
                     {alerts.map((alert) => {
                         const alertClass =
@@ -1389,19 +1722,25 @@ export default function Monitoring() {
                                   ? 'border-orange-500/25 bg-orange-500/10 text-orange-200'
                                   : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200';
 
-                        const icon =
+                        const IconComponent =
                             alert.level === 'critical'
-                                ? '🚨'
+                                ? TriangleAlert
                                 : alert.level === 'warning'
-                                  ? '⚠️'
-                                  : '🟢';
+                                  ? AlertTriangle
+                                  : CircleCheck;
 
                         return (
                             <div
                                 key={alert.id}
                                 className={`flex items-start gap-2 rounded-xl border px-3 py-2.5 text-[12.5px] leading-relaxed ${alertClass}`}
                             >
-                                <span className="shrink-0">{icon}</span>
+                                <span className="mt-0.5 shrink-0">
+                                    <IconComponent
+                                        size={15}
+                                        strokeWidth={2.5}
+                                        className="text-current"
+                                    />
+                                </span>
 
                                 <div>
                                     <p className="font-bold">{alert.title}</p>
@@ -1437,12 +1776,16 @@ export default function Monitoring() {
                 {/* STATUS RESMI PVMBG */}
 
                 <section>
-                    <PanelTitle>Status Resmi PVMBG</PanelTitle>
+                    <PanelTitle
+                        icon={<ShieldCheck size={11} strokeWidth={2.5} />}
+                    >
+                        Status Resmi PVMBG
+                    </PanelTitle>
 
                     <div
                         className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-[12.5px] font-extrabold ${pvmbgClass}`}
                     >
-                        <span className="text-sm">🛡️</span>
+                        <ShieldCheck size={16} strokeWidth={2.5} />
 
                         <span>
                             <span className="block text-[9px] font-extrabold tracking-widest uppercase opacity-70">
@@ -1480,7 +1823,11 @@ export default function Monitoring() {
 
                 {ashActive && data.ash_predictions?.length > 0 && (
                     <section>
-                        <PanelTitle>Timeline Sebaran</PanelTitle>
+                        <PanelTitle
+                            icon={<Gauge size={11} strokeWidth={2.5} />}
+                        >
+                            Timeline Sebaran
+                        </PanelTitle>
 
                         <div className="flex items-center gap-1.5">
                             <button
@@ -1491,7 +1838,11 @@ export default function Monitoring() {
                                 aria-label={timelinePlaying ? 'Jeda' : 'Putar'}
                                 className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/10 bg-white/5 text-[9px] text-white transition hover:bg-white/10"
                             >
-                                {timelinePlaying ? '⏸' : '▶'}
+                                {timelinePlaying ? (
+                                    <Pause size={11} strokeWidth={2.5} />
+                                ) : (
+                                    <Play size={11} strokeWidth={2.5} />
+                                )}
                             </button>
 
                             <div className="relative h-8 flex-1">
@@ -1544,7 +1895,9 @@ export default function Monitoring() {
                 {/* ANGIN DI KAWAH */}
 
                 <section>
-                    <PanelTitle>Angin di Kawah</PanelTitle>
+                    <PanelTitle icon={<Wind size={11} strokeWidth={2.5} />}>
+                        Angin di Kawah
+                    </PanelTitle>
 
                     <div className="flex items-center gap-3">
                         <div className="relative h-[66px] w-[66px] shrink-0 rounded-full border border-white/10 bg-[radial-gradient(circle,rgba(255,255,255,0.04),transparent_70%)]">
@@ -1601,11 +1954,16 @@ export default function Monitoring() {
                 {/* KONDISI CUACA */}
 
                 <section>
-                    <PanelTitle>Kondisi Cuaca</PanelTitle>
+                    <PanelTitle icon={<CloudSun size={11} strokeWidth={2.5} />}>
+                        Kondisi Cuaca
+                    </PanelTitle>
 
                     <div className="grid grid-cols-2 gap-1.5">
                         <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                            <p className="text-[10px] text-slate-500">Suhu</p>
+                            <div className="flex items-center gap-1.5 text-slate-500">
+                                <Thermometer size={11} strokeWidth={2.5} />
+                                <p className="text-[10px]">Suhu</p>
+                            </div>
 
                             <p className="mt-0.5 text-[15px] font-bold text-white">
                                 {selectedWeather?.temperature ?? '-'}°
@@ -1613,9 +1971,10 @@ export default function Monitoring() {
                         </div>
 
                         <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                            <p className="text-[10px] text-slate-500">
-                                Kelembapan
-                            </p>
+                            <div className="flex items-center gap-1.5 text-slate-500">
+                                <Droplets size={11} strokeWidth={2.5} />
+                                <p className="text-[10px]">Kelembapan</p>
+                            </div>
 
                             <p className="mt-0.5 text-[15px] font-bold text-white">
                                 {selectedWeather?.humidity ?? '-'}%
@@ -1623,7 +1982,10 @@ export default function Monitoring() {
                         </div>
 
                         <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                            <p className="text-[10px] text-slate-500">Angin</p>
+                            <div className="flex items-center gap-1.5 text-slate-500">
+                                <Wind size={11} strokeWidth={2.5} />
+                                <p className="text-[10px]">Angin</p>
+                            </div>
 
                             <p className="mt-0.5 text-[15px] font-bold text-white">
                                 {selectedWeather?.wind_speed ?? '-'} km/j
@@ -1631,7 +1993,10 @@ export default function Monitoring() {
                         </div>
 
                         <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                            <p className="text-[10px] text-slate-500">Arah</p>
+                            <div className="flex items-center gap-1.5 text-slate-500">
+                                <Navigation size={11} strokeWidth={2.5} />
+                                <p className="text-[10px]">Arah</p>
+                            </div>
 
                             <p className="mt-0.5 text-[15px] font-bold text-white">
                                 {selectedWeather?.wind_direction ?? '-'}
@@ -1643,7 +2008,9 @@ export default function Monitoring() {
                 {/* ADVISORY ABU VULKANIK */}
 
                 <section>
-                    <PanelTitle>Advisory Abu Vulkanik</PanelTitle>
+                    <PanelTitle icon={<Radio size={11} strokeWidth={2.5} />}>
+                        Advisory Abu Vulkanik
+                    </PanelTitle>
 
                     {data.ash_advisory ? (
                         <div className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11.5px]">
@@ -1661,7 +2028,7 @@ export default function Monitoring() {
                                     }`}
                                 >
                                     {data.ash_advisory.ash_detected
-                                        ? '🌋 Abu terdeteksi'
+                                        ? 'Abu terdeteksi'
                                         : 'Tidak ada abu'}
                                 </span>
                             </div>
@@ -1705,13 +2072,18 @@ export default function Monitoring() {
 
                 {ashActive && selectedForecast && (
                     <section>
-                        <PanelTitle>Prediksi Sebaran Abu</PanelTitle>
+                        <PanelTitle
+                            icon={<Navigation size={11} strokeWidth={2.5} />}
+                        >
+                            Prediksi Sebaran Abu
+                        </PanelTitle>
 
                         <div className="grid grid-cols-2 gap-1.5">
                             <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                <p className="text-[10px] text-slate-500">
-                                    Arah Sebaran
-                                </p>
+                                <div className="flex items-center gap-1.5 text-slate-500">
+                                    <Navigation size={11} strokeWidth={2.5} />
+                                    <p className="text-[10px]">Arah Sebaran</p>
+                                </div>
 
                                 <p className="mt-0.5 text-[15px] font-bold text-white">
                                     {selectedForecast.direction != null
@@ -1723,9 +2095,12 @@ export default function Monitoring() {
                             </div>
 
                             <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                <p className="text-[10px] text-slate-500">
-                                    Kecepatan Angin
-                                </p>
+                                <div className="flex items-center gap-1.5 text-slate-500">
+                                    <Wind size={11} strokeWidth={2.5} />
+                                    <p className="text-[10px]">
+                                        Kecepatan Angin
+                                    </p>
+                                </div>
 
                                 <p className="mt-0.5 text-[15px] font-bold text-white">
                                     {selectedForecast.speed != null
@@ -1737,9 +2112,13 @@ export default function Monitoring() {
                             </div>
 
                             <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                <p className="text-[10px] text-slate-500">
-                                    Risiko
-                                </p>
+                                <div className="flex items-center gap-1.5 text-slate-500">
+                                    <TriangleAlert
+                                        size={11}
+                                        strokeWidth={2.5}
+                                    />
+                                    <p className="text-[10px]">Risiko</p>
+                                </div>
 
                                 <p
                                     className={`mt-0.5 text-[15px] font-bold uppercase ${riskClass}`}
@@ -1749,9 +2128,10 @@ export default function Monitoring() {
                             </div>
 
                             <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                <p className="text-[10px] text-slate-500">
-                                    Confidence
-                                </p>
+                                <div className="flex items-center gap-1.5 text-slate-500">
+                                    <Gauge size={11} strokeWidth={2.5} />
+                                    <p className="text-[10px]">Confidence</p>
+                                </div>
 
                                 <p className="mt-0.5 text-[15px] font-bold text-white">
                                     {selectedForecast.confidence != null
@@ -1776,12 +2156,204 @@ export default function Monitoring() {
                     </section>
                 )}
 
+                {/* GEMPA TERKINI (BMKG) */}
+
+                <section>
+                    <PanelTitle icon={<Siren size={11} strokeWidth={2.5} />}>
+                        Gempa Terkini (BMKG)
+                    </PanelTitle>
+
+                    {selectedGempa && (
+                        <button
+                            type="button"
+                            onClick={() => setSelectedGempa(null)}
+                            className="mb-1.5 flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[9.5px] font-semibold text-slate-400 transition hover:border-orange-500/40 hover:text-white"
+                        >
+                            <ArrowLeft size={10} strokeWidth={2.5} />
+                            Kembali ke gempa terbaru
+                        </button>
+                    )}
+
+                    {gempa === null ? (
+                        <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] text-slate-500">
+                            Memuat data gempa…
+                        </p>
+                    ) : displayGempa?.region ? (
+                        <>
+                            <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+                                <span
+                                    className="text-[26px] leading-none font-black"
+                                    style={{
+                                        color: gempaMagColor(
+                                            displayGempa.magnitude != null
+                                                ? Number(displayGempa.magnitude)
+                                                : null,
+                                        ),
+                                    }}
+                                >
+                                    {displayGempa.magnitude ?? '-'}
+                                </span>
+
+                                <div className="min-w-0 text-[11.5px]">
+                                    <p className="font-bold text-white">
+                                        Mag {displayGempa.magnitude ?? '-'}
+                                        {displayGempa.lintang
+                                            ? ` • ${displayGempa.lintang}`
+                                            : displayGempa.latitude != null &&
+                                                displayGempa.longitude != null
+                                              ? ` • ${displayGempa.latitude.toFixed(
+                                                    2,
+                                                )}, ${displayGempa.longitude.toFixed(
+                                                    2,
+                                                )}`
+                                              : ''}
+                                    </p>
+
+                                    <p className="font-medium text-slate-400">
+                                        {displayGempa.depth || 'Kedalaman -'}
+                                    </p>
+
+                                    <p className="truncate font-medium text-slate-300">
+                                        {displayGempa.region}
+                                    </p>
+
+                                    {displayGempa.status && (
+                                        <p className="mt-0.5 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                                            {displayGempa.status === 'confirmed'
+                                                ? 'Terkonfirmasi'
+                                                : displayGempa.status}
+                                        </p>
+                                    )}
+
+                                    {displayGempa.felt && (
+                                        <p className="mt-0.5 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
+                                            Dirasakan: {displayGempa.felt}
+                                        </p>
+                                    )}
+
+                                    <p className="mt-0.5 text-[10px] text-slate-500">
+                                        {displayGempa.datetime
+                                            ? `${formatWIB(
+                                                  displayGempa.datetime,
+                                              )} WIB`
+                                            : displayGempa.tanggal
+                                              ? `${displayGempa.tanggal}${
+                                                    displayGempa.jam
+                                                        ? ` · ${displayGempa.jam}`
+                                                        : ''
+                                                }`
+                                              : '-'}
+                                    </p>
+                                </div>
+                            </div>
+
+                            {gempa.list.length > 1 && (
+                                <ul className="mt-1.5 space-y-1">
+                                    {gempa.list.slice(1, 6).map((item, i) => (
+                                        <li
+                                            key={`gempa-list-${i}`}
+                                            className={`flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[11px] transition ${
+                                                selectedGempa?.eventid != null &&
+                                                item.eventid ===
+                                                    selectedGempa.eventid
+                                                    ? 'cursor-pointer border border-red-400/40 bg-red-500/10'
+                                                    : 'cursor-pointer border border-transparent hover:border-white/15 hover:bg-white/[0.07]'
+                                            }`}
+                                            onClick={() => setSelectedGempa(item)}
+                                        >
+                                            <span
+                                                className="w-[34px] shrink-0 rounded-md px-1 py-0.5 text-center text-[10px] font-extrabold text-white"
+                                                style={{
+                                                    background: gempaMagColor(
+                                                        item.magnitude != null
+                                                            ? Number(
+                                                                  item.magnitude,
+                                                              )
+                                                            : null,
+                                                    ),
+                                                }}
+                                            >
+                                                {item.magnitude ?? '-'}
+                                            </span>
+
+                                            <span className="truncate font-medium text-slate-400">
+                                                {item.region}
+                                            </span>
+
+                                            <span className="ml-auto shrink-0 text-[9.5px] text-slate-600">
+                                                {item.datetime
+                                                    ? formatWIB(item.datetime)
+                                                    : item.tanggal}
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </>
+                      ) : (
+                        <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] text-slate-500">
+                            {gempa.error ?? 'Data gempa belum tersedia.'}
+                        </p>
+                    )}
+                </section>
+
+                {/* GERAKAN TANAH (PVMBG / VSI) */}
+
+                <section>
+                    <PanelTitle icon={<LandPlot size={11} strokeWidth={2.5} />}>
+                        Gerakan Tanah (PVMBG)
+                    </PanelTitle>
+
+                    {gerakanTanah === null ? (
+                        <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] text-slate-500">
+                            Memuat laporan tanggapan…
+                        </p>
+                    ) : gerakanTanah.list.length > 0 ? (
+                        <ul className="space-y-1.5">
+                            {gerakanTanah.list.map((item, index) => (
+                                <li
+                                    key={String(item.id ?? item.title ?? index)}
+                                >
+                                    <a
+                                        href={item.url ?? '#'}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="group block rounded-lg border border-white/5 bg-white/[0.04] px-2.5 py-2 text-[11px] transition hover:border-orange-500/30 hover:bg-orange-500/10"
+                                    >
+                                        <span className="flex items-start justify-between gap-2">
+                                            <span className="leading-snug font-semibold text-slate-300 group-hover:text-white">
+                                                {item.title}
+                                            </span>
+
+                                            <ExternalLink
+                                                size={11}
+                                                strokeWidth={2.5}
+                                                className="mt-0.5 shrink-0 text-slate-600 group-hover:text-orange-400"
+                                            />
+                                        </span>
+
+                                        {item.date && (
+                                            <span className="mt-1 block text-[9.5px] font-medium text-slate-600">
+                                                {formatWIB(item.date)}
+                                            </span>
+                                        )}
+                                    </a>
+                                </li>
+                            ))}
+                        </ul>
+                    ) : (
+                        <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] text-slate-500">
+                            {gerakanTanah.error ?? 'Belum ada laporan.'}
+                        </p>
+                    )}
+                </section>
+
                 {/* META */}
 
                 <div className="border-t border-white/10 pt-2.5 text-[10px] leading-relaxed text-slate-600">
                     <p>
                         <b className="text-slate-500">Sumber:</b> VAAC Darwin
-                        (BOM Australia) • PVMBG/MAGMA • BMKG
+                        (BOM Australia) • PVMBG/MAGMA-VSI • BMKG
                     </p>
 
                     <p>
@@ -1800,7 +2372,67 @@ export default function Monitoring() {
         ====================================== */}
 
             <aside className="pointer-events-auto absolute top-[132px] right-3 z-[1100] w-[230px] max-w-[40vw] rounded-2xl border border-white/10 bg-white/[0.06] p-3.5 shadow-2xl shadow-black/40 backdrop-blur-xl">
-                <PanelTitle>Legenda &amp; Layer</PanelTitle>
+                <PanelTitle icon={<Layers size={11} strokeWidth={2.5} />}>
+                    Legenda &amp; Layer
+                </PanelTitle>
+
+                <label className="flex w-full cursor-pointer items-center justify-between py-1.5 text-xs">
+                    <span className="flex items-center gap-2">
+                        <span className="relative grid h-[18px] w-[18px] shrink-0 place-items-center">
+                            <span className="absolute inset-0 animate-ping rounded-full border border-red-400/70" />
+                            <span className="h-[9px] w-[9px] rounded-full border-2 border-red-400 bg-red-500/30" />
+                        </span>
+                        Gempa Terkini (BMKG)
+                    </span>
+
+                    <span className="relative inline-flex h-[19px] w-[34px] shrink-0 items-center">
+                        <input
+                            type="checkbox"
+                            checked={showGempaMarkers}
+                            onChange={() =>
+                                setShowGempaMarkers((value) => !value)
+                            }
+                            className="peer sr-only"
+                        />
+
+                        <span className="absolute inset-0 rounded-full bg-white/15 transition peer-checked:bg-red-500" />
+
+                        <span className="absolute top-[2.5px] left-[2.5px] h-[14px] w-[14px] rounded-full bg-white transition peer-checked:translate-x-[15px]" />
+                    </span>
+                </label>
+
+                <div className="mb-1.5 grid grid-cols-2 gap-x-2 gap-y-1 rounded-lg border border-white/5 bg-white/[0.03] px-2.5 py-2 text-[9px] text-slate-500">
+                    {[
+                        ['#22c55e', 'M < 4'],
+                        ['#eab308', 'M 4–5'],
+                        ['#f97316', 'M 5–6'],
+                        ['#ef4444', 'M 6–7'],
+                        ['#a855f7', 'M ≥ 7'],
+                    ].map(([color, labelKey]) => (
+                        <span
+                            key={labelKey}
+                            className="flex items-center gap-1.5"
+                        >
+                            <span
+                                className="h-2.5 w-2.5 shrink-0 rounded-full border border-white/30"
+                                style={{ background: color }}
+                            />
+                            {labelKey}
+                        </span>
+                    ))}
+                </div>
+
+                {volcanoQuakesCount > 0 && (
+                    <p className="mb-1.5 flex items-center gap-1.5 rounded-lg border border-red-500/15 bg-red-500/5 px-2 py-1.5 text-[9.5px] font-semibold text-red-300">
+                        <Siren size={10} strokeWidth={2.5} />
+                        {volcanoQuakesCount} gunung sedang dekat gempa
+                    </p>
+                )}
+
+                <div className="mb-1 flex items-center gap-1.5 border-b border-white/10 pb-2 text-[9.5px] font-semibold tracking-widest text-slate-500 uppercase">
+                    <span className="h-2 w-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,1)]" />
+                    Sebaran Abu Vulkanik {ashActive ? '' : '(tidak ada)'}
+                </div>
 
                 {ashActive ? (
                     <>
