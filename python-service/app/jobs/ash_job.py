@@ -1,24 +1,17 @@
 import json
+
 from datetime import datetime
 
 from sqlalchemy import text
 
 from app.database.connection import SessionLocal
+
 from app.models.ash_model import generate_ash_plume
 
 
 # =========================================================
 # CONFIG
 # =========================================================
-
-VOLCANO_WEATHER_MAPPING = {
-    1: {
-        "source": "BMKG - Pulau Sebesi",
-    },
-    5: {
-        "source": "BMKG - Tawangrejeni",
-    },
-}
 
 FORECAST_LIMIT = 6
 
@@ -54,24 +47,56 @@ def wind_direction_to_degree(direction: str):
 
 def calculate_forecast_hour(
     forecast_at,
-    generated_at,
+    base_forecast_at,
 ):
     """
     Menghitung horizon forecast berdasarkan
-    waktu generate prediction.
+    forecast pertama sebagai +0 jam.
     """
 
-    difference = forecast_at - generated_at
+    difference = forecast_at - base_forecast_at
+
     seconds = difference.total_seconds()
 
-    if seconds <= 0:
+    if seconds < 0:
         return None
 
     forecast_hour = round(
         seconds / 3600
     )
 
-    return max(1, forecast_hour)
+    return max(0, forecast_hour)
+
+
+# =========================================================
+# GET WEATHER SOURCES
+# =========================================================
+
+def get_weather_sources():
+    db = SessionLocal()
+
+    try:
+        rows = db.execute(
+            text(
+                """
+                SELECT
+                    vws.volcano_id,
+                    vws.source,
+                    vws.adm4,
+                    vws.location_name
+                FROM volcano_weather_sources vws
+                INNER JOIN volcanoes v
+                    ON v.id = vws.volcano_id
+                WHERE vws.source = 'BMKG'
+                ORDER BY vws.volcano_id
+                """
+            )
+        ).mappings().all()
+
+        return rows
+
+    finally:
+        db.close()
 
 
 # =========================================================
@@ -112,31 +137,47 @@ def generate_prediction(volcano_id: int):
                 f"Volcano ID {volcano_id} "
                 "tidak ditemukan."
             )
-            return
+
+            return False
 
         # =================================================
-        # 2. AMBIL CONFIG WEATHER
+        # 2. AMBIL CONFIG WEATHER DARI DATABASE
         # =================================================
 
-        weather_config = (
-            VOLCANO_WEATHER_MAPPING.get(
-                volcano_id
-            )
-        )
+        weather_config = db.execute(
+            text(
+                """
+                SELECT
+                    source,
+                    adm4,
+                    location_name
+                FROM volcano_weather_sources
+                WHERE volcano_id = :volcano_id
+                  AND source = 'BMKG'
+                LIMIT 1
+                """
+            ),
+            {
+                "volcano_id": volcano_id,
+            },
+        ).mappings().first()
 
         if not weather_config:
 
             print(
-                f"Belum ada konfigurasi weather "
-                f"untuk {volcano['name']} "
-                f"(ID {volcano_id})."
+                f"[SKIP] {volcano['name']} "
+                f"(ID {volcano_id}) "
+                "belum memiliki mapping BMKG."
             )
 
-            return
+            return False
 
-        weather_source = weather_config[
-            "source"
-        ]
+        weather_source = (
+            f"BMKG - "
+            f"{weather_config['location_name']}"
+            if weather_config["location_name"]
+            else "BMKG"
+        )
 
         # =================================================
         # 3. AMBIL AKTIVITAS TERBARU
@@ -163,9 +204,7 @@ def generate_prediction(volcano_id: int):
 
         ash_height = None
 
-        activity_level = volcano[
-            "status"
-        ]
+        activity_level = volcano["status"]
 
         if activity:
 
@@ -204,7 +243,7 @@ def generate_prediction(volcano_id: int):
                 FROM weather_forecasts
                 WHERE volcano_id = :volcano_id
                   AND source = :source
-                  AND forecast_at > :generated_at
+                  AND forecast_at >= :generated_at
                 GROUP BY
                     forecast_at,
                     temperature,
@@ -224,17 +263,62 @@ def generate_prediction(volcano_id: int):
             },
         ).mappings().all()
 
+        # =================================================
+        # FALLBACK
+        # =================================================
+        # Jika waktu server sedikit melewati forecast pertama,
+        # ambil forecast terdekat yang tersedia.
+
+        if not forecasts:
+
+            forecasts = db.execute(
+                text(
+                    """
+                    SELECT
+                        forecast_at,
+                        temperature,
+                        humidity,
+                        wind_speed,
+                        wind_direction,
+                        weather
+                    FROM weather_forecasts
+                    WHERE volcano_id = :volcano_id
+                      AND source = :source
+                    GROUP BY
+                        forecast_at,
+                        temperature,
+                        humidity,
+                        wind_speed,
+                        wind_direction,
+                        weather
+                    ORDER BY forecast_at ASC
+                    LIMIT :limit
+                    """
+                ),
+                {
+                    "volcano_id": volcano_id,
+                    "source": weather_source,
+                    "limit": FORECAST_LIMIT,
+                },
+            ).mappings().all()
+
         if not forecasts:
 
             print(
-                f"Tidak ada forecast BMKG "
-                f"untuk {volcano['name']}."
+                f"[SKIP] {volcano['name']} "
+                "tidak memiliki forecast BMKG."
             )
 
-            return
+            return False
 
         # =================================================
-        # 6. HAPUS PREDIKSI LAMA
+        # 6. BASE FORECAST
+        # =================================================
+
+        base_forecast_at = forecasts[0]["forecast_at"]
+
+        # =================================================
+        # 7. HAPUS PREDIKSI LAMA
         # =================================================
 
         db.execute(
@@ -250,48 +334,57 @@ def generate_prediction(volcano_id: int):
         )
 
         # =================================================
-        # 7. LOG
+        # 8. LOG
         # =================================================
 
         print()
 
         print("=" * 70)
+
         print(
             "GENERATING MULTI-HOUR ASH PREDICTION"
         )
+
         print("=" * 70)
 
         print(
-            f"Gunung          : "
+            f"Gunung         : "
             f"{volcano['name']}"
         )
 
         print(
-            f"Status          : "
+            f"Status         : "
             f"{activity_level}"
         )
 
         print(
-            f"Generated at    : "
+            f"Generated at   : "
             f"{generated_at}"
         )
 
         print(
-            f"Weather source  : "
+            f"Weather source : "
             f"{weather_source}"
         )
 
         print(
-            f"Forecast unik   : "
-            f"{len(forecasts)} titik"
+            f"Base forecast  : "
+            f"{base_forecast_at}"
+        )
+
+        print(
+            f"Forecast titik : "
+            f"{len(forecasts)}"
         )
 
         print()
 
         prediction_count = 0
 
+        skipped_count = 0
+
         # =================================================
-        # 8. GENERATE SETIAP FORECAST
+        # 9. GENERATE SETIAP FORECAST
         # =================================================
 
         for forecast in forecasts:
@@ -307,7 +400,7 @@ def generate_prediction(volcano_id: int):
             forecast_hour = (
                 calculate_forecast_hour(
                     forecast_at,
-                    generated_at,
+                    base_forecast_at,
                 )
             )
 
@@ -315,8 +408,10 @@ def generate_prediction(volcano_id: int):
 
                 print(
                     f"SKIP | {forecast_at} | "
-                    "Forecast sudah lewat"
+                    "Forecast tidak valid"
                 )
+
+                skipped_count += 1
 
                 continue
 
@@ -340,6 +435,8 @@ def generate_prediction(volcano_id: int):
                     "Arah angin tidak dikenali: "
                     f"{forecast['wind_direction']}"
                 )
+
+                skipped_count += 1
 
                 continue
 
@@ -377,7 +474,7 @@ def generate_prediction(volcano_id: int):
             )
 
             # =================================================
-            # 9. SIMPAN PREDIKSI
+            # 10. SIMPAN PREDIKSI
             # =================================================
 
             db.execute(
@@ -413,21 +510,29 @@ def generate_prediction(volcano_id: int):
                 ),
                 {
                     "volcano_id": volcano_id,
+
                     "generated_at": generated_at,
+
                     "forecast_at": forecast_at,
+
                     "forecast_hour": forecast_hour,
+
                     "direction": prediction[
                         "direction"
                     ],
+
                     "speed": prediction[
                         "speed"
                     ],
+
                     "risk_level": prediction[
                         "risk_level"
                     ],
+
                     "confidence": prediction[
                         "confidence"
                     ],
+
                     "geometry": json.dumps(
                         prediction["geometry"]
                     ),
@@ -451,7 +556,7 @@ def generate_prediction(volcano_id: int):
             )
 
         # =================================================
-        # 10. COMMIT
+        # 11. COMMIT
         # =================================================
 
         db.commit()
@@ -459,33 +564,52 @@ def generate_prediction(volcano_id: int):
         print()
 
         print("=" * 70)
+
         print("ASH PREDICTION SELESAI")
+
         print("=" * 70)
 
         print(
-            f"Prediction dibuat : "
+            f"Gunung          : "
+            f"{volcano['name']}"
+        )
+
+        print(
+            f"Prediction dibuat: "
             f"{prediction_count}"
         )
 
         print(
-            f"Source            : "
+            f"Prediction skip  : "
+            f"{skipped_count}"
+        )
+
+        print(
+            f"Source           : "
             f"{weather_source}"
         )
 
         print(
-            f"Generated at      : "
+            f"Generated at     : "
             f"{generated_at}"
         )
 
         print("=" * 70)
+
+        return prediction_count > 0
 
     except Exception as error:
 
         db.rollback()
 
         print()
+
         print(
             "GAGAL MEMBUAT ASH PREDICTION"
+        )
+
+        print(
+            f"Gunung ID : {volcano_id}"
         )
 
         print(error)
@@ -498,13 +622,89 @@ def generate_prediction(volcano_id: int):
 
 
 # =========================================================
-# RUN DIRECTLY
+# RUN ALL VOLCANOES
 # =========================================================
 
 if __name__ == "__main__":
 
-    for volcano_id in VOLCANO_WEATHER_MAPPING:
+    weather_sources = get_weather_sources()
 
-        generate_prediction(
-            volcano_id=volcano_id
+    print("=" * 70)
+
+    print(
+        "ASH PREDICTION - ALL VOLCANOES"
+    )
+
+    print("=" * 70)
+
+    print(
+        f"Total mapping BMKG : "
+        f"{len(weather_sources)}"
+    )
+
+    print()
+
+    if not weather_sources:
+
+        print(
+            "Tidak ada mapping BMKG."
         )
+
+    success = 0
+
+    failed = 0
+
+    for source in weather_sources:
+
+        volcano_id = source[
+            "volcano_id"
+        ]
+
+        print()
+
+        print(
+            f">>> Processing Volcano ID "
+            f"{volcano_id} | "
+            f"{source['location_name']}"
+        )
+
+        try:
+
+            result = generate_prediction(
+                volcano_id=volcano_id
+            )
+
+            if result:
+
+                success += 1
+
+            else:
+
+                failed += 1
+
+        except Exception as error:
+
+            failed += 1
+
+            print(
+                f"[ERROR] Volcano ID "
+                f"{volcano_id}: {error}"
+            )
+
+    print()
+
+    print("=" * 70)
+
+    print("ALL ASH PREDICTION SELESAI")
+
+    print("=" * 70)
+
+    print(
+        f"Berhasil : {success}"
+    )
+
+    print(
+        f"Gagal/Skip : {failed}"
+    )
+
+    print("=" * 70)
