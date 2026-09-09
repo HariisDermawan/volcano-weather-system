@@ -4,6 +4,10 @@ from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 
+from app.collectors.name_aliases import (
+    normalize_volcano_name,
+)
+
 
 MAGMA_ACTIVITY_URL = (
     "https://magma.esdm.go.id/v1/gunung-api/tingkat-aktivitas"
@@ -54,15 +58,6 @@ def get_volcano_reports():
     return reports
 
 
-def normalize_volcano_name(name):
-    name = name.strip()
-
-    if name == "Anak Krakatau":
-        return "Gunung Anak Krakatau"
-
-    return name
-
-
 def extract_section(
     text_content,
     section_name,
@@ -97,6 +92,98 @@ def extract_section(
     )
 
     return value or None
+
+
+def extract_ash_height(text_content):
+    """Ekstrak tinggi kolom abu/asap dari laporan MAGMA.
+
+    Hanya mencari di bagian pengamatan/observasi, bukan di
+    header gunung. "ketinggian N mdpl" pada header adalah
+    ELEVASI gunung, bukan tinggi kolom abu — jadi jangan
+    pernah menangkap satuan "mdpl" sebagai tinggi abu.
+
+    Format asli laporan MAGMA yang tertangkap, contoh:
+      "Teramati asap kawah utama berwarna putih dengan
+       intensitas tipis hingga sedang tinggi sekitar 50-100 m
+       di atas puncak"
+      "tinggi sekitar 5-10 meter dari puncak"
+      "kolom abu vulkanik ... 2500 meter di atas puncak"
+
+    Untuk nilai berbentuk rentang (mis. 50-100 m), dipakai
+    nilai TERBESAR karena menunjukkan puncak kolom abu.
+    """
+
+    if not text_content:
+        return None
+
+    # Satuan: m/meter. "mdpl" SELALU elevasi -> tidak pernah
+    # dicocokkan di sini.
+    unit = r"(?:m|meter)"
+
+    # Pola 1: "... tinggi/ketinggian [sekitar] N [- M] m/meter
+    #          di atas puncak / dari puncak"
+    # Frasa "di atas/dari puncak" adalah penanda abu yang
+    # kuat dan tidak pernah merujuk ke elevasi gunung.
+    pattern_strong = (
+        r"(?:se)?(?:tinggi|ketinggian|ketinggian asap)\s*"
+        r"(?:sekitar|±|~|/-)?\s*"
+        r"(\d{1,5}(?:[.,]\d+)?)\s*"
+        r"(?:[-–]\s*(\d{1,5}(?:[.,]\d+)?))?\s*"
+        + unit
+        + r"\s+(?:di\s+atas\s+puncak|dari\s+puncak)"
+    )
+
+    # Pola 2: "... kolom abu/asap ... N [- M] m/meter
+    #          di atas puncak" (angka tanpa kata "tinggi").
+    pattern_number_first = (
+        r"(\d{1,5}(?:[.,]\d+)?)\s*"
+        r"(?:[-–]\s*(\d{1,5}(?:[.,]\d+)?))?\s*"
+        + unit
+        + r"\s+(?:di\s+atas\s+puncak|dari\s+puncak)"
+    )
+
+    # Pola 3: konteks asap/abu ... tinggi [sekitar] N [- M]
+    #         m/meter (tanpa frasa "puncak").
+    pattern_context = (
+        r"(?:teramati\s+)?"
+        r"(?:asap|abu|kolom\s*(?:abu|asap)?)\s*"
+        r"(?:kawah\s*(?:utama)?|letusan|erupsi|vulkanik)?\s*"
+        r"(?:utama\s+)?(?:berwarna[^.]*?)?"
+        r"(?:dengan\s+)?(?:intensitas[^.]*?)?"
+        r"(?:se)?(?:ketinggian|tinggi)\s+"
+        r"(?:sekitar|±|~|/-)?\s*"
+        r"(\d{1,5}(?:[.,]\d+)?)\s*"
+        r"(?:[-–]\s*(\d{1,5}(?:[.,]\d+)?))?\s*"
+        + unit
+    )
+
+    for pattern in (pattern_strong, pattern_number_first, pattern_context):
+        match = re.search(pattern, text_content, re.IGNORECASE)
+
+        if not match:
+            continue
+
+        try:
+            value1 = float(match.group(1).replace(",", "."))
+        except (ValueError, IndexError):
+            continue
+
+        if value1 < 1:
+            continue
+
+        value2 = value1
+        group2 = match.group(2)
+
+        if group2:
+            try:
+                value2 = float(group2.replace(",", "."))
+            except ValueError:
+                value2 = value1
+
+        # Nilai terbesar = puncak kolom abu.
+        return max(value1, value2)
+
+    return None
 
 
 def parse_report_datetime(text_content):
@@ -270,11 +357,22 @@ def parse_volcano_detail(url):
         descriptions
     ) if descriptions else None
 
+    # Tinggi abu hanya dicari di bagian pengamatan/observasi.
+    # Header gunung mengandung "ketinggian N mdpl" (elevasi)
+    # yang TIDAK boleh dianggap sebagai tinggi kolom abu.
+    observation_text = "\n".join(
+        descriptions
+    ) if descriptions else visual or text_content
+
+    ash_height = extract_ash_height(
+        observation_text
+    )
+
     return {
         "name": name,
         "occurred_at": occurred_at,
         "activity_level": activity_level,
-        "ash_height": None,
+        "ash_height": ash_height,
         "description": description,
     }
 

@@ -4,6 +4,9 @@ import requests
 from bs4 import BeautifulSoup
 from sqlalchemy import text
 
+from app.collectors.name_aliases import (
+    normalize_volcano_name,
+)
 from app.database.connection import SessionLocal
 
 
@@ -54,17 +57,6 @@ def get_volcano_reports():
         })
 
     return reports
-
-
-def normalize_volcano_name(name):
-    name = name.strip()
-
-    # Samakan nama MAGMA dengan record lama
-    # yang sudah ada di database.
-    if name == "Anak Krakatau":
-        return "Gunung Anak Krakatau"
-
-    return name
 
 
 def parse_volcano_detail(url):

@@ -266,8 +266,11 @@ def generate_prediction(volcano_id: int):
         # =================================================
         # FALLBACK
         # =================================================
-        # Jika waktu server sedikit melewati forecast pertama,
-        # ambil forecast terdekat yang tersedia.
+        # Jika tidak ada forecast di masa depan (BMKG belum
+        # memperbarui), ambil forecast TERBARU yang tersedia
+        # (paling dekat dengan generated_at), bukan yang
+        # terlama. Ini mencegah penggunaan data berhari-hari
+        # usang untuk prediksi.
 
         if not forecasts:
 
@@ -284,6 +287,7 @@ def generate_prediction(volcano_id: int):
                     FROM weather_forecasts
                     WHERE volcano_id = :volcano_id
                       AND source = :source
+                      AND forecast_at <= :generated_at
                     GROUP BY
                         forecast_at,
                         temperature,
@@ -291,16 +295,25 @@ def generate_prediction(volcano_id: int):
                         wind_speed,
                         wind_direction,
                         weather
-                    ORDER BY forecast_at ASC
+                    ORDER BY forecast_at DESC
                     LIMIT :limit
                     """
                 ),
                 {
                     "volcano_id": volcano_id,
                     "source": weather_source,
+                    "generated_at": generated_at,
                     "limit": FORECAST_LIMIT,
                 },
             ).mappings().all()
+
+            if forecasts:
+                print(
+                    f"[WARN] {volcano['name']} "
+                    "tidak memiliki forecast untuk "
+                    "masa depan. Menggunakan forecast "
+                    "paling baru yang tersedia."
+                )
 
         if not forecasts:
 
