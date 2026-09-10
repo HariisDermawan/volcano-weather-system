@@ -27,26 +27,69 @@ class GeoHazardController extends Controller
     public function gempa()
     {
         $data = Cache::remember('geo:gempa', 90, function () {
+            // Utama: "Gempa Dirasakan" (autogempa.json) — sumber yang
+            // sama persis dengan banner Gempa Dirasakan di situs BMKG.
+            // Paling cepat (hari ini pukul 20:54:13 WIB) dan terbaru.
+            try {
+                $latest = $this->fetchAutogempa();
+
+                if ($latest !== null) {
+                    return ['latest' => $latest, 'list' => [$latest]];
+                }
+            } catch (\Throwable $e) {
+                // lanjut ke fallback berikutnya
+            }
+
+            // Fallback 1: halaman "Gempabumi Terkini (Real-time)".
             try {
                 $list = $this->fetchRealtimeGempa();
 
                 return ['latest' => $list[0] ?? null, 'list' => $list];
             } catch (\Throwable $e) {
-                try {
-                    [$latest, $list] = $this->fetchGempa();
+                // lanjut ke fallback berikutnya
+            }
 
-                    return ['latest' => $latest, 'list' => $list];
-                } catch (\Throwable $e2) {
-                    return [
-                        'latest' => null,
-                        'list' => [],
-                        'error' => 'Sumber BMKG sedang tidak dapat dihubungi.',
-                    ];
-                }
+            // Fallback 2: gempaterkini.json + autogempa.json.
+            try {
+                [$latest, $list] = $this->fetchGempa();
+
+                return ['latest' => $latest, 'list' => $list];
+            } catch (\Throwable $e2) {
+                return [
+                    'latest' => null,
+                    'list' => [],
+                    'error' => 'Sumber BMKG sedang tidak dapat dihubungi.',
+                ];
             }
         });
 
+        // Tampilkan hanya gempa PALING TERBARU; gempa lama dihidden.
+        // Saat ada gempa baru, list + latest otomatis berganti saat
+        // polling berikutnya (cache 90 detik).
+        $latest = $data['latest'] ?? ($data['list'][0] ?? null);
+
+        $data['list'] = $latest ? [$latest] : [];
+        $data['latest'] = $latest;
+
         return response()->json($data);
+    }
+
+    /**
+     * Ambil gempa terakhir yang dirasakan (autogempa.json).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function fetchAutogempa(): ?array
+    {
+        $row = Http::timeout(20)
+            ->get('https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json')
+            ->json('Infogempa.gempa');
+
+        if (! is_array($row)) {
+            return null;
+        }
+
+        return $this->buildGempaRow($row);
     }
 
     /**
@@ -202,42 +245,51 @@ class GeoHazardController extends Controller
             ->get('https://data.bmkg.go.id/DataMKG/TEWS/autogempa.json')
             ->json('Infogempa.gempa');
 
-        $build = function (array $row): array {
-            $coordinates = array_values(
-                array_filter(
-                    array_map(
-                        'floatval',
-                        explode(',', (string) ($row['Coordinates'] ?? '')),
-                    ),
-                ),
-            );
-
-            return [
-                'datetime' => $row['DateTime'] ?? null,
-                'tanggal' => $row['Tanggal'] ?? null,
-                'jam' => $row['Jam'] ?? null,
-                'latitude' => $coordinates[0] ?? null,
-                'longitude' => $coordinates[1] ?? null,
-                'lintang' => $row['Lintang'] ?? null,
-                'bujur' => $row['Bujur'] ?? null,
-                'magnitude' => $row['Magnitude'] ?? null,
-                'depth' => $row['Kedalaman'] ?? null,
-                'region' => $row['Wilayah'] ?? null,
-                'potential' => $row['Potensi'] ?? null,
-                'felt' => $row['Dirasakan'] ?? null,
-                'shakemap' => $row['Shakemap'] ?? null,
-            ];
-        };
-
         $list = [];
 
         foreach ((is_array($gempaterkini) ? $gempaterkini : []) as $row) {
-            $list[] = $build($row);
+            $list[] = $this->buildGempaRow($row);
         }
 
-        $latest = $build(is_array($autogempa) ? $autogempa : []);
+        $latest = $this->buildGempaRow(
+            is_array($autogempa) ? $autogempa : [],
+        );
 
         return [$latest, $list];
+    }
+
+    /**
+     * Normalisasi satu baris gempa BMKG ke payload API.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function buildGempaRow(array $row): array
+    {
+        $coordinates = array_values(
+            array_filter(
+                array_map(
+                    'floatval',
+                    explode(',', (string) ($row['Coordinates'] ?? '')),
+                ),
+            ),
+        );
+
+        return [
+            'datetime' => $row['DateTime'] ?? null,
+            'tanggal' => $row['Tanggal'] ?? null,
+            'jam' => $row['Jam'] ?? null,
+            'latitude' => $coordinates[0] ?? null,
+            'longitude' => $coordinates[1] ?? null,
+            'lintang' => $row['Lintang'] ?? null,
+            'bujur' => $row['Bujur'] ?? null,
+            'magnitude' => $row['Magnitude'] ?? null,
+            'depth' => $row['Kedalaman'] ?? null,
+            'region' => $row['Wilayah'] ?? null,
+            'potential' => $row['Potensi'] ?? null,
+            'felt' => $row['Dirasakan'] ?? null,
+            'shakemap' => $row['Shakemap'] ?? null,
+        ];
     }
 
     /*

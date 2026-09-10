@@ -141,6 +141,7 @@ class MagmaService
 
                 if (preg_match('/Level (IV|III|II|I)\s*\(([^)]+)\)/', $row, $m)) {
                     $current = [$m[1], trim($m[2])];
+
                     continue;
                 }
 
@@ -361,7 +362,10 @@ class MagmaService
             $value = $eruption['occurred_at'] ?? null;
 
             if (is_string($value) && $value !== '') {
-                $eruption['occurred_at'] = new \DateTimeImmutable($value);
+                $eruption['occurred_at'] = new \DateTimeImmutable(
+                    $value,
+                    new \DateTimeZone('UTC'),
+                );
             }
 
             return $eruption;

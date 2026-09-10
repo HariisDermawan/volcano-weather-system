@@ -35,6 +35,7 @@ interface Volcano {
     longitude: number;
     elevation: number | null;
     status: string;
+    status_source?: 'live' | 'database';
     ash_active?: boolean;
 }
 
@@ -62,6 +63,7 @@ interface Activity {
     activity_level: string | null;
     ash_height: number | null;
     description: string | null;
+    source?: string;
 }
 
 interface AshGeometry {
@@ -1863,6 +1865,18 @@ export default function Monitoring() {
                     <p className="mt-1.5 text-[11.5px] leading-relaxed text-slate-400">
                         {data.activity?.description ??
                             'Belum tersedia keterangan aktivitas terbaru dari PVMBG.'}
+                        <span className="mt-1 flex items-center gap-1.5 text-[10px] text-slate-500 lowercase">
+                            <span
+                                className={
+                                    data.volcano.status_source === 'live'
+                                        ? 'inline-block size-1.5 rounded-full bg-emerald-400'
+                                        : 'inline-block size-1.5 rounded-full bg-slate-500'
+                                }
+                            />
+                            {data.volcano.status_source === 'live'
+                                ? 'status real-time dari MAGMA'
+                                : 'status tersimpan (fallback)'}
+                        </span>
                     </p>
 
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10.5px] text-slate-400">

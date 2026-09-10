@@ -35,9 +35,14 @@ class VolcanoController extends Controller
                 'elevation',
                 'status',
             ])
-            ->map(function ($volcano) use ($liveActiveIds, $liveStatuses) {
-                $volcano->ash_active = $liveActiveIds->contains(
-                    $volcano->id,
+            ->map(function ($volcano) use (
+                $liveActiveIds,
+                $liveStatuses,
+                $magma,
+            ) {
+                $volcano->setAttribute(
+                    'ash_active',
+                    $liveActiveIds->contains($volcano->id),
                 );
 
                 $live = $liveStatuses[$magma->normalizeName(
@@ -45,7 +50,10 @@ class VolcanoController extends Controller
                 )] ?? null;
 
                 $volcano->status = $live['label'] ?? $volcano->status;
-                $volcano->status_source = $live ? 'live' : 'database';
+                $volcano->setAttribute(
+                    'status_source',
+                    $live ? 'live' : 'database',
+                );
 
                 return $volcano;
             });
