@@ -10,22 +10,12 @@ return new class extends Migration
     {
         Schema::create('volcano_weather_sources', function (Blueprint $table) {
             $table->id();
-
-            $table->foreignId('volcano_id')
-                ->constrained('volcanoes')
-                ->cascadeOnDelete();
-
+            $table->foreignId('volcano_id')->constrained('volcanoes')->cascadeOnDelete();
             $table->string('source');
             $table->string('adm4', 20);
             $table->string('location_name')->nullable();
-
             $table->timestamps();
-
-            $table->unique(
-                ['volcano_id', 'source'],
-                'volcano_weather_sources_volcano_source_unique'
-            );
-
+            $table->unique(['volcano_id', 'source'], 'volcano_weather_sources_volcano_source_unique');
             $table->index('adm4');
         });
     }

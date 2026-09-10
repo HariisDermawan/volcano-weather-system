@@ -1007,7 +1007,7 @@ export default function VolcanoMap({
                         );
                     }}
                     title="Tampilkan semua gunung api"
-                    className="absolute bottom-[14px] left-[14px] z-[1000] flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-[#0d1117] px-3 py-1.5 text-[11px] font-bold text-slate-200 shadow-xl shadow-black/40 transition hover:bg-white/10"
+                    className="absolute bottom-[14px] left-[14px] z-[1000] flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-3 py-1.5 text-[11px] font-bold text-slate-200 shadow-xl shadow-black/50 backdrop-blur-xl transition hover:bg-white/10"
                 >
                     <Maximize2 size={12} strokeWidth={2.5} />
                     Seluruh Gunung
@@ -1033,7 +1033,8 @@ export default function VolcanoMap({
 
                     borderRadius: '999px',
 
-                    background: 'rgba(15, 23, 42, 0.9)',
+                    background:
+                        'linear-gradient(to bottom, rgba(17,27,46,0.95), rgba(10,15,28,0.95))',
 
                     border: '1px solid rgba(255,255,255,0.12)',
 
@@ -1043,7 +1044,11 @@ export default function VolcanoMap({
 
                     fontWeight: 600,
 
+                    backdropFilter: 'blur(24px)',
+                    WebkitBackdropFilter: 'blur(24px)',
+
                     pointerEvents: 'none',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
                 }}
             >
                 <span

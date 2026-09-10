@@ -12,6 +12,7 @@ import {
     Gauge,
     LandPlot,
     Layers,
+    MapPin,
     MountainSnow,
     Navigation,
     Pause,
@@ -157,6 +158,23 @@ interface GerakanTanahData {
     error?: string | null;
 }
 
+interface CityData {
+    city: {
+        name: string | null;
+        provinsi: string | null;
+        country: string | null;
+        latitude: number;
+        longitude: number;
+        geocode_source: string | null;
+    };
+    summary: {
+        ash_edge_km: number | null;
+        inside_plume: boolean;
+        nearest_ash_volcano: string | null;
+        plume_volcanoes: Array<string | null>;
+    };
+}
+
 interface EarthquakeMarkerInfo {
     id: string;
     latitude: number | null;
@@ -216,7 +234,9 @@ function PanelTitle({
     children: ReactNode;
 }) {
     return (
-        <p className="mb-2.5 flex items-center gap-2 text-[10.5px] font-extrabold tracking-[1px] text-slate-400 uppercase">
+        <p className="mb-2.5 flex items-center gap-2 text-[10.5px] font-extrabold tracking-[1px] text-slate-300 uppercase">
+            <span className="h-3 w-[3px] shrink-0 rounded-full bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.7)]" />
+
             {icon && (
                 <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-[10.5px] text-sky-400">
                     {icon}
@@ -225,8 +245,182 @@ function PanelTitle({
 
             <span>{children}</span>
 
-            <span className="h-px flex-1 bg-gradient-to-r from-white/15 to-transparent" />
+            <span className="h-px flex-1 bg-gradient-to-r from-white/20 via-white/10 to-transparent" />
         </p>
+    );
+}
+
+const LAYER_ORDER = ['observasi', 'hour-6', 'hour-12', 'hour-18'] as const;
+
+const LAYER_COLORS: Record<string, string> = {
+    observasi: '#ef4444',
+    'hour-6': '#f97316',
+    'hour-12': '#eab308',
+    'hour-18': '#3b82f6',
+};
+
+const LAYER_LABELS: Record<string, string> = {
+    observasi: 'Observasi',
+    'hour-6': '+6 jam',
+    'hour-12': '+12 jam',
+    'hour-18': '+18 jam',
+};
+
+// Gaya layer mengikuti referensi peta sebaran abu:
+// Observasi solid (area VAAC), forecast garis putus.
+const LAYER_STYLE: Record<
+    string,
+    { fillOpacity: number; strokeDashArray?: string }
+> = {
+    observasi: {
+        fillOpacity: 0.16,
+        strokeDashArray: undefined,
+    },
+    'hour-6': {
+        fillOpacity: 0.1,
+        strokeDashArray: '6 6',
+    },
+    'hour-12': {
+        fillOpacity: 0.07,
+        strokeDashArray: '3 7',
+    },
+    'hour-18': {
+        fillOpacity: 0.05,
+        strokeDashArray: '1 8',
+    },
+};
+
+function LegendPanel({
+    showGempaMarkers,
+    onToggleGempa,
+    volcanoQuakesCount,
+    checkedLayers,
+    onToggleLayer,
+    ashActive,
+}: {
+    showGempaMarkers: boolean;
+    onToggleGempa: () => void;
+    volcanoQuakesCount: number;
+    checkedLayers: string[];
+    onToggleLayer: (key: string) => void;
+    ashActive: boolean;
+}) {
+    return (
+        <div className="flex flex-col">
+            <PanelTitle icon={<Layers size={11} strokeWidth={2.5} />}>
+                Legenda &amp; Layer
+            </PanelTitle>
+
+            <label className="flex w-full cursor-pointer items-center justify-between py-1.5 text-xs">
+                <span className="flex items-center gap-2">
+                    <span className="relative grid h-[18px] w-[18px] shrink-0 place-items-center">
+                        <span className="absolute inset-0 animate-ping rounded-full border border-red-400/70" />
+                        <span className="h-[9px] w-[9px] rounded-full border-2 border-red-400 bg-red-500/30" />
+                    </span>
+                    Gempa Terkini (BMKG)
+                </span>
+
+                <span className="relative inline-flex h-[19px] w-[34px] shrink-0 items-center">
+                    <input
+                        type="checkbox"
+                        checked={showGempaMarkers}
+                        onChange={onToggleGempa}
+                        className="peer sr-only"
+                    />
+
+                    <span className="absolute inset-0 rounded-full bg-white/15 transition peer-checked:bg-red-500" />
+
+                    <span className="absolute top-[2.5px] left-[2.5px] h-[14px] w-[14px] rounded-full bg-white transition peer-checked:translate-x-[15px]" />
+                </span>
+            </label>
+
+            <div className="mb-1.5 grid grid-cols-2 gap-x-2 gap-y-1 rounded-lg border border-white/5 bg-white/[0.03] px-2.5 py-2 text-[9px] text-slate-500">
+                {[
+                    ['#22c55e', 'M < 4'],
+                    ['#eab308', 'M 4–5'],
+                    ['#f97316', 'M 5–6'],
+                    ['#ef4444', 'M 6–7'],
+                    ['#a855f7', 'M ≥ 7'],
+                ].map(([color, labelKey]) => (
+                    <span key={labelKey} className="flex items-center gap-1.5">
+                        <span
+                            className="h-2.5 w-2.5 shrink-0 rounded-full border border-white/30"
+                            style={{ background: color }}
+                        />
+                        {labelKey}
+                    </span>
+                ))}
+            </div>
+
+            {volcanoQuakesCount > 0 && (
+                <p className="mb-1.5 flex items-center gap-1.5 rounded-lg border border-red-500/15 bg-red-500/5 px-2 py-1.5 text-[9.5px] font-semibold text-red-300">
+                    <Siren size={10} strokeWidth={2.5} />
+                    {volcanoQuakesCount} gunung sedang dekat gempa
+                </p>
+            )}
+
+            <div className="mb-1 flex items-center gap-1.5 border-b border-white/10 pb-2 text-[9.5px] font-semibold tracking-widest text-slate-500 uppercase">
+                <span className="h-2 w-2 rounded-full bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,1)]" />
+                Sebaran Abu Vulkanik {ashActive ? '' : '(tidak ada)'}
+            </div>
+
+            {ashActive ? (
+                <>
+                    {LAYER_ORDER.map((key) => {
+                        const isChecked = checkedLayers.includes(key);
+
+                        const layerStyle = LAYER_STYLE[key];
+
+                        return (
+                            <label
+                                key={key}
+                                className="flex w-full cursor-pointer items-center justify-between py-1.5 text-xs"
+                            >
+                                <span className="flex items-center gap-2">
+                                    <span
+                                        className="w-[18px]"
+                                        style={{
+                                            borderTop: `3px solid ${LAYER_COLORS[key]}`,
+                                            borderTopStyle:
+                                                layerStyle.strokeDashArray
+                                                    ? 'dashed'
+                                                    : 'solid',
+                                            borderRadius: 2,
+                                        }}
+                                    />
+
+                                    {LAYER_LABELS[key]}
+                                </span>
+
+                                <span className="relative inline-flex h-[19px] w-[34px] shrink-0 items-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => onToggleLayer(key)}
+                                        className="peer sr-only"
+                                    />
+
+                                    <span className="absolute inset-0 rounded-full bg-white/15 transition peer-checked:bg-sky-500" />
+
+                                    <span className="absolute top-[2.5px] left-[2.5px] h-[14px] w-[14px] rounded-full bg-white transition peer-checked:translate-x-[15px]" />
+                                </span>
+                            </label>
+                        );
+                    })}
+
+                    <p className="mt-2 text-[10px] leading-relaxed text-slate-600">
+                        Klik salah satu titik timeline di panel kiri buat sorot
+                        layer itu doang di peta, atau pencet play buat muter
+                        sebarannya otomatis.
+                    </p>
+                </>
+            ) : (
+                <p className="mt-1 flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-medium text-emerald-300">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+                    tidak terdeteksi sebaran abu
+                </p>
+            )}
+        </div>
     );
 }
 
@@ -283,7 +477,22 @@ export default function Monitoring() {
 
     const [showGempaMarkers, setShowGempaMarkers] = useState(true);
 
+    const [layerOpen, setLayerOpen] = useState(false);
+
     const [selectedGempa, setSelectedGempa] = useState<GempaItem | null>(null);
+
+    const [geoState, setGeoState] = useState<
+        'idle' | 'requesting' | 'success' | 'denied' | 'error'
+    >('idle');
+
+    const [cityCoords, setCityCoords] = useState<{
+        lat: number;
+        lon: number;
+    } | null>(null);
+
+    const [cityData, setCityData] = useState<CityData | null>(null);
+
+    const [geoError, setGeoError] = useState<string | null>(null);
 
     const selectedQuakeId = selectedGempa?.eventid ?? null;
 
@@ -549,6 +758,152 @@ export default function Monitoring() {
     };
 
     // ==========================================
+    // KOTA SAYA — GEOLOKASI + SEBARAN ABU
+    // ==========================================
+
+    const requestCityLocation = () => {
+        if (!('geolocation' in navigator)) {
+            setGeoState('error');
+            setGeoError('Browser Anda tidak mendukung geolokasi.');
+
+            return;
+        }
+
+        setGeoState('requesting');
+        setGeoError(null);
+
+        // Coba GPS akurat dulu; kalau gagal, turun ke Wi-Fi/IP.
+        let retried = false;
+
+        const attemptLocation = (
+            highAccuracy: boolean,
+            onSuccess: (position: GeolocationPosition) => void,
+            onError: (error: GeolocationPositionError) => void,
+        ) => {
+            navigator.geolocation.getCurrentPosition(onSuccess, onError, {
+                enableHighAccuracy: highAccuracy,
+                timeout: highAccuracy ? 12000 : 15000,
+                maximumAge: highAccuracy ? 0 : 60000,
+            });
+        };
+
+        const storePosition = (position: GeolocationPosition) => {
+            const coords = {
+                lat: position.coords.latitude,
+                lon: position.coords.longitude,
+            };
+
+            setCityCoords(coords);
+            setGeoState('success');
+        };
+
+        const failFinal = (error: GeolocationPositionError) => {
+            if (error.code === error.PERMISSION_DENIED) {
+                setGeoState('denied');
+                setGeoError(
+                    'Izin lokasi ditolak. Izinkan melalui ikon gembok di bilah alamat, lalu klik "Kota Saya" lagi.',
+                );
+            } else if (error.code === error.POSITION_UNAVAILABLE) {
+                setGeoState('error');
+                setGeoError('Lokasi tidak tersedia saat ini.');
+            } else {
+                setGeoState('error');
+                setGeoError(
+                    'Waktu deteksi lokasi habis. Coba lagi, atau pastikan GPS aktif.',
+                );
+            }
+        };
+
+        const failWithFallback = (error: GeolocationPositionError) => {
+            if (
+                !retried &&
+                (error.code === error.TIMEOUT ||
+                    error.code === error.POSITION_UNAVAILABLE)
+            ) {
+                // GPS lambat/tidak ada sinyal → coba lagi pakai
+                // sumber yang lebih kasar (Wi-Fi/telepon seluler).
+                retried = true;
+
+                attemptLocation(false, storePosition, failFinal);
+
+                return;
+            }
+
+            failFinal(error);
+        };
+
+        attemptLocation(true, storePosition, failWithFallback);
+    };
+
+    // Deteksi posisi secara otomatis saat halaman dibuka — browser akan
+    // meminta izin (Allow/Block). Koordinat selalu real-time, tidak
+    // diambil dari penyimpanan lama.
+    useEffect(() => {
+        requestCityLocation();
+    }, []);
+
+    useEffect(() => {
+        if (cityCoords === null) {
+            return;
+        }
+
+        let cancelled = false;
+
+        const loadCityData = async () => {
+            try {
+                const response = await fetch(
+                    `/api/kota?lat=${encodeURIComponent(cityCoords.lat)}&lon=${encodeURIComponent(cityCoords.lon)}`,
+                    {
+                        headers: {
+                            Accept: 'application/json',
+                        },
+                    },
+                );
+
+                if (!response.ok) {
+                    return;
+                }
+
+                const result: CityData = await response.json();
+
+                if (!cancelled) {
+                    setCityData(result);
+                    setGeoState('success');
+                }
+            } catch {
+                if (!cancelled) {
+                    setGeoError('Gagal mengambil data kota dari server.');
+                }
+            }
+        };
+
+        void loadCityData();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [cityCoords, refreshKey]);
+
+    const cityLocationLabel = [cityData?.city.name, cityData?.city.provinsi]
+        .filter(
+            (part): part is string =>
+                typeof part === 'string' && part.trim() !== '',
+        )
+        .join(', ');
+
+    const formatAshKm = (km: number): string => {
+        if (km <= 0) {
+            return '0';
+        }
+
+        if (km >= 100) {
+            return String(Math.round(km / 10) * 10);
+        }
+
+        return km >= 10 ? String(Math.round(km)) : km.toFixed(1);
+    };
+
+    // ==========================================
     // PILIH GUNUNG (SEARCH SELECT)
     // ==========================================
 
@@ -649,6 +1004,28 @@ export default function Monitoring() {
         return `${pick('day')} ${pick('month')} ${pick(
             'year',
         )} • ${pick('hour')}.${pick('minute')}.${pick('second')} WIB`;
+    };
+
+    const formatWIBStamp = (date: string) => {
+        const parsed = new Date(date);
+
+        if (Number.isNaN(parsed.getTime())) {
+            return '-';
+        }
+
+        const parts = new Intl.DateTimeFormat('id-ID', {
+            timeZone: 'Asia/Jakarta',
+            day: 'numeric',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+        }).formatToParts(parsed);
+
+        const pick = (type: string) =>
+            parts.find((part) => part.type === type)?.value ?? '';
+
+        return `${pick('day')} ${pick('month')}, ${pick('hour')}:${pick('minute')} WIB`;
     };
 
     const magnitudeLabel = (magnitude: string | null) =>
@@ -826,8 +1203,8 @@ export default function Monitoring() {
             <div className="relative flex h-screen w-screen items-center justify-center overflow-hidden bg-[#05070a] text-[#eef1f5]">
                 <div className="text-center">
                     <img
-                        src="/logo/sig.png"
-                        alt="Pantau Abu Vulkanik"
+                        src="/logo/logoSi.png"
+                        alt="VOLCANO"
                         className="mx-auto mb-4 h-16 w-16 animate-pulse object-contain drop-shadow-[0_0_20px_rgba(14,165,233,0.6)]"
                     />
 
@@ -836,7 +1213,7 @@ export default function Monitoring() {
                     </p>
 
                     <p className="mt-1 text-[10px] font-semibold tracking-[0.25em] text-slate-600 uppercase">
-                        Pantau Abu Vulkanik
+                        VOLCANO
                     </p>
                 </div>
             </div>
@@ -900,15 +1277,18 @@ export default function Monitoring() {
 
     const status = data.volcano.status.toLowerCase();
 
-    const statusLabel = status.includes('siaga')
-        ? 'SIAGA'
-        : status.includes('waspada')
-          ? 'WASPADA'
-          : status.includes('awas')
-            ? 'AWAS'
-            : status.includes('normal')
-              ? 'NORMAL'
-              : data.volcano.status.toUpperCase();
+    const pvmbgLevelText = (() => {
+        const parts = data.volcano.status.split(/[–—-]/);
+
+        if (parts.length < 2) {
+            return data.volcano.status.trim().toUpperCase();
+        }
+
+        const head = parts.slice(0, -1).join('-').replace(/\s+/g, ' ').trim();
+        const level = parts[parts.length - 1].trim().toUpperCase();
+
+        return `${head} - ${level}`;
+    })();
 
     // ==========================================
     // ARAH ANGIN (KOMPAS)
@@ -931,54 +1311,6 @@ export default function Monitoring() {
         WNW: 292.5,
         NW: 315,
         NNW: 337.5,
-    };
-
-    const COMPASS_ID: Record<string, string> = {
-        N: 'Utara',
-        NNE: 'Utara Timur Laut',
-        NE: 'Timur Laut',
-        ENE: 'Timur Timur Laut',
-        E: 'Timur',
-        ESE: 'Timur Tenggara',
-        SE: 'Tenggara',
-        SSE: 'Selatan Tenggara',
-        S: 'Selatan',
-        SSW: 'Selatan Barat Daya',
-        SW: 'Barat Daya',
-        WSW: 'Barat Barat Daya',
-        W: 'Barat',
-        WNW: 'Barat Barat Laut',
-        NW: 'Barat Laut',
-        NNW: 'Utara Barat Laut',
-    };
-
-    const degreesToCompass = (degrees: number): string | null => {
-        if (degrees == null || !Number.isFinite(Number(degrees))) {
-            return null;
-        }
-
-        const compassPoints = [
-            'Utara',
-            'Utara Timur Laut',
-            'Timur Laut',
-            'Timur Timur Laut',
-            'Timur',
-            'Timur Tenggara',
-            'Tenggara',
-            'Selatan Tenggara',
-            'Selatan',
-            'Selatan Barat Daya',
-            'Barat Daya',
-            'Barat Barat Daya',
-            'Barat',
-            'Barat Barat Laut',
-            'Barat Laut',
-            'Utara Barat Laut',
-        ];
-
-        const index = Math.round(Number(degrees) / 22.5) % 16;
-
-        return compassPoints[index];
     };
 
     // ==========================================
@@ -1083,46 +1415,6 @@ export default function Monitoring() {
     // ==========================================
     // LEGENDA & LAYER
     // ==========================================
-
-    const LAYER_ORDER = ['observasi', 'hour-6', 'hour-12', 'hour-18'] as const;
-
-    const LAYER_COLORS: Record<string, string> = {
-        observasi: '#ef4444',
-        'hour-6': '#f97316',
-        'hour-12': '#eab308',
-        'hour-18': '#3b82f6',
-    };
-
-    const LAYER_LABELS: Record<string, string> = {
-        observasi: 'Observasi',
-        'hour-6': '+6 jam',
-        'hour-12': '+12 jam',
-        'hour-18': '+18 jam',
-    };
-
-    // Gaya layer mengikuti referensi peta sebaran abu:
-    // Observasi solid (area VAAC), forecast garis putus.
-    const LAYER_STYLE: Record<
-        string,
-        { fillOpacity: number; strokeDashArray?: string }
-    > = {
-        observasi: {
-            fillOpacity: 0.16,
-            strokeDashArray: undefined,
-        },
-        'hour-6': {
-            fillOpacity: 0.1,
-            strokeDashArray: '6 6',
-        },
-        'hour-12': {
-            fillOpacity: 0.07,
-            strokeDashArray: '3 7',
-        },
-        'hour-18': {
-            fillOpacity: 0.05,
-            strokeDashArray: '1 8',
-        },
-    };
 
     const closestForecastByHour = (hour: number) => {
         const predictions = effectivePredictions ?? [];
@@ -1272,84 +1564,6 @@ export default function Monitoring() {
           : realTimeSpeed;
 
     // ==========================================
-    // DESKRIPSI LAYER AKTIF
-    // ==========================================
-
-    const formatKm = (km: number): string => {
-        if (km < 1) {
-            return `${Math.round(km * 1000)} m`;
-        }
-
-        const value = Math.round(km * 10) / 10;
-
-        return `${value % 1 === 0 ? Math.round(value) : value} km`;
-    };
-
-    const layerDescriptions = LAYER_ORDER.filter(
-        (key) => ashActive && checkedLayers.includes(key),
-    )
-        .map((key) => {
-            if (key === 'observasi') {
-                return {
-                    key,
-                    label: 'Posisi saat ini',
-                    heightKm:
-                        data.ash_advisory?.ash_height_m != null
-                            ? data.ash_advisory.ash_height_m / 1000
-                            : null,
-                    movementText: realTimeAsh?.movement
-                        ? `Bergerak ke arah ${
-                              COMPASS_ID[realTimeAsh.movement.toUpperCase()] ??
-                              realTimeAsh.movement
-                          }${
-                              realTimeAsh.speed_kts != null
-                                  ? ` (~${realTimeAsh.speed_kts} knot)`
-                                  : ''
-                          }`
-                        : null,
-                };
-            }
-
-            const forecast = forecastForLayer(key);
-
-            const hour = forecast?.forecast_hour ?? Number(key.split('-')[1]);
-
-            let movementText: string | null = null;
-
-            if (realTimeAsh?.movement) {
-                movementText = `Bergerak ke arah ${
-                    COMPASS_ID[realTimeAsh.movement.toUpperCase()] ??
-                    realTimeAsh.movement
-                }${
-                    realTimeAsh.speed_kts != null
-                        ? ` (~${realTimeAsh.speed_kts} knot)`
-                        : ''
-                }`;
-            } else if (forecast?.direction != null) {
-                const arah =
-                    degreesToCompass(Number(forecast.direction)) ??
-                    `${Number(forecast.direction).toFixed(0)}°`;
-
-                movementText = `Bergerak ke arah ${arah}${
-                    forecast.speed != null
-                        ? ` (~${Number(forecast.speed).toFixed(1)} km/h)`
-                        : ''
-                }`;
-            }
-
-            return {
-                key,
-                label: `Prakiraan +${hour} jam ke depan`,
-                heightKm:
-                    data.ash_advisory?.ash_height_m != null
-                        ? data.ash_advisory.ash_height_m / 1000
-                        : null,
-                movementText,
-            };
-        })
-        .filter((description) => description.key);
-
-    // ==========================================
     // RISIKO ABU
     // ==========================================
 
@@ -1369,50 +1583,10 @@ export default function Monitoring() {
 
     const alerts: MonitoringAlert[] = [];
 
-    // =====================================================
-    // INFO ABU REAL-TIME (VAAC DARWIN)
-    //
-    // Disatukan ke dalam alert status gunung agar hanya
-    // muncul SATU peringatan, tapi tetap berisi data
-    // monitoring real-time.
-    // =====================================================
-
     const advisoryHeightM = data.ash_advisory?.ash_height_m ?? null;
-
-    const advisorySummary = data.ash_advisory?.issued_at
-        ? `per VAAC ${formatWIB(data.ash_advisory.issued_at)} WIB`
-        : 'per VAAC Darwin';
 
     const ashCritical =
         ashActive && advisoryHeightM !== null && advisoryHeightM >= 8000;
-
-    let ashRealTimeBits: string[] = [];
-
-    if (ashActive) {
-        const heightText =
-            advisoryHeightM !== null
-                ? `kolom abu ~${(advisoryHeightM / 1000).toFixed(1)} km`
-                : null;
-
-        const moveText = realTimeAsh?.movement
-            ? `bergerak ke arah ${
-                  COMPASS_ID[realTimeAsh.movement.toUpperCase()] ??
-                  realTimeAsh.movement
-              }${
-                  realTimeAsh.speed_kts != null
-                      ? ` (~${realTimeAsh.speed_kts} knot)`
-                      : ''
-              }`
-            : null;
-
-        ashRealTimeBits = [heightText, moveText, advisorySummary].filter(
-            (bit): bit is string => Boolean(bit),
-        );
-    }
-
-    const ashRealTimeText = ashRealTimeBits.length
-        ? ` Abu terdeteksi: ${ashRealTimeBits.join(' · ')}.`
-        : '';
 
     // =====================================================
     // ALERT BERDASARKAN KONDISI MONITORING REAL-TIME
@@ -1428,21 +1602,21 @@ export default function Monitoring() {
             id: 'volcano-awas',
             level: 'critical',
             title: 'Status Gunung AWAS',
-            message: `${data.volcano.name} berada pada status AWAS. Tindak siaga darurat segera.${ashRealTimeText}`,
+            message: `${data.volcano.name} berada pada status AWAS.`,
         });
     } else if (ashActive && status.includes('siaga')) {
         alerts.push({
             id: 'volcano-siaga',
             level: ashCritical ? 'critical' : 'warning',
             title: 'Status Gunung SIAGA',
-            message: `${data.volcano.name} saat ini berada pada status SIAGA. Aktivitas vulkanik perlu dipantau secara intensif.${ashRealTimeText}`,
+            message: `${data.volcano.name} saat ini berada pada status SIAGA.`,
         });
     } else if (ashActive && status.includes('waspada')) {
         alerts.push({
             id: 'volcano-waspada',
             level: ashCritical ? 'critical' : 'warning',
             title: 'Status Gunung WASPADA',
-            message: `${data.volcano.name} saat ini berada pada status WASPADA. Masyarakat di sekitar gunung agar meningkatkan kewaspadaan.${ashRealTimeText}`,
+            message: `${data.volcano.name} saat ini berada pada status WASPADA.`,
         });
     } else if (ashActive) {
         alerts.push({
@@ -1451,7 +1625,7 @@ export default function Monitoring() {
             title: ashCritical
                 ? 'Kolom Abu Sangat Tinggi'
                 : 'Abu Vulkanik Terdeteksi',
-            message: `VAAC mendeteksi emisi abu aktif.${ashRealTimeText}`,
+            message: 'VAAC mendeteksi emisi abu aktif.',
         });
     } else {
         alerts.push({
@@ -1470,18 +1644,18 @@ export default function Monitoring() {
         const official = data.volcano.status?.toLowerCase() ?? '';
 
         if (official.includes('awas')) {
-            return { color: '#ef4444', label: 'Merah - Awas' };
+            return { color: '#ef4444', label: 'Awas' };
         }
 
         if (official.includes('siaga')) {
-            return { color: '#f97316', label: 'Oranye - Waspada' };
+            return { color: '#f97316', label: 'Waspada' };
         }
 
         if (official.includes('waspada')) {
-            return { color: '#eab308', label: 'Kuning - Siaga' };
+            return { color: '#eab308', label: 'Siaga' };
         }
 
-        return { color: '#22c55e', label: 'Hijau - Normal' };
+        return { color: '#22c55e', label: 'Normal' };
     })();
 
     const statusPillText =
@@ -1607,21 +1781,37 @@ export default function Monitoring() {
             </div>
 
             {/* =====================================
+            AMBIENT GLOW (LATAR)
+        ====================================== */}
+
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-72 bg-[radial-gradient(70%_100%_at_50%_0%,rgba(14,165,233,0.14),rgba(124,58,237,0.06)_60%,transparent)]" />
+
+            {/* =====================================
             TOPBAR (GLASS)
         ====================================== */}
 
             <header className="pointer-events-none absolute inset-x-0 top-0 z-[1200] px-3 pt-3">
-                <div className="pointer-events-auto rounded-2xl border border-white/10 bg-[#0d1117] px-4 py-3 shadow-2xl shadow-black/40">
+                <div className="pointer-events-auto rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-4 py-3 shadow-2xl shadow-black/50 backdrop-blur-xl">
                     <div className="flex items-center justify-between gap-3">
-                        <div className="flex min-w-0 items-center">
+                        <div className="flex min-w-0 items-center gap-2.5">
                             <img
-                                src="/logo/sig.png"
-                                alt="Pantau Abu Vulkanik"
+                                src="/logo/logoSi.png"
+                                alt="VOLCANO"
                                 className="h-10 w-auto shrink-0 object-contain drop-shadow-[0_0_14px_rgba(14,165,233,0.5)]"
                             />
+
+                            <div className="hidden min-w-0 sm:block">
+                                <p className="truncate text-[15px] leading-tight font-black tracking-tight text-white">
+                                    VOLCANO
+                                </p>
+
+                                <p className="truncate text-[9px] font-extrabold tracking-[2px] text-sky-400/90 uppercase">
+                                    Live Monitoring · 24 Jam
+                                </p>
+                            </div>
                         </div>
 
-                        <div className="flex shrink-0 items-center gap-2">
+                        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
                             {/* STATUS PILL */}
 
                             <span
@@ -1631,8 +1821,58 @@ export default function Monitoring() {
                                     className={`h-2 w-2 rounded-full ${statusDotClass}`}
                                 />
 
-                                {statusPillText}
+                                <span className="hidden md:inline">
+                                    {statusPillText}
+                                </span>
                             </span>
+
+                            {/* KOTA SAYA */}
+
+                            <button
+                                type="button"
+                                onClick={requestCityLocation}
+                                title={
+                                    cityLocationLabel
+                                        ? `Kota: ${cityLocationLabel}`
+                                        : 'Deteksi kota saya (minta izin lokasi)'
+                                }
+                                aria-label="Deteksi kota saya"
+                                className={`flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[11px] font-bold transition ${
+                                    geoState === 'denied'
+                                        ? 'border-red-500/40 bg-red-500/10 text-red-300'
+                                        : geoState === 'requesting'
+                                          ? 'border-sky-500/40 bg-sky-500/10 text-sky-300'
+                                          : cityData?.summary.inside_plume
+                                            ? 'border-red-500/40 bg-red-500/10 text-red-300 shadow-[0_0_18px_rgba(255,59,59,0.35)]'
+                                            : 'border-white/10 bg-white/5 text-sky-400 hover:bg-white/10'
+                                }`}
+                            >
+                                {cityData?.summary.inside_plume ? (
+                                    <TriangleAlert
+                                        size={12}
+                                        strokeWidth={2.5}
+                                    />
+                                ) : (
+                                    <MapPin size={12} strokeWidth={2.5} />
+                                )}
+
+                                <span className="max-w-[38vw] truncate sm:max-w-[160px]">
+                                    {cityData?.city.name ?? 'Kota Saya'}
+                                </span>
+                            </button>
+
+                            {/* LEGENDA (MOBILE) */}
+
+                            <button
+                                type="button"
+                                onClick={() => setLayerOpen((open) => !open)}
+                                title="Legenda & Layer"
+                                aria-label="Buka legenda & layer"
+                                className="flex h-8 cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-[11px] font-bold text-violet-300 transition hover:bg-white/10 lg:hidden"
+                            >
+                                <Layers size={12} strokeWidth={2.5} />
+                                <span className="hidden sm:inline">Layer</span>
+                            </button>
 
                             {/* REFRESH RING */}
 
@@ -1701,7 +1941,7 @@ export default function Monitoring() {
                                     className="fixed inset-0 z-0 cursor-default"
                                 />
 
-                                <div className="absolute top-full right-0 left-0 z-10 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-[#0d1117] p-1.5 shadow-2xl shadow-black/50">
+                                <div className="absolute top-full right-0 left-0 z-10 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-gradient-to-b from-[#111b2e]/98 to-[#0a0f1c]/98 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
                                     {filteredVolcanoes.length > 0 ? (
                                         filteredVolcanoes.map((volcano) => (
                                             <button
@@ -1752,10 +1992,150 @@ export default function Monitoring() {
             </header>
 
             {/* =====================================
+            BANNER ANCAMAN ABU KE KOTA (REAL-TIME)
+        ====================================== */}
+
+            {cityData?.summary.inside_plume && (
+                <div className="pointer-events-none absolute inset-x-0 top-[92px] z-[1250] flex justify-center px-4">
+                    <div className="pointer-events-auto flex max-w-[92vw] items-center gap-2 rounded-full border border-red-500/40 bg-red-500/15 px-4 py-2 text-xs font-bold text-red-300 shadow-[0_0_24px_rgba(255,59,59,0.45)] backdrop-blur">
+                        <TriangleAlert size={14} className="shrink-0" />
+                        <span className="truncate">
+                            Kota Anda di dalam sebaran abu —{' '}
+                            {cityData.summary.nearest_ash_volcano ??
+                                'ada erupsi abu aktif'}
+                        </span>
+                    </div>
+                </div>
+            )}
+
+            {/* =====================================
             DECK KIRI (INFO MONITORING)
         ====================================== */}
 
-            <aside className="pointer-events-auto absolute top-[132px] left-3 z-[1100] flex max-h-[calc(100dvh-210px)] w-[308px] max-w-[calc(100vw-24px)] flex-col gap-3.5 overflow-y-auto rounded-2xl border border-white/10 bg-[#0d1117] p-3.5 shadow-2xl shadow-black/40">
+            <aside className="pointer-events-auto absolute top-[128px] left-2 z-[1100] flex max-h-[calc(100dvh-205px)] w-[308px] max-w-[calc(100vw-32px)] flex-col gap-3.5 overflow-y-auto rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 p-3.5 shadow-2xl shadow-black/50 backdrop-blur-xl sm:left-3">
+                {/* KOTA SAYA & SEBARAN ABU */}
+
+                <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-3.5">
+                    <PanelTitle icon={<MapPin size={11} strokeWidth={2.5} />}>
+                        Kota Saya &amp; Sebaran Abu
+                    </PanelTitle>
+
+                    {geoState === 'idle' && !cityCoords && (
+                        <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+                            Klik{' '}
+                            <span className="font-bold text-sky-400">
+                                Kota Saya
+                            </span>{' '}
+                            di bar atas untuk mendeteksi lokasi Anda. Browser
+                            akan meminta izin (Allow/Izinkan), lalu kota Anda
+                            dipantau sebaran abu vulkanik secara real-time.
+                        </p>
+                    )}
+
+                    {geoState === 'requesting' && (
+                        <p className="mt-2 flex items-center gap-2 text-[11px] text-sky-300">
+                            <span className="h-2 w-2 animate-pulse rounded-full bg-sky-400" />
+                            Meminta izin lokasi… Lihat popup Allow/Izinkan di
+                            browser Anda.
+                        </p>
+                    )}
+
+                    {geoState === 'denied' && geoError && (
+                        <div className="mt-2 rounded-lg border border-red-500/25 bg-red-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-red-300">
+                            {geoError}
+                        </div>
+                    )}
+
+                    {geoState === 'error' && geoError && (
+                        <div className="mt-2 rounded-lg border border-orange-500/25 bg-orange-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-orange-300">
+                            {geoError}
+                        </div>
+                    )}
+
+                    {geoState === 'success' && cityData && (
+                        <>
+                            <div
+                                className={`relative mt-2.5 overflow-hidden rounded-xl border px-3 pt-3 pb-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${
+                                    cityData.summary.inside_plume
+                                        ? 'border-red-500/30 bg-gradient-to-br from-red-500/15 via-[#180b12] to-[#0a0f1c]'
+                                        : 'border-sky-500/25 bg-gradient-to-br from-sky-500/15 via-[#0a1220] to-[#0a0f1c]'
+                                }`}
+                            >
+                                <span
+                                    className={`pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full blur-2xl ${
+                                        cityData.summary.inside_plume
+                                            ? 'bg-red-500/25'
+                                            : 'bg-sky-500/25'
+                                    }`}
+                                />
+
+                                <div className="relative flex items-center gap-2">
+                                    <span
+                                        className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border ${
+                                            cityData.summary.inside_plume
+                                                ? 'border-red-400/40 bg-red-500/15 shadow-[0_0_16px_rgba(255,59,59,0.4)]'
+                                                : 'border-sky-400/30 bg-sky-500/15 shadow-[0_0_16px_rgba(14,165,233,0.35)]'
+                                        }`}
+                                    >
+                                        {cityData.summary.inside_plume ? (
+                                            <TriangleAlert
+                                                size={15}
+                                                strokeWidth={2.5}
+                                                className="text-red-400"
+                                            />
+                                        ) : (
+                                            <MapPin
+                                                size={15}
+                                                strokeWidth={2.5}
+                                                className="text-sky-400"
+                                            />
+                                        )}
+                                    </span>
+
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-[14px] font-extrabold text-white">
+                                            {cityLocationLabel ||
+                                                `⌀ ${cityData.city.latitude.toFixed(2)}, ${cityData.city.longitude.toFixed(2)}`}
+                                        </p>
+
+                                        {cityData.summary.inside_plume && (
+                                            <p className="flex animate-pulse items-center gap-1 text-[9px] font-extrabold text-red-400 uppercase">
+                                                <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                                                Di dalam sebaran abu
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {cityData.summary.inside_plume ? (
+                                    <p className="relative mt-2 text-[15px] font-bold text-red-300">
+                                        Di dalam area sebaran abu.
+                                    </p>
+                                ) : cityData.summary.plume_volcanoes.length >
+                                  0 ? (
+                                    <p className="relative mt-2 flex items-baseline gap-1.5">
+                                        <span className="text-[30px] leading-none font-black text-sky-300 tabular-nums drop-shadow-[0_0_18px_rgba(56,189,248,0.35)]">
+                                            ≈{' '}
+                                            {formatAshKm(
+                                                cityData.summary.ash_edge_km ??
+                                                    0,
+                                            )}
+                                        </span>
+
+                                        <span className="text-[10px] font-semibold text-slate-400">
+                                            km dari tepi abu
+                                        </span>
+                                    </p>
+                                ) : (
+                                    <p className="relative mt-2 text-[13px] font-bold text-emerald-300">
+                                        Tidak ada sebaran abu aktif
+                                    </p>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </section>
+
                 {/* STATUS ERUPSI */}
 
                 <section>
@@ -1766,10 +2146,10 @@ export default function Monitoring() {
                     {alerts.map((alert) => {
                         const alertClass =
                             alert.level === 'critical'
-                                ? 'border-red-500/25 bg-red-500/10 text-red-200'
+                                ? 'border-red-500/25 border-l-red-500/70 bg-red-500/10 text-red-200 shadow-[0_0_20px_rgba(255,59,59,0.15)]'
                                 : alert.level === 'warning'
-                                  ? 'border-orange-500/25 bg-orange-500/10 text-orange-200'
-                                  : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-200';
+                                  ? 'border-orange-500/25 border-l-orange-500/70 bg-orange-500/10 text-orange-200 shadow-[0_0_20px_rgba(251,146,60,0.12)]'
+                                  : 'border-emerald-500/25 border-l-emerald-500/70 bg-emerald-500/10 text-emerald-200';
 
                         const IconComponent =
                             alert.level === 'critical'
@@ -1781,7 +2161,7 @@ export default function Monitoring() {
                         return (
                             <div
                                 key={alert.id}
-                                className={`flex items-start gap-2 rounded-xl border px-3 py-2.5 text-[12.5px] leading-relaxed ${alertClass}`}
+                                className={`flex items-start gap-2 rounded-xl border-l-[3px] px-3 py-2.5 text-[12.5px] leading-relaxed ${alertClass}`}
                             >
                                 <span className="mt-0.5 shrink-0">
                                     <IconComponent
@@ -1797,36 +2177,42 @@ export default function Monitoring() {
                                     <p className="mt-0.5 font-medium text-slate-300">
                                         {alert.message}
                                     </p>
+
+                                    {data.ash_advisory && (
+                                        <p className="mt-2 border-t border-white/10 pt-2 text-[9.5px] leading-relaxed text-slate-400">
+                                            Data diambil{' '}
+                                            <span className="font-semibold text-slate-300">
+                                                {data.ash_advisory.issued_at
+                                                    ? formatWIBStamp(
+                                                          data.ash_advisory
+                                                              .issued_at,
+                                                      )
+                                                    : '-'}
+                                            </span>{' '}
+                                            · update berikutnya paling lambat{' '}
+                                            <span className="font-semibold text-sky-300">
+                                                {data.ash_advisory
+                                                    .next_advisory_at
+                                                    ? formatWIBStamp(
+                                                          data.ash_advisory
+                                                              .next_advisory_at,
+                                                      )
+                                                    : 'segera'}
+                                            </span>
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         );
                     })}
 
-                    {data.ash_advisory && (
-                        <p className="mt-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10px] leading-relaxed text-slate-500">
-                            Data diambil{' '}
-                            <span className="font-semibold text-slate-300">
-                                {lastUpdated
-                                    ? formatWIB(lastUpdated.toISOString())
-                                    : '-'}{' '}
-                                WIB
-                            </span>{' '}
-                            · update berikutnya paling lambat{' '}
-                            <span className="font-semibold text-sky-300">
-                                {data.ash_advisory.next_advisory_at
-                                    ? `${formatWIB(data.ash_advisory.next_advisory_at)} WIB`
-                                    : 'segera'}
-                            </span>
-                        </p>
-                    )}
-
                     {/* BADGE GDACS */}
 
                     <div
-                        className={`mt-2 flex items-center gap-2 rounded-xl border px-3 py-2 text-[11.5px] font-bold ${gdacsBadgeClass}`}
+                        className={`mt-2 flex items-center gap-2 rounded-xl border px-3 py-2 text-[11.5px] font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${gdacsBadgeClass}`}
                     >
                         <span
-                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            className="h-2.5 w-2.5 shrink-0 rounded-full shadow-[0_0_10px_currentColor]"
                             style={{ background: gdacsLevel.color }}
                         />
 
@@ -1835,7 +2221,7 @@ export default function Monitoring() {
                                 Status Bahaya (GDACS)
                             </span>
 
-                            {gdacsLevel.label}
+                            {gdacsLevel.label.toUpperCase()}
                         </span>
                     </div>
                 </section>
@@ -1850,33 +2236,31 @@ export default function Monitoring() {
                     </PanelTitle>
 
                     <div
-                        className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-[12.5px] font-extrabold ${pvmbgClass}`}
+                        className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-[12.5px] font-extrabold shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${pvmbgClass}`}
                     >
-                        <ShieldCheck size={16} strokeWidth={2.5} />
+                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/10">
+                            <ShieldCheck size={15} strokeWidth={2.5} />
+                        </span>
 
                         <span>
                             <span className="block text-[9px] font-extrabold tracking-widest uppercase opacity-70">
                                 Level Resmi
                             </span>
-                            {data.volcano.status} — {statusLabel}
+                            {pvmbgLevelText}
                         </span>
                     </div>
 
-                    <p className="mt-1.5 text-[11.5px] leading-relaxed text-slate-400">
-                        {data.activity?.description ??
-                            'Belum tersedia keterangan aktivitas terbaru dari PVMBG.'}
-                        <span className="mt-1 flex items-center gap-1.5 text-[10px] text-slate-500 lowercase">
-                            <span
-                                className={
-                                    data.volcano.status_source === 'live'
-                                        ? 'inline-block size-1.5 rounded-full bg-emerald-400'
-                                        : 'inline-block size-1.5 rounded-full bg-slate-500'
-                                }
-                            />
-                            {data.volcano.status_source === 'live'
-                                ? 'status real-time dari MAGMA'
-                                : 'status tersimpan (fallback)'}
-                        </span>
+                    <p className="mt-1.5 flex items-center gap-1.5 text-[10px] text-slate-500">
+                        <span
+                            className={
+                                data.volcano.status_source === 'live'
+                                    ? 'inline-block size-1.5 rounded-full bg-emerald-400'
+                                    : 'inline-block size-1.5 rounded-full bg-slate-500'
+                            }
+                        />
+                        {data.volcano.status_source === 'live'
+                            ? 'Status Resmi MAGMA'
+                            : 'status tersimpan (fallback)'}
                     </p>
 
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10.5px] text-slate-400">
@@ -2221,17 +2605,6 @@ export default function Monitoring() {
                                 </p>
                             </div>
                         </div>
-
-                        <p className="mt-1.5 text-[9.5px] leading-relaxed text-slate-600">
-                            +{selectedForecast.forecast_hour} jam •{' '}
-                            {selectedForecast.forecast_at
-                                ? `${formatWIB(
-                                      selectedForecast.forecast_at,
-                                  )} WIB`
-                                : '-'}
-                            . Prediksi model untuk visualisasi, bukan pengganti
-                            informasi resmi PVMBG/VAAC.
-                        </p>
                     </section>
                 )}
 
@@ -2397,15 +2770,6 @@ export default function Monitoring() {
                         <b className="text-slate-500">Sumber:</b> VAAC Darwin
                         (BOM Australia) • PVMBG/MAGMA-VSI • BMKG
                     </p>
-
-                    <p>
-                        Update terakhir:{' '}
-                        {lastUpdated
-                            ? formatWIB(lastUpdated.toISOString())
-                            : '-'}{' '}
-                        WIB • otomatis 60 detik. Status official PVMBG &amp;
-                        sebaran abu VAAC saling melengkapi.
-                    </p>
                 </div>
             </aside>
 
@@ -2413,184 +2777,56 @@ export default function Monitoring() {
             LEGENDA & LAYER (KANAN)
         ====================================== */}
 
-            <aside className="pointer-events-auto absolute top-[132px] right-3 z-[1100] w-[230px] max-w-[40vw] rounded-2xl border border-white/10 bg-[#0d1117] p-3.5 shadow-2xl shadow-black/40">
-                <PanelTitle icon={<Layers size={11} strokeWidth={2.5} />}>
-                    Legenda &amp; Layer
-                </PanelTitle>
+            <aside className="pointer-events-auto absolute top-[128px] right-2 z-[1100] hidden w-[230px] max-w-[40vw] rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 p-3.5 shadow-2xl shadow-black/50 backdrop-blur-xl lg:block">
+                <LegendPanel
+                    showGempaMarkers={showGempaMarkers}
+                    onToggleGempa={() => setShowGempaMarkers((value) => !value)}
+                    volcanoQuakesCount={volcanoQuakesCount}
+                    checkedLayers={checkedLayers}
+                    onToggleLayer={toggleLayer}
+                    ashActive={ashActive}
+                />
+            </aside>
 
-                <label className="flex w-full cursor-pointer items-center justify-between py-1.5 text-xs">
-                    <span className="flex items-center gap-2">
-                        <span className="relative grid h-[18px] w-[18px] shrink-0 place-items-center">
-                            <span className="absolute inset-0 animate-ping rounded-full border border-red-400/70" />
-                            <span className="h-[9px] w-[9px] rounded-full border-2 border-red-400 bg-red-500/30" />
-                        </span>
-                        Gempa Terkini (BMKG)
-                    </span>
+            {/* =====================================
+                LEGENDA & LAYER (MOBILE DRAWER)
+            ====================================== */}
 
-                    <span className="relative inline-flex h-[19px] w-[34px] shrink-0 items-center">
-                        <input
-                            type="checkbox"
-                            checked={showGempaMarkers}
-                            onChange={() =>
+            {layerOpen && (
+                <div className="absolute inset-0 z-[1400] flex items-end justify-center lg:hidden">
+                    <button
+                        type="button"
+                        aria-label="Tutup legenda & layer"
+                        onClick={() => setLayerOpen(false)}
+                        className="absolute inset-0 z-0 cursor-default bg-black/50 backdrop-blur-sm"
+                    />
+
+                    <div className="pointer-events-auto relative z-10 mx-3 mb-24 max-h-[60dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/98 to-[#0a0f1c]/98 p-3.5 shadow-2xl shadow-black/60 backdrop-blur-xl">
+                        <LegendPanel
+                            showGempaMarkers={showGempaMarkers}
+                            onToggleGempa={() =>
                                 setShowGempaMarkers((value) => !value)
                             }
-                            className="peer sr-only"
+                            volcanoQuakesCount={volcanoQuakesCount}
+                            checkedLayers={checkedLayers}
+                            onToggleLayer={toggleLayer}
+                            ashActive={ashActive}
                         />
-
-                        <span className="absolute inset-0 rounded-full bg-white/15 transition peer-checked:bg-red-500" />
-
-                        <span className="absolute top-[2.5px] left-[2.5px] h-[14px] w-[14px] rounded-full bg-white transition peer-checked:translate-x-[15px]" />
-                    </span>
-                </label>
-
-                <div className="mb-1.5 grid grid-cols-2 gap-x-2 gap-y-1 rounded-lg border border-white/5 bg-white/[0.03] px-2.5 py-2 text-[9px] text-slate-500">
-                    {[
-                        ['#22c55e', 'M < 4'],
-                        ['#eab308', 'M 4–5'],
-                        ['#f97316', 'M 5–6'],
-                        ['#ef4444', 'M 6–7'],
-                        ['#a855f7', 'M ≥ 7'],
-                    ].map(([color, labelKey]) => (
-                        <span
-                            key={labelKey}
-                            className="flex items-center gap-1.5"
-                        >
-                            <span
-                                className="h-2.5 w-2.5 shrink-0 rounded-full border border-white/30"
-                                style={{ background: color }}
-                            />
-                            {labelKey}
-                        </span>
-                    ))}
+                    </div>
                 </div>
-
-                {volcanoQuakesCount > 0 && (
-                    <p className="mb-1.5 flex items-center gap-1.5 rounded-lg border border-red-500/15 bg-red-500/5 px-2 py-1.5 text-[9.5px] font-semibold text-red-300">
-                        <Siren size={10} strokeWidth={2.5} />
-                        {volcanoQuakesCount} gunung sedang dekat gempa
-                    </p>
-                )}
-
-                <div className="mb-1 flex items-center gap-1.5 border-b border-white/10 pb-2 text-[9.5px] font-semibold tracking-widest text-slate-500 uppercase">
-                    <span className="h-2 w-2 rounded-full bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,1)]" />
-                    Sebaran Abu Vulkanik {ashActive ? '' : '(tidak ada)'}
-                </div>
-
-                {ashActive ? (
-                    <>
-                        {LAYER_ORDER.map((key) => {
-                            const isChecked = checkedLayers.includes(key);
-
-                            const layerStyle = LAYER_STYLE[key];
-
-                            return (
-                                <label
-                                    key={key}
-                                    className="flex w-full cursor-pointer items-center justify-between py-1.5 text-xs"
-                                >
-                                    <span className="flex items-center gap-2">
-                                        <span
-                                            className="w-[18px]"
-                                            style={{
-                                                borderTop: `3px solid ${LAYER_COLORS[key]}`,
-                                                borderTopStyle:
-                                                    layerStyle.strokeDashArray
-                                                        ? 'dashed'
-                                                        : 'solid',
-                                                borderRadius: 2,
-                                            }}
-                                        />
-
-                                        {LAYER_LABELS[key]}
-                                    </span>
-
-                                    <span className="relative inline-flex h-[19px] w-[34px] shrink-0 items-center">
-                                        <input
-                                            type="checkbox"
-                                            checked={isChecked}
-                                            onChange={() => toggleLayer(key)}
-                                            className="peer sr-only"
-                                        />
-
-                                        <span className="absolute inset-0 rounded-full bg-white/15 transition peer-checked:bg-sky-500" />
-
-                                        <span className="absolute top-[2.5px] left-[2.5px] h-[14px] w-[14px] rounded-full bg-white transition peer-checked:translate-x-[15px]" />
-                                    </span>
-                                </label>
-                            );
-                        })}
-
-                        <p className="mt-2 text-[10px] leading-relaxed text-slate-600">
-                            Klik salah satu titik timeline di panel kiri buat
-                            sorot layer itu doang di peta, atau pencet play buat
-                            muter sebarannya otomatis.
-                        </p>
-
-                        {layerDescriptions.length > 0 && (
-                            <div className="mt-3 border-t border-white/10 pt-2.5">
-                                <p className="text-[9px] font-extrabold tracking-widest text-slate-500 uppercase">
-                                    Detail Sebaran Abu
-                                </p>
-
-                                <div className="mt-1.5 space-y-1.5">
-                                    {layerDescriptions.map((description) => (
-                                        <div
-                                            key={description.key}
-                                            className="rounded-lg bg-white/5 p-2 text-[11px] text-slate-400"
-                                        >
-                                            <p className="flex items-center gap-1.5 font-semibold text-slate-200">
-                                                <span
-                                                    className="h-2 w-2 rounded-full"
-                                                    style={{
-                                                        background:
-                                                            LAYER_COLORS[
-                                                                description.key
-                                                            ],
-                                                    }}
-                                                />
-
-                                                {description.label}
-                                            </p>
-
-                                            {description.heightKm != null && (
-                                                <p className="mt-0.5">
-                                                    Ketinggian ~
-                                                    {formatKm(
-                                                        description.heightKm,
-                                                    )}
-                                                </p>
-                                            )}
-
-                                            {description.movementText !=
-                                                null && (
-                                                <p>
-                                                    {description.movementText}
-                                                </p>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </>
-                ) : (
-                    <p className="mt-1 flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-medium text-emerald-300">
-                        <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-                        Real-time: tidak terdeteksi sebaran abu
-                    </p>
-                )}
-            </aside>
+            )}
 
             {/* =====================================
                 BOTTOM BAR
             ====================================== */}
 
             <footer className="pointer-events-none absolute inset-x-3 bottom-3 z-[1100] flex items-end justify-between gap-2">
-                <div className="pointer-events-auto rounded-xl border border-white/10 bg-[#0d1117] px-3 py-2 text-[10.5px] text-slate-500">
+                <div className="pointer-events-auto rounded-xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-3 py-2 text-[10.5px] text-slate-500 backdrop-blur-xl">
                     Volcano Monitoring System • BMKG / PVMBG / VAAC Darwin
                 </div>
 
-                <div className="pointer-events-auto rounded-xl border border-white/10 bg-[#0d1117] px-3 py-2 text-[10.5px] text-slate-400">
+                <div className="pointer-events-auto flex items-center justify-end gap-2 rounded-xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-3 py-2 text-[10.5px] text-slate-400 backdrop-blur-xl">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(61,220,132,1)]" />
                     Update terakhir:{' '}
                     {lastUpdated ? formatWIB(lastUpdated.toISOString()) : '-'}{' '}
                     WIB
