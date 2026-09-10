@@ -6,6 +6,7 @@ use App\Models\AshAdvisory;
 use App\Models\AshPrediction;
 use App\Models\Eruption;
 use App\Models\Volcano;
+use App\Models\WeatherCurrent;
 use App\Models\WeatherForecast;
 use App\Services\MagmaService;
 use App\Services\VaacDarwinService;
@@ -118,6 +119,20 @@ class MonitoringController extends Controller
         )
             ->orderBy('forecast_at')
             ->get();
+
+        // =====================================================
+        // 6b. KONDISI CUACA SAAT INI (OPEN-METEO / GFS-ICON)
+        //
+        // Diisi Python scheduler tiap 5 menit via
+        // weather_current_job.py. Satu baris per gunung.
+        // =====================================================
+
+        $currentWeather = WeatherCurrent::where(
+            'volcano_id',
+            $volcano->id
+        )
+            ->latest('observed_at')
+            ->first();
 
         // =====================================================
         // 7. ADVISORY ABU VAAC DARWIN (REAL-TIME)
@@ -290,6 +305,27 @@ class MonitoringController extends Controller
                     ];
                 })
                 ->values(),
+
+            // =================================================
+            // KONDISI CUACA SAAT INI (OPEN-METEO)
+            // =================================================
+
+            'current_weather' => $currentWeather
+                ? [
+                    'source' => $currentWeather->source,
+                    'observed_at' => $this->formatDateTime(
+                        $currentWeather->observed_at
+                    ),
+                    'temperature_c' => $currentWeather->temperature_c,
+                    'apparent_temperature_c' => $currentWeather->apparent_temperature_c,
+                    'humidity' => $currentWeather->humidity,
+                    'pressure_msl' => $currentWeather->pressure_msl,
+                    'wind_speed_kmh' => $currentWeather->wind_speed_kmh,
+                    'wind_direction_deg' => $currentWeather->wind_direction_deg,
+                    'wind_direction_cardinal' => $currentWeather->wind_direction_cardinal,
+                    'wind_gust_kmh' => $currentWeather->wind_gust_kmh,
+                ]
+                : null,
 
             // =================================================
             // ADVISORY ABU VAAC DARWIN

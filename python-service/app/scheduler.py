@@ -6,6 +6,7 @@ from app.database.connection import SessionLocal
 from app.jobs.ash_job import generate_prediction
 from app.jobs.vaac_job import sync_vaac_advisories
 from app.jobs.volcano_job import run_volcano_job
+from app.jobs.weather_current_job import sync_current_weather
 from app.jobs.weather_job import save_weather_forecasts
 
 
@@ -89,6 +90,13 @@ def run_all_jobs():
         # Jeda antar request BMKG agar tidak kena rate limit.
         time.sleep(REQUEST_DELAY)
 
+    # 3b. Ambil kondisi cuaca saat ini (Open-Meteo / GFS-ICON)
+    #     untuk semua gunung yang punya koordinat.
+    try:
+        sync_current_weather()
+    except Exception as error:
+        print(f"[CURRENT WEATHER ERROR] {error}")
+
     # 4. Buat prediksi sebaran abu untuk semua gunung
     for source in sources:
         try:
@@ -122,5 +130,5 @@ if __name__ == "__main__":
             print("Scheduler error:")
             print(error)
 
-        print("\nMenunggu 10 menit sebelum menjalankan kembali...")
-        time.sleep(600)
+        print("\nMenunggu 5 menit sebelum menjalankan kembali...")
+        time.sleep(300)

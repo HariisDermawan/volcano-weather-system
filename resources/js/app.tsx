@@ -1,6 +1,6 @@
 import { createInertiaApp } from '@inertiajs/react';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Volcano Watch';
+const appName = 'Volcano Watch';
 
 void createInertiaApp({
     title: (title) => (title ? `${title} - ${appName}` : appName),

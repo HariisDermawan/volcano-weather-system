@@ -84,11 +84,25 @@ interface AshPrediction {
     geometry: AshGeometry | null;
 }
 
+interface CurrentWeather {
+    source: string | null;
+    observed_at: string | null;
+    temperature_c: number | null;
+    apparent_temperature_c: number | null;
+    humidity: number | null;
+    pressure_msl: number | null;
+    wind_speed_kmh: number | null;
+    wind_direction_deg: number | null;
+    wind_direction_cardinal: string | null;
+    wind_gust_kmh: number | null;
+}
+
 interface MonitoringData {
     volcano: Volcano;
     activity: Activity | null;
     weather: Weather | null;
     weather_forecasts: WeatherForecast[];
+    current_weather: CurrentWeather | null;
     ash_prediction: AshPrediction | null;
     ash_predictions: AshPrediction[];
     ash_active: boolean;
@@ -1390,7 +1404,23 @@ export default function Monitoring() {
 
     const selectedWeather = (() => {
         if (!selectedForecast?.forecast_at) {
-            return data.weather ?? null;
+            const now = Date.now();
+
+            let bestWeather = data.weather ?? null;
+            let bestDiff = Infinity;
+
+            for (const forecast of data.weather_forecasts ?? []) {
+                const diff = Math.abs(
+                    new Date(forecast.forecast_at).getTime() - now,
+                );
+
+                if (diff < bestDiff) {
+                    bestDiff = diff;
+                    bestWeather = forecast;
+                }
+            }
+
+            return bestWeather;
         }
 
         const targetTime = new Date(selectedForecast.forecast_at).getTime();
@@ -2466,6 +2496,121 @@ export default function Monitoring() {
                             </p>
                         </div>
                     </div>
+
+                    {selectedWeather?.forecast_at ? (
+                        <p className="mt-1.5 text-[9.5px] text-slate-500">
+                            Prakiraan BMKG •{' '}
+                            {formatWIBStamp(selectedWeather.forecast_at)}
+                        </p>
+                    ) : null}
+                </section>
+
+                {/* KONDISI SAAT INI (OPEN-METEO / REAL-TIME) */}
+
+                <section>
+                    <PanelTitle icon={<Gauge size={11} strokeWidth={2.5} />}>
+                        Kondisi Saat Ini
+                    </PanelTitle>
+
+                    {data.current_weather ? (
+                        <>
+                            <div className="grid grid-cols-2 gap-1.5">
+                                <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                    <div className="flex items-center gap-1.5 text-slate-500">
+                                        <Thermometer
+                                            size={11}
+                                            strokeWidth={2.5}
+                                        />
+                                        <p className="text-[10px]">Suhu</p>
+                                    </div>
+
+                                    <p className="mt-0.5 text-[15px] font-bold text-white">
+                                        {data.current_weather.temperature_c ??
+                                            '-'}
+                                        °
+                                    </p>
+                                </div>
+
+                                <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                    <div className="flex items-center gap-1.5 text-slate-500">
+                                        <Droplets size={11} strokeWidth={2.5} />
+                                        <p className="text-[10px]">
+                                            Kelembapan
+                                        </p>
+                                    </div>
+
+                                    <p className="mt-0.5 text-[15px] font-bold text-white">
+                                        {data.current_weather.humidity ?? '-'}%
+                                    </p>
+                                </div>
+
+                                <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                    <div className="flex items-center gap-1.5 text-slate-500">
+                                        <Wind size={11} strokeWidth={2.5} />
+                                        <p className="text-[10px]">Tekanan</p>
+                                    </div>
+
+                                    <p className="mt-0.5 text-[15px] font-bold text-white">
+                                        {data.current_weather.pressure_msl ??
+                                            '-'}{' '}
+                                        hPa
+                                    </p>
+                                </div>
+
+                                <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                    <div className="flex items-center gap-1.5 text-slate-500">
+                                        <Navigation
+                                            size={11}
+                                            strokeWidth={2.5}
+                                        />
+                                        <p className="text-[10px]">Angin</p>
+                                    </div>
+
+                                    <p className="mt-0.5 text-[15px] font-bold text-white">
+                                        {data.current_weather.wind_speed_kmh ??
+                                            '-'}{' '}
+                                        km/j
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="mt-1.5 rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-400">
+                                <p>
+                                    arah{' '}
+                                    {data.current_weather.wind_direction_deg !=
+                                    null
+                                        ? `${data.current_weather.wind_direction_deg}°${
+                                              data.current_weather
+                                                  .wind_direction_cardinal
+                                                  ? ` (${data.current_weather.wind_direction_cardinal})`
+                                                  : ''
+                                          }`
+                                        : '-'}
+                                    {data.current_weather.wind_gust_kmh != null
+                                        ? ` • hembusan ${data.current_weather.wind_gust_kmh} km/j`
+                                        : ''}
+                                    {data.current_weather
+                                        .apparent_temperature_c != null
+                                        ? ` • terasa ${data.current_weather.apparent_temperature_c}°C`
+                                        : ''}
+                                </p>
+                            </div>
+
+                            {data.current_weather.observed_at ? (
+                                <p className="mt-1.5 text-[9.5px] text-slate-500">
+                                    Open-Meteo (GFS/ICON) •{' '}
+                                    {formatWIBStamp(
+                                        data.current_weather.observed_at,
+                                    )}
+                                </p>
+                            ) : null}
+                        </>
+                    ) : (
+                        <p className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-500">
+                            Belum ada data kondisi saat ini. Sinkronisasi
+                            Open-Meteo berjalan tiap 5 menit.
+                        </p>
+                    )}
                 </section>
 
                 {/* ADVISORY ABU VULKANIK */}
