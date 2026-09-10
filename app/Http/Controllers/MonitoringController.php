@@ -7,21 +7,44 @@ use App\Models\AshPrediction;
 use App\Models\Eruption;
 use App\Models\Volcano;
 use App\Models\WeatherForecast;
+use App\Services\MagmaService;
+use App\Services\VaacDarwinService;
 
 class MonitoringController extends Controller
 {
-    public function show(Volcano $volcano)
-    {
+    public function show(
+        Volcano $volcano,
+        VaacDarwinService $vaac,
+        MagmaService $magma,
+    ) {
         // =====================================================
-        // 1. AKTIVITAS / ERUPSI TERBARU
+        // 1. AKTIVITAS / ERUPSI TERBARU (REAL-TIME)
+        //
+        // Utama: event erupsi terbaru dari MAGMA Indonesia
+        // (cached 3 menit). Fallback: database (Python scheduler).
         // =====================================================
 
-        $activity = Eruption::where(
-            'volcano_id',
-            $volcano->id
-        )
-            ->latest('occurred_at')
-            ->first();
+        $liveStatus = $magma->getStatusForVolcano(
+            $volcano->name
+        );
+
+        $volcanoStatus = $liveStatus['label'] ?? $volcano->status;
+
+        $liveEruption = $magma->getLatestEruptionForVolcano(
+            $volcano->name
+        );
+
+        if ($liveEruption !== null) {
+            $liveEruption['activity_level'] = $volcanoStatus;
+            $activity = $liveEruption;
+        } else {
+            $activity = Eruption::where(
+                'volcano_id',
+                $volcano->id
+            )
+                ->latest('occurred_at')
+                ->first();
+        }
 
         // =====================================================
         // 2. AMBIL SEMUA ASH PREDICTION
@@ -97,69 +120,89 @@ class MonitoringController extends Controller
             ->get();
 
         // =====================================================
-        // 7. ADVISORY ABU VAAC DARWIN TERBARU
+        // 7. ADVISORY ABU VAAC DARWIN (REAL-TIME)
+        //
+        // Utama: fetch langsung dari BOM (cached 2 menit).
+        // Fallback: data di MySQL (diisi Python scheduler).
         // =====================================================
 
-        $ashAdvisory = AshAdvisory::where(
-            'volcano_id',
+        $liveAdvisory = $vaac->getLatestForVolcano(
             $volcano->id
-        )
-            ->latest('issued_at')
-            ->first();
+        );
 
-        // Fallback: database punya beberapa gunung ganda
-        // (misal `Semeru` dan `Gunung Semeru`). Kalau gunung
-        // yang dipilih tidak punya advisory, cari through
-        // baris volcano lain dengan nama sepadan.
-        if (! $ashAdvisory) {
-            $baseName = preg_replace(
-                '/^Gunung\s+/i',
-                '',
-                trim($volcano->name)
-            );
+        $ashAdvisory = null;
+        $advisorySource = null;
 
-            $matchingIds = Volcano::where(
-                'id',
-                '!=',
+        if ($liveAdvisory !== null) {
+            $advisorySource = 'live';
+            $ashAdvisory = (object) $liveAdvisory;
+        } else {
+            // Fallback ke database
+            $ashAdvisory = AshAdvisory::where(
+                'volcano_id',
                 $volcano->id
             )
-                ->where(function ($query) use (
-                    $volcano,
-                    $baseName
-                ) {
-                    $query->where(
-                        'name',
-                        $volcano->name
-                    )->orWhere(
-                        'name',
-                        'Gunung '.$baseName
-                    )->orWhere(
-                        'name',
-                        $baseName
-                    );
-                })
-                ->pluck('id');
+                ->latest('issued_at')
+                ->first();
 
-            if ($matchingIds->isEmpty()) {
+            // Fallback: database punya beberapa gunung ganda
+            // (misal `Semeru` dan `Gunung Semeru`). Kalau gunung
+            // yang dipilih tidak punya advisory, cari through
+            // baris volcano lain dengan nama sepadan.
+            if (! $ashAdvisory) {
+                $baseName = preg_replace(
+                    '/^Gunung\s+/i',
+                    '',
+                    trim($volcano->name)
+                );
+
                 $matchingIds = Volcano::where(
                     'id',
                     '!=',
                     $volcano->id
                 )
-                    ->where(
-                        'name',
-                        'like',
-                        '%'.$baseName.'%'
-                    )
+                    ->where(function ($query) use (
+                        $volcano,
+                        $baseName
+                    ) {
+                        $query->where(
+                            'name',
+                            $volcano->name
+                        )->orWhere(
+                            'name',
+                            'Gunung '.$baseName
+                        )->orWhere(
+                            'name',
+                            $baseName
+                        );
+                    })
                     ->pluck('id');
+
+                if ($matchingIds->isEmpty()) {
+                    $matchingIds = Volcano::where(
+                        'id',
+                        '!=',
+                        $volcano->id
+                    )
+                        ->where(
+                            'name',
+                            'like',
+                            '%'.$baseName.'%'
+                        )
+                        ->pluck('id');
+                }
+
+                $ashAdvisory = AshAdvisory::whereIn(
+                    'volcano_id',
+                    $matchingIds->push($volcano->id)
+                )
+                    ->latest('issued_at')
+                    ->first();
             }
 
-            $ashAdvisory = AshAdvisory::whereIn(
-                'volcano_id',
-                $matchingIds->push($volcano->id)
-            )
-                ->latest('issued_at')
-                ->first();
+            if ($ashAdvisory) {
+                $advisorySource = 'database';
+            }
         }
 
         // =====================================================
@@ -172,11 +215,20 @@ class MonitoringController extends Controller
         // kondisi real-time (tidak ada sebaran abu).
         // =====================================================
 
+        $issuedAt = $ashAdvisory->issued_at ?? null;
+
+        if ($issuedAt instanceof \DateTimeInterface) {
+            $issuedTimestamp = $issuedAt->getTimestamp();
+        } elseif (is_string($issuedAt)) {
+            $issuedTimestamp = strtotime($issuedAt);
+        } else {
+            $issuedTimestamp = null;
+        }
+
         $ashActive = $ashAdvisory !== null
-            && $ashAdvisory->ash_detected
-            && $ashAdvisory->issued_at?->gte(
-                now()->subHours(24)
-            );
+            && ($ashAdvisory->ash_detected ?? false)
+            && $issuedTimestamp !== null
+            && $issuedTimestamp >= now()->subHours(24)->getTimestamp();
 
         // =====================================================
         // 8. RESPONSE
@@ -194,21 +246,15 @@ class MonitoringController extends Controller
                 'latitude' => (float) $volcano->latitude,
                 'longitude' => (float) $volcano->longitude,
                 'elevation' => $volcano->elevation,
-                'status' => $volcano->status,
+                'status' => $volcanoStatus,
+                'status_source' => $liveStatus ? 'live' : 'database',
             ],
 
             // =================================================
             // ACTIVITY
             // =================================================
 
-            'activity' => $activity
-                ? [
-                    'occurred_at' => $activity->occurred_at,
-                    'activity_level' => $activity->activity_level,
-                    'ash_height' => $activity->ash_height,
-                    'description' => $activity->description,
-                ]
-                : null,
+            'activity' => $this->formatActivity($activity),
 
             // =================================================
             // WEATHER UTAMA
@@ -253,37 +299,33 @@ class MonitoringController extends Controller
 
             'ash_advisory' => $ashAdvisory
                 ? [
-                    'id' => $ashAdvisory->id,
-                    'source' => $ashAdvisory->source,
-                    'advisory_nr' => $ashAdvisory->advisory_nr,
-                    'issued_at' => $ashAdvisory->issued_at,
-                    'observed_at' => $ashAdvisory->observed_at,
-                    'next_advisory_at' => $ashAdvisory->next_advisory_at,
-                    'volcano_code' => $ashAdvisory->volcano_code,
-                    'volcano_name' => $ashAdvisory->volcano_name,
-                    'ash_detected' => $ashAdvisory->ash_detected,
-                    'altitude_ft' => $ashAdvisory->altitude_ft,
-                    'ash_height_m' => $ashAdvisory->ash_height_m,
-                    'movement' => $ashAdvisory->movement,
-                    'speed_kts' => $ashAdvisory->speed_kts,
-                    'geometry' => is_string(
-                        $ashAdvisory->geometry
-                    )
-                        ? json_decode(
-                            $ashAdvisory->geometry,
-                            true
-                        )
-                        : $ashAdvisory->geometry,
-                    'fcst_geometries' => is_string(
-                        $ashAdvisory->fcst_geometries
-                    )
-                        ? json_decode(
-                            $ashAdvisory->fcst_geometries,
-                            true
-                        )
-                        : ($ashAdvisory->fcst_geometries ?? []),
-                    'eruption_detail' => $ashAdvisory->eruption_detail,
-                    'remarks' => $ashAdvisory->remarks,
+                    'id' => $ashAdvisory->id ?? null,
+                    'source' => $ashAdvisory->source ?? 'VAAC Darwin',
+                    'advisory_nr' => $ashAdvisory->advisory_nr ?? null,
+                    'issued_at' => $this->formatDateTime(
+                        $ashAdvisory->issued_at ?? null
+                    ),
+                    'observed_at' => $this->formatDateTime(
+                        $ashAdvisory->observed_at ?? null
+                    ),
+                    'next_advisory_at' => $this->formatDateTime(
+                        $ashAdvisory->next_advisory_at ?? null
+                    ),
+                    'volcano_code' => $ashAdvisory->volcano_code ?? null,
+                    'volcano_name' => $ashAdvisory->volcano_name ?? null,
+                    'ash_detected' => $ashAdvisory->ash_detected ?? false,
+                    'altitude_ft' => $ashAdvisory->altitude_ft ?? null,
+                    'ash_height_m' => $ashAdvisory->ash_height_m ?? null,
+                    'movement' => $ashAdvisory->movement ?? null,
+                    'speed_kts' => $ashAdvisory->speed_kts ?? null,
+                    'geometry' => $this->decodeJson(
+                        $ashAdvisory->geometry ?? null
+                    ),
+                    'fcst_geometries' => $this->decodeJson(
+                        $ashAdvisory->fcst_geometries ?? []
+                    ) ?? [],
+                    'eruption_detail' => $ashAdvisory->eruption_detail ?? null,
+                    'remarks' => $ashAdvisory->remarks ?? null,
                 ]
                 : null,
 
@@ -303,14 +345,9 @@ class MonitoringController extends Controller
                     'speed' => $ashPrediction->speed,
                     'risk_level' => $ashPrediction->risk_level,
                     'confidence' => $ashPrediction->confidence,
-                    'geometry' => is_string(
-                        $ashPrediction->geometry
-                    )
-                        ? json_decode(
-                            $ashPrediction->geometry,
-                            true
-                        )
-                        : $ashPrediction->geometry,
+                    'geometry' => $this->decodeJson(
+                        $ashPrediction->geometry ?? null
+                    ),
                 ]
                 : null,
 
@@ -344,5 +381,85 @@ class MonitoringController extends Controller
                 })
                 ->values(),
         ]);
+    }
+
+    /**
+     * Format a date-time value to a consistent string.
+     *
+     * Live advisory dari VaacDarwinService memakai DateTimeImmutable
+     * (microseconds saat json_encode); data DB memakai Carbon. Keduanya
+     * dinormalisasi ke `Y-m-d H:i:s` agar konsisten untuk frontend.
+     */
+    private function formatDateTime(mixed $value): ?string
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('Y-m-d H:i:s');
+        }
+
+        if (is_string($value) && $value !== '') {
+            return $value;
+        }
+
+        return null;
+    }
+
+    /**
+     * Build the activity response payload.
+     *
+     * Terima event erupsi real-time dari MagmaService (array) atau
+     * record database (Eruption) sebagai fallback.
+     *
+     * @param  Eruption|array<string, mixed>|null  $activity
+     * @return array<string, mixed>|null
+     */
+    private function formatActivity(
+        Eruption|array|null $activity,
+    ): ?array {
+        if ($activity === null) {
+            return null;
+        }
+
+        if ($activity instanceof Eruption) {
+            return [
+                'occurred_at' => $this->formatDateTime(
+                    $activity->occurred_at
+                ),
+                'activity_level' => $activity->activity_level,
+                'ash_height' => $activity->ash_height,
+                'description' => $activity->description,
+                'source' => 'MAGMA (database)',
+            ];
+        }
+
+        return [
+            'occurred_at' => $this->formatDateTime(
+                $activity['occurred_at'] ?? null
+            ),
+            'activity_level' => $activity['activity_level'] ?? null,
+            'ash_height' => $activity['ash_height'] ?? null,
+            'description' => $activity['description'] ?? null,
+            'source' => 'MAGMA (live)',
+        ];
+    }
+
+    /**
+     * Decode JSON string or return array as-is.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function decodeJson(
+        string|array|null $value,
+    ): ?array {
+        if ($value === null) {
+            return null;
+        }
+
+        if (is_array($value)) {
+            return $value;
+        }
+
+        $decoded = json_decode($value, true);
+
+        return is_array($decoded) ? $decoded : null;
     }
 }

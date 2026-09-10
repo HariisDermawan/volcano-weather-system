@@ -18,10 +18,10 @@ return new class extends Migration
             $table->integer('forecast_hour');
             $table->decimal('direction', 6, 2)->nullable();
             $table->decimal('speed', 8, 2)->nullable();
-            $table->enum('risk_level', ['low','medium','high','extreme'])->default('low');
+            $table->enum('risk_level', ['low', 'medium', 'high', 'extreme'])->default('low');
             $table->decimal('confidence', 5, 2)->nullable();
             $table->json('geometry')->nullable();
-            $table->index(['volcano_id','generated_at','forecast_hour',]);
+            $table->index(['volcano_id', 'generated_at', 'forecast_hour']);
             $table->timestamps();
         });
     }

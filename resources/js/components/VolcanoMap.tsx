@@ -778,7 +778,11 @@ export default function VolcanoMap({
                     width: '100%',
                 }}
             >
-                <TileLayer url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
+
+                <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}" />
+
+                <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}" />
 
                 <DarkTiles enabled={dark} />
 
@@ -807,7 +811,10 @@ export default function VolcanoMap({
                     <EarthquakeMarker
                         key={quake.id}
                         quake={quake}
-                        selected={selectedQuakeId != null && selectedQuakeId === quake.id}
+                        selected={
+                            selectedQuakeId != null &&
+                            selectedQuakeId === quake.id
+                        }
                         onSelect={() => onSelectEarthquake?.(quake)}
                     />
                 ))}
@@ -1000,7 +1007,7 @@ export default function VolcanoMap({
                         );
                     }}
                     title="Tampilkan semua gunung api"
-                    className="absolute bottom-[14px] left-[14px] z-[1000] flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.06] px-3 py-1.5 text-[11px] font-bold text-slate-200 shadow-xl shadow-black/40 backdrop-blur-xl transition hover:bg-white/10"
+                    className="absolute bottom-[14px] left-[14px] z-[1000] flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-[#0d1117] px-3 py-1.5 text-[11px] font-bold text-slate-200 shadow-xl shadow-black/40 transition hover:bg-white/10"
                 >
                     <Maximize2 size={12} strokeWidth={2.5} />
                     Seluruh Gunung

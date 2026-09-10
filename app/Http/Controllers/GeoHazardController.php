@@ -20,13 +20,13 @@ class GeoHazardController extends Controller
      *   - autogempa.json      : gempa terakhir yang dirasakan
      *   - gempaterkini.json   : 15 gempa terkini
      *
-     * Hasil di-cache 5 menit supaya tidak membebani BMKG.
+     * Hasil di-cache 90 detik supaya tidak membebani BMKG.
      * =====================================================
      */
 
     public function gempa()
     {
-        $data = Cache::remember('geo:gempa', 300, function () {
+        $data = Cache::remember('geo:gempa', 90, function () {
             try {
                 $list = $this->fetchRealtimeGempa();
 
@@ -250,13 +250,13 @@ class GeoHazardController extends Controller
      * tanggapan kejadian geologi (termasuk penyelidikan
      * gerakan tanah / lahan relokasi):
      *   GET https://vsi.esdm.go.id/tanggapan-kejadian/apis/get
-     * Hasil di-cache 10 menit.
+     * Hasil di-cache 3 menit.
      * =====================================================
      */
 
     public function gerakanTanah()
     {
-        $data = Cache::remember('geo:gerakan-tanah', 600, function () {
+        $data = Cache::remember('geo:gerakan-tanah', 180, function () {
             try {
                 $response = Http::timeout(20)->get(
                     'https://vsi.esdm.go.id/tanggapan-kejadian/apis/get',

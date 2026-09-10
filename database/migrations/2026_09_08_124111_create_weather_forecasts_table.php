@@ -22,7 +22,7 @@ return new class extends Migration
             $table->string('wind_direction', 10)->nullable();
             $table->string('weather')->nullable();
             $table->timestamps();
-            $table->index(['volcano_id', 'forecast_at',]);
+            $table->index(['volcano_id', 'forecast_at']);
         });
     }
 

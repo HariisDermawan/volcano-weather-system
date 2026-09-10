@@ -18,7 +18,7 @@ return new class extends Migration
             $table->integer('altitude');
             $table->decimal('wind_speed', 8, 2);
             $table->decimal('wind_direction', 6, 2);
-            $table->index(['volcano_id','observed_at','altitude',]);
+            $table->index(['volcano_id', 'observed_at', 'altitude']);
             $table->timestamps();
         });
     }

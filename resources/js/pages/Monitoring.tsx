@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
     Activity,
     AlertTriangle,
+    ArrowLeft,
     ChevronDown,
     CircleCheck,
     CloudSun,
@@ -215,7 +216,7 @@ function PanelTitle({
     return (
         <p className="mb-2.5 flex items-center gap-2 text-[10.5px] font-extrabold tracking-[1px] text-slate-400 uppercase">
             {icon && (
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-[10.5px] text-orange-400">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-[10.5px] text-sky-400">
                     {icon}
                 </span>
             )}
@@ -394,6 +395,25 @@ export default function Monitoring() {
 
                         return result.ash_predictions[0].id;
                     });
+                } else if (result.ash_advisory?.fcst_geometries) {
+                    const fcstHours = Object.keys(
+                        result.ash_advisory.fcst_geometries,
+                    )
+                        .map(Number)
+                        .filter((h) => h > 0)
+                        .sort((a, b) => a - b);
+
+                    if (fcstHours.length > 0) {
+                        setSelectedForecastId((currentId) => {
+                            if (currentId !== null && currentId < 0) {
+                                return currentId;
+                            }
+
+                            return -(0 + 1);
+                        });
+                    } else {
+                        setSelectedForecastId(null);
+                    }
                 } else {
                     setSelectedForecastId(null);
                 }
@@ -416,18 +436,14 @@ export default function Monitoring() {
 
         fetchMonitoringData();
 
-        // Refresh monitoring setiap 60 detik.
-        const interval = setInterval(fetchMonitoringData, 60 * 1000);
-
         return () => {
             cancelled = true;
-            clearInterval(interval);
         };
     }, [selectedVolcanoId, refreshKey]);
 
     // ==========================================
     // AMBIL GEMPA TERKINI & GERAKAN TANAH
-    // (refresh 60 detik, sama seperti monitoring)
+    // (sekali pada load; refresh manual via tombol)
     // ==========================================
 
     useEffect(() => {
@@ -472,34 +488,43 @@ export default function Monitoring() {
 
         void fetchGeoData();
 
-        const interval = setInterval(fetchGeoData, 60 * 1000);
-
         return () => {
             cancelled = true;
-            clearInterval(interval);
         };
     }, [refreshKey]);
 
     // ==========================================
-    // HANDLER PILIH GUNUNG
+    // AUTO-REFRESH (REAL-TIME)
+    //
+    // Polling otomatis tiap 30 detik selama tab
+    // tampak; sekali lagi saat tab kembali fokus,
+    // supaya status erupsi dan gempa tetap segar
+    // tanpa interaksi manual.
     // ==========================================
 
-    const handleVolcanoChange = (
-        event: React.ChangeEvent<HTMLSelectElement>,
-    ) => {
-        const volcanoId = Number(event.target.value);
+    useEffect(() => {
+        const interval = window.setInterval(() => {
+            if (document.visibilityState === 'visible') {
+                setRefreshKey((key) => key + 1);
+            }
+        }, 30_000);
 
-        setSelectedVolcanoId(volcanoId);
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                setRefreshKey((key) => key + 1);
+            }
+        };
 
-        // Reset forecast ketika gunung berubah.
-        setSelectedForecastId(null);
+        document.addEventListener('visibilitychange', onVisibilityChange);
 
-        // Kembali ke layer observasi.
-        setCheckedLayers(['observasi']);
-
-        // Bersihkan data lama.
-        setData(null);
-    };
+        return () => {
+            window.clearInterval(interval);
+            document.removeEventListener(
+                'visibilitychange',
+                onVisibilityChange,
+            );
+        };
+    }, []);
 
     // ==========================================
     // SYNC NAMA GUNUNG KE SEARCH SELECT
@@ -535,7 +560,6 @@ export default function Monitoring() {
         setSelectedVolcanoId(id);
         setSelectedForecastId(null);
         setCheckedLayers(['observasi']);
-        setData(null);
     };
 
     const filteredVolcanoes = volcanoes.filter((volcano) => {
@@ -558,7 +582,7 @@ export default function Monitoring() {
 
     const gempaMarkers: EarthquakeMarkerInfo[] = (gempa?.list ?? [])
         .map((item, index) => ({
-            id: `gempa-${index}`,
+            id: item.eventid ?? `gempa-${index}`,
             latitude: item.latitude,
             longitude: item.longitude,
             magnitude: item.magnitude != null ? Number(item.magnitude) : null,
@@ -597,6 +621,60 @@ export default function Monitoring() {
         }
 
         return '#a855f7';
+    };
+
+    const formatWIBShort = (date: string) => {
+        const parsed = new Date(date);
+
+        if (Number.isNaN(parsed.getTime())) {
+            return '-';
+        }
+
+        const parts = new Intl.DateTimeFormat('id-ID', {
+            timeZone: 'Asia/Jakarta',
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+        }).formatToParts(parsed);
+
+        const pick = (type: string) =>
+            parts.find((part) => part.type === type)?.value ?? '';
+
+        return `${pick('day')} ${pick('month')} ${pick(
+            'year',
+        )} • ${pick('hour')}.${pick('minute')}.${pick('second')} WIB`;
+    };
+
+    const magnitudeLabel = (magnitude: string | null) =>
+        magnitude ? magnitude.replace('.', ',') : '-';
+
+    const kedalamanLabel = (depth: string | null) =>
+        depth ? depth.replace('.', ',').toLowerCase() : '-';
+
+    const locationLabel = (item: GempaItem) => {
+        if (item.lintang && item.bujur) {
+            return `${item.lintang.replace('.', ',')} - ${item.bujur.replace(
+                '.',
+                ',',
+            )}`;
+        }
+
+        if (item.latitude != null && item.longitude != null) {
+            const lat = `${Math.abs(item.latitude)
+                .toFixed(2)
+                .replace('.', ',')} ${item.latitude < 0 ? 'LS' : 'LU'}`;
+            const lng = `${Math.abs(item.longitude)
+                .toFixed(2)
+                .replace('.', ',')} ${item.longitude < 0 ? 'BB' : 'BT'}`;
+
+            return `${lat} - ${lng}`;
+        }
+
+        return '-';
     };
 
     // ==========================================
@@ -659,7 +737,7 @@ export default function Monitoring() {
             return;
         }
 
-        const predictions = data?.ash_predictions ?? [];
+        const predictions = effectivePredictions ?? [];
 
         if (predictions.length === 0) {
             setTimelinePlaying(false);
@@ -701,7 +779,7 @@ export default function Monitoring() {
             <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
                 <div className="text-center">
                     <div className="mb-3 flex justify-center">
-                        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 shadow-[0_0_24px_rgba(255,110,20,0.5)]">
+                        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 shadow-[0_0_24px_rgba(14,165,233,0.5)]">
                             <MountainSnow size={22} className="text-white" />
                         </span>
                     </div>
@@ -738,71 +816,27 @@ export default function Monitoring() {
     }
 
     // ==========================================
-    // LOADING MONITORING
+    // LOADING MONITORING (layar pertama saja)
     // ==========================================
 
-    if (loading) {
+    if (loading && !data) {
         return (
-            <div className="min-h-screen bg-slate-950 text-white">
-                <header className="border-b border-white/10 bg-slate-950/90">
-                    <div className="mx-auto max-w-7xl px-6 py-5">
-                        <div className="flex items-center gap-3">
-                            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 shadow-lg">
-                                <MountainSnow
-                                    size={18}
-                                    className="text-white"
-                                />
-                            </span>
+            <div className="relative flex h-screen w-screen items-center justify-center overflow-hidden bg-[#05070a] text-[#eef1f5]">
+                <div className="text-center">
+                    <img
+                        src="/logo/sig.png"
+                        alt="Pantau Abu Vulkanik"
+                        className="mx-auto mb-4 h-16 w-16 animate-pulse object-contain drop-shadow-[0_0_20px_rgba(14,165,233,0.6)]"
+                    />
 
-                            <div>
-                                <h1 className="text-2xl font-bold">
-                                    Volcano Monitoring
-                                </h1>
+                    <p className="text-sm font-semibold text-slate-300">
+                        Memuat data monitoring…
+                    </p>
 
-                                <p className="text-sm text-slate-400">
-                                    Sistem monitoring gunung api & cuaca
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-                </header>
-
-                <main className="mx-auto max-w-7xl px-6 py-6">
-                    <div className="mb-6 rounded-2xl border border-white/10 bg-slate-900 p-5">
-                        <label className="text-xs font-medium tracking-widest text-slate-500 uppercase">
-                            Pilih Gunung Api
-                        </label>
-
-                        <select
-                            value={selectedVolcanoId}
-                            onChange={handleVolcanoChange}
-                            className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-orange-500/50"
-                        >
-                            {volcanoes.map((volcano) => (
-                                <option key={volcano.id} value={volcano.id}>
-                                    {volcano.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="flex min-h-[300px] items-center justify-center">
-                        <div className="text-center">
-                            <div className="mb-3 flex justify-center">
-                                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-red-500 shadow-[0_0_24px_rgba(255,110,20,0.5)]">
-                                    <MountainSnow
-                                        size={22}
-                                        className="text-white"
-                                    />
-                                </span>
-                            </div>
-
-                            <p className="text-slate-300">
-                                Memuat data monitoring...
-                            </p>
-                        </div>
-                    </div>
-                </main>
+                    <p className="mt-1 text-[10px] font-semibold tracking-[0.25em] text-slate-600 uppercase">
+                        Pantau Abu Vulkanik
+                    </p>
+                </div>
             </div>
         );
     }
@@ -813,66 +847,18 @@ export default function Monitoring() {
 
     if (error) {
         return (
-            <div className="min-h-screen bg-slate-950 text-white">
-                <header className="border-b border-white/10 bg-slate-950/90">
-                    <div className="mx-auto max-w-7xl px-6 py-5">
-                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                            <div className="flex items-center gap-3">
-                                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-red-500 shadow-lg">
-                                    <MountainSnow
-                                        size={18}
-                                        className="text-white"
-                                    />
-                                </span>
-
-                                <div>
-                                    <h1 className="text-2xl font-bold">
-                                        Volcano Monitoring
-                                    </h1>
-
-                                    <p className="text-sm text-slate-400">
-                                        Sistem monitoring gunung api & cuaca
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-3">
-                                <span className="flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400">
-                                    <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                                    ONLINE
-                                </span>
-
-                                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-400">
-                                    BMKG + PVMBG + VAAC
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </header>
-
-                <main className="mx-auto max-w-7xl px-6 py-6">
-                    <div className="mb-6 rounded-2xl border border-white/10 bg-slate-900 p-5">
-                        <label className="text-xs font-medium tracking-widest text-slate-500 uppercase">
-                            Pilih Gunung Api
-                        </label>
-
-                        <select
-                            value={selectedVolcanoId}
-                            onChange={handleVolcanoChange}
-                            className="mt-2 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-sm text-white outline-none focus:border-orange-500/50"
-                        >
-                            {volcanoes.map((volcano) => (
-                                <option key={volcano.id} value={volcano.id}>
-                                    {volcano.name}
-                                </option>
-                            ))}
-                        </select>
+            <div className="flex min-h-screen items-center justify-center bg-[#05070a] px-6 text-[#eef1f5]">
+                <div className="w-full max-w-md rounded-2xl border border-red-500/20 bg-white/[0.05] p-6 text-center backdrop-blur-xl">
+                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/15">
+                        <AlertTriangle size={22} className="text-red-400" />
                     </div>
 
-                    <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-6 text-red-300">
-                        Error: {error}
-                    </div>
-                </main>
+                    <h2 className="text-sm font-bold text-white">
+                        Gagal memuat data monitoring
+                    </h2>
+
+                    <p className="mt-2 text-xs text-slate-400">{error}</p>
+                </div>
             </div>
         );
     }
@@ -883,7 +869,7 @@ export default function Monitoring() {
 
     if (!data) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-300">
+            <div className="flex min-h-screen items-center justify-center bg-[#05070a] text-slate-400">
                 Data monitoring tidak ditemukan.
             </div>
         );
@@ -921,45 +907,6 @@ export default function Monitoring() {
             : status.includes('normal')
               ? 'NORMAL'
               : data.volcano.status.toUpperCase();
-
-    // ==========================================
-    // FORECAST YANG DIPILIH
-    // ==========================================
-
-    const selectedForecast =
-        data.ash_predictions?.find(
-            (prediction) => prediction.id === selectedForecastId,
-        ) ??
-        data.ash_predictions?.[0] ??
-        data.ash_prediction;
-
-    // ==========================================
-    // WEATHER SESUAI FORECAST
-    // ==========================================
-
-    const selectedWeather = (() => {
-        if (!selectedForecast?.forecast_at) {
-            return data.weather ?? null;
-        }
-
-        const targetTime = new Date(selectedForecast.forecast_at).getTime();
-
-        let bestWeather = data.weather ?? null;
-        let bestDiff = Infinity;
-
-        for (const forecast of data.weather_forecasts ?? []) {
-            const diff = Math.abs(
-                new Date(forecast.forecast_at).getTime() - targetTime,
-            );
-
-            if (diff < bestDiff) {
-                bestDiff = diff;
-                bestWeather = forecast;
-            }
-        }
-
-        return bestWeather;
-    })();
 
     // ==========================================
     // ARAH ANGIN (KOMPAS)
@@ -1052,6 +999,86 @@ export default function Monitoring() {
         : null;
 
     // ==========================================
+    // SYNTHETIC PREDICTIONS DARI ADVISORY
+    //
+    // Bila ash_predictions dari DB kosong, buat
+    // entry sintetis dari advisory fcst_geometries
+    // supaya timeline & layer tetap tampil.
+    // ==========================================
+
+    const advisoryFcstHours = data.ash_advisory?.fcst_geometries
+        ? Object.keys(data.ash_advisory.fcst_geometries)
+              .map(Number)
+              .filter((h) => h > 0)
+              .sort((a, b) => a - b)
+        : [];
+
+    const syntheticPredictions: AshPrediction[] = advisoryFcstHours.map(
+        (hour, index) => ({
+            id: -(index + 1),
+            generated_at: data.ash_advisory!.issued_at,
+            forecast_at: null,
+            forecast_hour: hour,
+            direction: realTimeDirection,
+            speed: realTimeSpeed,
+            risk_level: 'unknown',
+            confidence: null,
+            geometry:
+                data.ash_advisory!.fcst_geometries?.[String(hour)] ?? null,
+        }),
+    );
+
+    const effectivePredictions =
+        data.ash_predictions.length > 0
+            ? data.ash_predictions
+            : syntheticPredictions;
+
+    const hasTimelineData =
+        ashActive &&
+        (data.ash_predictions.length > 0 ||
+            (data.ash_advisory?.fcst_geometries &&
+                Object.keys(data.ash_advisory.fcst_geometries).length > 0));
+
+    // ==========================================
+    // FORECAST YANG DIPILIH
+    // ==========================================
+
+    const selectedForecast =
+        effectivePredictions?.find(
+            (prediction) => prediction.id === selectedForecastId,
+        ) ??
+        effectivePredictions?.[0] ??
+        data.ash_prediction;
+
+    // ==========================================
+    // WEATHER SESUAI FORECAST
+    // ==========================================
+
+    const selectedWeather = (() => {
+        if (!selectedForecast?.forecast_at) {
+            return data.weather ?? null;
+        }
+
+        const targetTime = new Date(selectedForecast.forecast_at).getTime();
+
+        let bestWeather = data.weather ?? null;
+        let bestDiff = Infinity;
+
+        for (const forecast of data.weather_forecasts ?? []) {
+            const diff = Math.abs(
+                new Date(forecast.forecast_at).getTime() - targetTime,
+            );
+
+            if (diff < bestDiff) {
+                bestDiff = diff;
+                bestWeather = forecast;
+            }
+        }
+
+        return bestWeather;
+    })();
+
+    // ==========================================
     // LEGENDA & LAYER
     // ==========================================
 
@@ -1096,7 +1123,7 @@ export default function Monitoring() {
     };
 
     const closestForecastByHour = (hour: number) => {
-        const predictions = data.ash_predictions ?? [];
+        const predictions = effectivePredictions ?? [];
 
         if (predictions.length === 0) {
             return null;
@@ -1536,9 +1563,44 @@ export default function Monitoring() {
                     onSelectVolcano={selectVolcanoById}
                     earthquakes={showGempaMarkers ? gempaMarkers : []}
                     selectedQuakeId={selectedQuakeId}
-                    onSelectEarthquake={setSelectedGempa}
+                    onSelectEarthquake={(quake) => {
+                        const matched =
+                            gempa?.list.find(
+                                (g) =>
+                                    g.eventid != null && g.eventid === quake.id,
+                            ) ?? null;
+
+                        if (matched) {
+                            setSelectedGempa(matched);
+
+                            return;
+                        }
+
+                        setSelectedGempa({
+                            eventid: quake.id,
+                            status: null,
+                            datetime: quake.datetime,
+                            tanggal: quake.datetime
+                                ? quake.datetime.slice(0, 10)
+                                : null,
+                            jam: null,
+                            latitude: quake.latitude,
+                            longitude: quake.longitude,
+                            lintang: null,
+                            bujur: null,
+                            magnitude:
+                                quake.magnitude != null
+                                    ? String(quake.magnitude)
+                                    : null,
+                            depth: quake.depth,
+                            region: quake.region,
+                            potential: null,
+                            felt: quake.felt,
+                            shakemap: null,
+                        });
+                    }}
                     volcanoQuakes={volcanoQuakes}
-                    dark
+                    dark={false}
                 />
             </div>
 
@@ -1547,29 +1609,14 @@ export default function Monitoring() {
         ====================================== */}
 
             <header className="pointer-events-none absolute inset-x-0 top-0 z-[1200] px-3 pt-3">
-                <div className="pointer-events-auto rounded-2xl border border-white/10 bg-white/[0.06] px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-xl">
+                <div className="pointer-events-auto rounded-2xl border border-white/10 bg-[#0d1117] px-4 py-3 shadow-2xl shadow-black/40">
                     <div className="flex items-center justify-between gap-3">
-                        <div className="flex min-w-0 items-center gap-2.5">
-                            <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-gradient-to-br from-orange-500 to-red-500 shadow-[0_0_18px_rgba(255,110,20,0.5)]">
-                                <MountainSnow
-                                    size={18}
-                                    className="text-white"
-                                    strokeWidth={2.5}
-                                />
-                            </span>
-
-                            <div className="min-w-0">
-                                <h1 className="text-sm font-extrabold tracking-tight">
-                                    PANTAU{' '}
-                                    <span className="bg-gradient-to-r from-orange-500 to-red-500 bg-clip-text text-transparent">
-                                        ABU VULKANIK
-                                    </span>
-                                </h1>
-
-                                <small className="block text-[10px] font-medium text-slate-400">
-                                    Live · sumber VAAC Darwin
-                                </small>
-                            </div>
+                        <div className="flex min-w-0 items-center">
+                            <img
+                                src="/logo/sig.png"
+                                alt="Pantau Abu Vulkanik"
+                                className="h-10 w-auto shrink-0 object-contain drop-shadow-[0_0_14px_rgba(14,165,233,0.5)]"
+                            />
                         </div>
 
                         <div className="flex shrink-0 items-center gap-2">
@@ -1592,7 +1639,7 @@ export default function Monitoring() {
                                 onClick={refreshNow}
                                 title="Tarik data sekarang"
                                 aria-label="Tarik data sekarang"
-                                className={`flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm text-orange-500 transition hover:bg-white/10 ${
+                                className={`flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm text-sky-400 transition hover:bg-white/10 ${
                                     refreshing ? 'animate-spin' : ''
                                 }`}
                             >
@@ -1607,7 +1654,7 @@ export default function Monitoring() {
                         <div
                             className={`flex items-center gap-2 rounded-xl border px-3 py-2 transition ${
                                 volcanoOpen
-                                    ? 'border-orange-500/50 bg-white/10'
+                                    ? 'border-sky-500/50 bg-white/10'
                                     : 'border-white/10 bg-white/5'
                             }`}
                         >
@@ -1652,7 +1699,7 @@ export default function Monitoring() {
                                     className="fixed inset-0 z-0 cursor-default"
                                 />
 
-                                <div className="absolute top-full right-0 left-0 z-10 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-[#0d1117]/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
+                                <div className="absolute top-full right-0 left-0 z-10 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-[#0d1117] p-1.5 shadow-2xl shadow-black/50">
                                     {filteredVolcanoes.length > 0 ? (
                                         filteredVolcanoes.map((volcano) => (
                                             <button
@@ -1663,10 +1710,10 @@ export default function Monitoring() {
                                                         volcano.id,
                                                     )
                                                 }
-                                                className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs transition hover:bg-orange-500/15 ${
+                                                className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs transition hover:bg-sky-500/15 ${
                                                     volcano.id ===
                                                     selectedVolcanoId
-                                                        ? 'bg-orange-500/15'
+                                                        ? 'bg-sky-500/15'
                                                         : ''
                                                 }`}
                                             >
@@ -1706,7 +1753,7 @@ export default function Monitoring() {
             DECK KIRI (INFO MONITORING)
         ====================================== */}
 
-            <aside className="pointer-events-auto absolute top-[132px] left-3 z-[1100] flex max-h-[calc(100dvh-210px)] w-[308px] max-w-[calc(100vw-24px)] flex-col gap-3.5 overflow-y-auto rounded-2xl border border-white/10 bg-white/[0.06] p-3.5 shadow-2xl shadow-black/40 backdrop-blur-xl">
+            <aside className="pointer-events-auto absolute top-[132px] left-3 z-[1100] flex max-h-[calc(100dvh-210px)] w-[308px] max-w-[calc(100vw-24px)] flex-col gap-3.5 overflow-y-auto rounded-2xl border border-white/10 bg-[#0d1117] p-3.5 shadow-2xl shadow-black/40">
                 {/* STATUS ERUPSI */}
 
                 <section>
@@ -1752,6 +1799,24 @@ export default function Monitoring() {
                             </div>
                         );
                     })}
+
+                    {data.ash_advisory && (
+                        <p className="mt-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10px] leading-relaxed text-slate-500">
+                            Data diambil{' '}
+                            <span className="font-semibold text-slate-300">
+                                {lastUpdated
+                                    ? formatWIB(lastUpdated.toISOString())
+                                    : '-'}{' '}
+                                WIB
+                            </span>{' '}
+                            · update berikutnya paling lambat{' '}
+                            <span className="font-semibold text-sky-300">
+                                {data.ash_advisory.next_advisory_at
+                                    ? `${formatWIB(data.ash_advisory.next_advisory_at)} WIB`
+                                    : 'segera'}
+                            </span>
+                        </p>
+                    )}
 
                     {/* BADGE GDACS */}
 
@@ -1821,7 +1886,7 @@ export default function Monitoring() {
 
                 {/* TIMELINE SEBARAN */}
 
-                {ashActive && data.ash_predictions?.length > 0 && (
+                {hasTimelineData && (
                     <section>
                         <PanelTitle
                             icon={<Gauge size={11} strokeWidth={2.5} />}
@@ -1849,7 +1914,7 @@ export default function Monitoring() {
                                 <span className="absolute top-[9px] right-2 left-2 h-0.5 bg-white/10" />
 
                                 <div className="relative flex h-full items-start justify-between">
-                                    {data.ash_predictions.map((prediction) => {
+                                    {effectivePredictions.map((prediction) => {
                                         const active =
                                             prediction.id ===
                                             selectedForecastId;
@@ -1869,7 +1934,7 @@ export default function Monitoring() {
                                                 <span
                                                     className={`z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 transition ${
                                                         active
-                                                            ? 'scale-125 border-orange-500 bg-orange-500/40 shadow-[0_0_12px_#ff8a3d]'
+                                                            ? 'scale-125 border-sky-500 bg-sky-500/40 shadow-[0_0_12px_#38bdf8]'
                                                             : 'border-white/20 bg-[#141821]'
                                                     }`}
                                                 />
@@ -2167,7 +2232,7 @@ export default function Monitoring() {
                         <button
                             type="button"
                             onClick={() => setSelectedGempa(null)}
-                            className="mb-1.5 flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[9.5px] font-semibold text-slate-400 transition hover:border-orange-500/40 hover:text-white"
+                            className="mb-1.5 flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[9.5px] font-semibold text-slate-400 transition hover:border-sky-500/40 hover:text-white"
                         >
                             <ArrowLeft size={10} strokeWidth={2.5} />
                             Kembali ke gempa terbaru
@@ -2179,118 +2244,81 @@ export default function Monitoring() {
                             Memuat data gempa…
                         </p>
                     ) : displayGempa?.region ? (
-                        <>
-                            <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
-                                <span
-                                    className="text-[26px] leading-none font-black"
-                                    style={{
-                                        color: gempaMagColor(
-                                            displayGempa.magnitude != null
-                                                ? Number(displayGempa.magnitude)
-                                                : null,
-                                        ),
-                                    }}
-                                >
-                                    {displayGempa.magnitude ?? '-'}
-                                </span>
+                        <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+                            <div className="flex items-start justify-between gap-2">
+                                <p className="text-[11px] font-semibold text-slate-300">
+                                    {displayGempa.datetime
+                                        ? formatWIBShort(displayGempa.datetime)
+                                        : `${displayGempa.tanggal ?? '-'}${
+                                              displayGempa.jam
+                                                  ? ` • ${displayGempa.jam}`
+                                                  : ''
+                                          }`}
+                                </p>
 
-                                <div className="min-w-0 text-[11.5px]">
-                                    <p className="font-bold text-white">
-                                        Mag {displayGempa.magnitude ?? '-'}
-                                        {displayGempa.lintang
-                                            ? ` • ${displayGempa.lintang}`
-                                            : displayGempa.latitude != null &&
-                                                displayGempa.longitude != null
-                                              ? ` • ${displayGempa.latitude.toFixed(
-                                                    2,
-                                                )}, ${displayGempa.longitude.toFixed(
-                                                    2,
-                                                )}`
-                                              : ''}
-                                    </p>
-
-                                    <p className="font-medium text-slate-400">
-                                        {displayGempa.depth || 'Kedalaman -'}
-                                    </p>
-
-                                    <p className="truncate font-medium text-slate-300">
-                                        {displayGempa.region}
-                                    </p>
-
-                                    {displayGempa.status && (
-                                        <p className="mt-0.5 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
-                                            {displayGempa.status === 'confirmed'
-                                                ? 'Terkonfirmasi'
-                                                : displayGempa.status}
-                                        </p>
-                                    )}
-
-                                    {displayGempa.felt && (
-                                        <p className="mt-0.5 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
-                                            Dirasakan: {displayGempa.felt}
-                                        </p>
-                                    )}
-
-                                    <p className="mt-0.5 text-[10px] text-slate-500">
-                                        {displayGempa.datetime
-                                            ? `${formatWIB(
-                                                  displayGempa.datetime,
-                                              )} WIB`
-                                            : displayGempa.tanggal
-                                              ? `${displayGempa.tanggal}${
-                                                    displayGempa.jam
-                                                        ? ` · ${displayGempa.jam}`
-                                                        : ''
-                                                }`
-                                              : '-'}
-                                    </p>
-                                </div>
+                                {displayGempa.status && (
+                                    <span className="shrink-0 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                                        {displayGempa.status === 'confirmed'
+                                            ? 'Terkonfirmasi'
+                                            : displayGempa.status}
+                                    </span>
+                                )}
                             </div>
 
-                            {gempa.list.length > 1 && (
-                                <ul className="mt-1.5 space-y-1">
-                                    {gempa.list.slice(1, 6).map((item, i) => (
-                                        <li
-                                            key={`gempa-list-${i}`}
-                                            className={`flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-[11px] transition ${
-                                                selectedGempa?.eventid != null &&
-                                                item.eventid ===
-                                                    selectedGempa.eventid
-                                                    ? 'cursor-pointer border border-red-400/40 bg-red-500/10'
-                                                    : 'cursor-pointer border border-transparent hover:border-white/15 hover:bg-white/[0.07]'
-                                            }`}
-                                            onClick={() => setSelectedGempa(item)}
-                                        >
-                                            <span
-                                                className="w-[34px] shrink-0 rounded-md px-1 py-0.5 text-center text-[10px] font-extrabold text-white"
-                                                style={{
-                                                    background: gempaMagColor(
-                                                        item.magnitude != null
-                                                            ? Number(
-                                                                  item.magnitude,
-                                                              )
-                                                            : null,
-                                                    ),
-                                                }}
-                                            >
-                                                {item.magnitude ?? '-'}
-                                            </span>
+                            <p className="mt-0.5 text-[13px] leading-snug font-bold text-white">
+                                {displayGempa.region}
+                            </p>
 
-                                            <span className="truncate font-medium text-slate-400">
-                                                {item.region}
-                                            </span>
-
-                                            <span className="ml-auto shrink-0 text-[9.5px] text-slate-600">
-                                                {item.datetime
-                                                    ? formatWIB(item.datetime)
-                                                    : item.tanggal}
-                                            </span>
-                                        </li>
-                                    ))}
-                                </ul>
+                            {displayGempa.felt && (
+                                <p className="mt-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
+                                    Dirasakan: {displayGempa.felt}
+                                </p>
                             )}
-                        </>
-                      ) : (
+
+                            <dl className="mt-2.5 space-y-1.5 text-[11px]">
+                                <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                                    <dt className="font-semibold text-slate-500">
+                                        Magnitudo
+                                    </dt>
+
+                                    <dd
+                                        className="font-black"
+                                        style={{
+                                            color: gempaMagColor(
+                                                displayGempa.magnitude != null
+                                                    ? Number(
+                                                          displayGempa.magnitude,
+                                                      )
+                                                    : null,
+                                            ),
+                                        }}
+                                    >
+                                        {magnitudeLabel(displayGempa.magnitude)}
+                                    </dd>
+                                </div>
+
+                                <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                                    <dt className="font-semibold text-slate-500">
+                                        Kedalaman
+                                    </dt>
+
+                                    <dd className="font-semibold text-slate-300">
+                                        {kedalamanLabel(displayGempa.depth)}
+                                    </dd>
+                                </div>
+
+                                <div className="flex items-center justify-between">
+                                    <dt className="font-semibold text-slate-500">
+                                        Lokasi
+                                    </dt>
+
+                                    <dd className="text-right font-semibold text-slate-300">
+                                        {locationLabel(displayGempa)}
+                                    </dd>
+                                </div>
+                            </dl>
+                        </div>
+                    ) : (
                         <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] text-slate-500">
                             {gempa.error ?? 'Data gempa belum tersedia.'}
                         </p>
@@ -2318,7 +2346,7 @@ export default function Monitoring() {
                                         href={item.url ?? '#'}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="group block rounded-lg border border-white/5 bg-white/[0.04] px-2.5 py-2 text-[11px] transition hover:border-orange-500/30 hover:bg-orange-500/10"
+                                        className="group block rounded-lg border border-white/5 bg-white/[0.04] px-2.5 py-2 text-[11px] transition hover:border-sky-500/30 hover:bg-sky-500/10"
                                     >
                                         <span className="flex items-start justify-between gap-2">
                                             <span className="leading-snug font-semibold text-slate-300 group-hover:text-white">
@@ -2328,7 +2356,7 @@ export default function Monitoring() {
                                             <ExternalLink
                                                 size={11}
                                                 strokeWidth={2.5}
-                                                className="mt-0.5 shrink-0 text-slate-600 group-hover:text-orange-400"
+                                                className="mt-0.5 shrink-0 text-slate-600 group-hover:text-sky-400"
                                             />
                                         </span>
 
@@ -2371,7 +2399,7 @@ export default function Monitoring() {
             LEGENDA & LAYER (KANAN)
         ====================================== */}
 
-            <aside className="pointer-events-auto absolute top-[132px] right-3 z-[1100] w-[230px] max-w-[40vw] rounded-2xl border border-white/10 bg-white/[0.06] p-3.5 shadow-2xl shadow-black/40 backdrop-blur-xl">
+            <aside className="pointer-events-auto absolute top-[132px] right-3 z-[1100] w-[230px] max-w-[40vw] rounded-2xl border border-white/10 bg-[#0d1117] p-3.5 shadow-2xl shadow-black/40">
                 <PanelTitle icon={<Layers size={11} strokeWidth={2.5} />}>
                     Legenda &amp; Layer
                 </PanelTitle>
@@ -2430,7 +2458,7 @@ export default function Monitoring() {
                 )}
 
                 <div className="mb-1 flex items-center gap-1.5 border-b border-white/10 pb-2 text-[9.5px] font-semibold tracking-widest text-slate-500 uppercase">
-                    <span className="h-2 w-2 rounded-full bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,1)]" />
+                    <span className="h-2 w-2 rounded-full bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,1)]" />
                     Sebaran Abu Vulkanik {ashActive ? '' : '(tidak ada)'}
                 </div>
 
@@ -2470,7 +2498,7 @@ export default function Monitoring() {
                                             className="peer sr-only"
                                         />
 
-                                        <span className="absolute inset-0 rounded-full bg-white/15 transition peer-checked:bg-orange-500" />
+                                        <span className="absolute inset-0 rounded-full bg-white/15 transition peer-checked:bg-sky-500" />
 
                                         <span className="absolute top-[2.5px] left-[2.5px] h-[14px] w-[14px] rounded-full bg-white transition peer-checked:translate-x-[15px]" />
                                     </span>
@@ -2544,14 +2572,14 @@ export default function Monitoring() {
             ====================================== */}
 
             <footer className="pointer-events-none absolute inset-x-3 bottom-3 z-[1100] flex items-end justify-between gap-2">
-                <div className="pointer-events-auto rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10.5px] text-slate-500 backdrop-blur-xl">
+                <div className="pointer-events-auto rounded-xl border border-white/10 bg-[#0d1117] px-3 py-2 text-[10.5px] text-slate-500">
                     Volcano Monitoring System • BMKG / PVMBG / VAAC Darwin
                 </div>
 
-                <div className="pointer-events-auto rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10.5px] text-slate-400 backdrop-blur-xl">
+                <div className="pointer-events-auto rounded-xl border border-white/10 bg-[#0d1117] px-3 py-2 text-[10.5px] text-slate-400">
                     Update terakhir:{' '}
                     {lastUpdated ? formatWIB(lastUpdated.toISOString()) : '-'}{' '}
-                    WIB • live 60 detik
+                    WIB
                 </div>
             </footer>
         </div>

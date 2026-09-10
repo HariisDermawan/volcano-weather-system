@@ -100,7 +100,7 @@ export default function WindyMap() {
                 allow="geolocation"
             />
 
-            <div className="absolute top-4 left-4 z-20 rounded-xl border border-white/10 bg-slate-950/90 px-4 py-3 backdrop-blur">
+            <div className="absolute top-4 left-4 z-20 rounded-xl border border-white/10 bg-slate-950 px-4 py-3">
                 <p className="text-xs text-slate-500">Lokasi Saat Ini</p>
 
                 <p className="mt-1 text-sm font-semibold text-white">
@@ -110,7 +110,7 @@ export default function WindyMap() {
             </div>
 
             {locationError && (
-                <div className="absolute bottom-4 left-4 z-20 rounded-xl border border-yellow-500/20 bg-yellow-500/10 px-4 py-3 text-xs text-yellow-300 backdrop-blur">
+                <div className="absolute bottom-4 left-4 z-20 rounded-xl border border-yellow-500/20 bg-slate-950 px-4 py-3 text-xs text-yellow-300">
                     ⚠️ {locationError}
                 </div>
             )}

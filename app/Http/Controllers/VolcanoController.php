@@ -2,31 +2,27 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AshAdvisory;
 use App\Models\Volcano;
+use App\Services\MagmaService;
+use App\Services\VaacDarwinService;
 
 class VolcanoController extends Controller
 {
-    public function index()
-    {
+    public function index(
+        VaacDarwinService $vaac,
+        MagmaService $magma,
+    ) {
         // =====================================================
         // STATUS ABU REAL-TIME PER GUNUNG
         //
-        // Gunung dianggap erupsi (menghasilkan abu) bila
-        // advisory VAAC terbarunya terdeteksi abu dalam
-        // 24 jam terakhir.
+        // Utama: fetch langsung dari VAAC Darwin (cached 2m).
+        // Fallback: database (diisi Python scheduler tiap 10m).
         // =====================================================
 
-        $since = now()->subHours(24);
+        $liveActiveIds = $vaac->getActiveAshVolcanoIds();
 
-        $ashActiveByVolcano = AshAdvisory::query()
-            ->where('issued_at', '>=', $since)
-            ->orderByDesc('issued_at')
-            ->get()
-            ->unique('volcano_id')
-            ->filter(fn ($advisory) => $advisory->ash_detected)
-            ->pluck('volcano_id')
-            ->flip();
+        // Status PVMBG real-time dari MAGMA (cached 3m).
+        $liveStatuses = $magma->getStatuses();
 
         $volcanoes = Volcano::query()
             ->orderBy('name')
@@ -39,8 +35,17 @@ class VolcanoController extends Controller
                 'elevation',
                 'status',
             ])
-            ->map(function ($volcano) use ($ashActiveByVolcano) {
-                $volcano->ash_active = $ashActiveByVolcano->has($volcano->id);
+            ->map(function ($volcano) use ($liveActiveIds, $liveStatuses) {
+                $volcano->ash_active = $liveActiveIds->contains(
+                    $volcano->id,
+                );
+
+                $live = $liveStatuses[$magma->normalizeName(
+                    $volcano->name
+                )] ?? null;
+
+                $volcano->status = $live['label'] ?? $volcano->status;
+                $volcano->status_source = $live ? 'live' : 'database';
 
                 return $volcano;
             });
