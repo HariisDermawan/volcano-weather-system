@@ -1157,14 +1157,14 @@ export default function Monitoring() {
         return (
             <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
                 <div className="text-center">
-                    <div className="mb-3 flex justify-center">
-                        <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-blue-600 shadow-[0_0_24px_rgba(14,165,233,0.5)]">
-                            <MountainSnow size={22} className="text-white" />
-                        </span>
-                    </div>
+                    <img
+                        src="/logo/logoSi.png"
+                        alt="Volcano Watch"
+                        className="mx-auto mb-4 h-14 w-14 animate-pulse object-contain drop-shadow-[0_0_20px_rgba(14,165,233,0.6)]"
+                    />
 
-                    <p className="text-slate-300">
-                        Memuat daftar gunung api...
+                    <p className="text-sm font-semibold text-slate-300">
+                        Memuat daftar gunung...
                     </p>
                 </div>
             </div>
@@ -1204,7 +1204,7 @@ export default function Monitoring() {
                 <div className="text-center">
                     <img
                         src="/logo/logoSi.png"
-                        alt="VOLCANO"
+                        alt="Volcano Watch"
                         className="mx-auto mb-4 h-16 w-16 animate-pulse object-contain drop-shadow-[0_0_20px_rgba(14,165,233,0.6)]"
                     />
 
@@ -1212,8 +1212,8 @@ export default function Monitoring() {
                         Memuat data monitoring…
                     </p>
 
-                    <p className="mt-1 text-[10px] font-semibold tracking-[0.25em] text-slate-600 uppercase">
-                        VOLCANO
+                    <p className="mt-1 text-[10px] font-semibold tracking-[0.25em] text-slate-600">
+                        Volcano Watch
                     </p>
                 </div>
             </div>
@@ -1796,13 +1796,13 @@ export default function Monitoring() {
                         <div className="flex min-w-0 items-center gap-2.5">
                             <img
                                 src="/logo/logoSi.png"
-                                alt="VOLCANO"
+                                alt="Volcano Watch"
                                 className="h-10 w-auto shrink-0 object-contain drop-shadow-[0_0_14px_rgba(14,165,233,0.5)]"
                             />
 
                             <div className="hidden min-w-0 sm:block">
                                 <p className="truncate text-[15px] leading-tight font-black tracking-tight text-white">
-                                    VOLCANO
+                                    Volcano Watch
                                 </p>
 
                                 <p className="truncate text-[9px] font-extrabold tracking-[2px] text-sky-400/90 uppercase">
