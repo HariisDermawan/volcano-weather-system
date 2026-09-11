@@ -440,7 +440,7 @@ def save_mapping(
         db.close()
 
 
-def main():
+def main(missing_only=False):
 
     wilayah = sqlite3.connect(
         WILAYAH_DB
@@ -450,6 +450,38 @@ def main():
 
     try:
         volcanoes = get_volcanoes()
+
+        # ========================================
+        # MODE MISSING-ONLY
+        #
+        # Hanya proses gunung yang BELUM punya
+        # mapping BMKG. Aman dijalankan berulang:
+        # mapping yang sudah ada tidak diubah.
+        # ========================================
+
+        existing_mapped = set()
+
+        if missing_only:
+            db = SessionLocal()
+
+            try:
+                rows = db.execute(
+                    text(
+                        """
+                        SELECT volcano_id
+                        FROM volcano_weather_sources
+                        WHERE source = 'BMKG'
+                        """
+                    )
+                ).fetchall()
+
+                existing_mapped = {
+                    int(row[0])
+                    for row in rows
+                }
+
+            finally:
+                db.close()
 
         print("=" * 80)
         print(
@@ -461,6 +493,13 @@ def main():
             f"Total gunung : "
             f"{len(volcanoes)}"
         )
+
+        if missing_only:
+            print(
+                f"Mode         : hanya gunung "
+                f"yang belum di-mapping "
+                f"({len(volcanoes) - len(existing_mapped)})"
+            )
 
         print()
 
@@ -475,6 +514,11 @@ def main():
         ):
 
             volcano_id = volcano.id
+
+            if missing_only and int(
+                volcano_id
+            ) in existing_mapped:
+                continue
             name = volcano.name
 
             lat = float(
@@ -696,5 +740,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+
+    import sys
+
+    main(
+        missing_only=(
+            "--missing-only" in sys.argv
+        )
+    )
 

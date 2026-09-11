@@ -2811,9 +2811,9 @@ export default function Monitoring() {
 
                     {!usingBmkgWeather && displayWeather?.forecast_at ? (
                         <p className="mt-1.5 text-[9.5px] text-slate-500">
-                            Open-Meteo (GFS/ICON) •{' '}
-                            {formatWIBStamp(displayWeather.forecast_at)}{' '}
-                            (estimasi)
+                            Angin dari Open-Meteo (GFS/ICON) — estimasi
+                            model •{' '}
+                            {formatWIBStamp(displayWeather.forecast_at)}
                         </p>
                     ) : null}
                 </section>
@@ -2873,16 +2873,16 @@ export default function Monitoring() {
 
                     {usingBmkgWeather && selectedWeather?.forecast_at ? (
                         <p className="mt-1.5 text-[9.5px] text-slate-500">
-                            Prakiraan BMKG •{' '}
+                            Prakiraan cuaca BMKG •{' '}
                             {formatWIBStamp(selectedWeather.forecast_at)}
                         </p>
                     ) : null}
 
                     {!usingBmkgWeather && displayWeather?.forecast_at ? (
                         <p className="mt-1.5 text-[9.5px] text-slate-500">
-                            Open-Meteo (GFS/ICON) •{' '}
-                            {formatWIBStamp(displayWeather.forecast_at)}{' '}
-                            (estimasi)
+                            Kondisi cuaca Open-Meteo (GFS/ICON) — estimasi
+                            model, bukan pengukuran alat •{' '}
+                            {formatWIBStamp(displayWeather.forecast_at)}
                         </p>
                     ) : null}
 
@@ -2986,9 +2986,17 @@ export default function Monitoring() {
 
                             {data.current_weather.observed_at ? (
                                 <p className="mt-1.5 text-[9.5px] text-slate-500">
-                                    Open-Meteo (GFS/ICON) •{' '}
+                                    Open-Meteo (GFS/ICON) — estimasi
+                                    model, bukan pengukuran alat •{' '}
                                     {formatWIBStamp(
                                         data.current_weather.observed_at,
+                                    )}
+                                    {(hoursAgo(
+                                        data.current_weather.observed_at,
+                                    ) ?? 99) > 1.5 && (
+                                        <span className="ml-1 text-orange-400">
+                                            (data tidak segar)
+                                        </span>
                                     )}
                                 </p>
                             ) : null}
@@ -2996,7 +3004,8 @@ export default function Monitoring() {
                     ) : (
                         <p className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-500">
                             Belum ada data kondisi saat ini. Sinkronisasi
-                            Open-Meteo berjalan tiap 5 menit.
+                            berjalan berkala (±8–10 menit) oleh sistem
+                            pemantauan.
                         </p>
                     )}
                 </section>
@@ -3054,6 +3063,29 @@ export default function Monitoring() {
                                     {data.ash_advisory.advisory_nr ?? '-'} •{' '}
                                     {formatWIB(data.ash_advisory.issued_at)} WIB
                                 </p>
+
+                                {/* PERINGATAN STALE ADVISORY */}
+                                {data.ash_advisory.ash_detected &&
+                                    (hoursAgo(data.ash_advisory.issued_at) ??
+                                        99) > 4 && (
+                                        <p className="mt-1 rounded-md bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-orange-300">
+                                            Advisory terakhir{' '}
+                                            {Math.round(
+                                                hoursAgo(
+                                                    data.ash_advisory
+                                                        .issued_at,
+                                                ) ?? 0,
+                                            )}{' '}
+                                            jam lalu — konfirmasi ke
+                                            PVMBG/VAAC untuk data terkini.
+                                        </p>
+                                    )}
+
+                                {/* DISCLAIMER KEAMANAN PUBLIK */}
+                                <p className="mt-1 text-[9px] text-slate-600 italic">
+                                    Sumber: VAAC Darwin (BOM). Gunakan
+                                    bersama info resmi PVMBG / BPBD.
+                                </p>
                             </div>
                         </div>
                     ) : (
@@ -3071,7 +3103,7 @@ export default function Monitoring() {
                         <PanelTitle
                             icon={<Navigation size={11} strokeWidth={2.5} />}
                         >
-                            Prediksi Sebaran Abu
+                            Perkiraan Sebaran Abu (Perhitungan Sistem)
                         </PanelTitle>
 
                         <div className="grid grid-cols-2 gap-1.5">
@@ -3138,6 +3170,12 @@ export default function Monitoring() {
                                 </p>
                             </div>
                         </div>
+
+                        <p className="mt-1.5 rounded-md border border-orange-500/20 bg-orange-500/5 px-1.5 py-0.5 text-[9.5px] text-orange-300 italic">
+                            Ini adalah perhitungan sistem internal (VAAC +
+                            model angin). BUKAN keluaran badan resmi.
+                            Selalu ikuti anjuran PVMBG / BPBD setempat.
+                        </p>
                     </section>
                 )}
 
