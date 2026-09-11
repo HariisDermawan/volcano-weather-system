@@ -3007,7 +3007,7 @@ export default function Monitoring() {
 
             <footer className="pointer-events-none absolute inset-x-3 bottom-3 z-[1100] flex items-end justify-between gap-2">
                 <div className="pointer-events-auto rounded-xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-3 py-2 text-[10.5px] text-slate-500 backdrop-blur-xl">
-                    Volcano Monitoring System • BMKG / PVMBG / VAAC Darwin
+                    Volcano Watch by : Haris Darmawan | • BMKG / PVMBG / VAAC Darwin
                 </div>
 
                 <div className="pointer-events-auto flex items-center justify-end gap-2 rounded-xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-3 py-2 text-[10.5px] text-slate-400 backdrop-blur-xl">
