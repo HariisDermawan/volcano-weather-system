@@ -38,6 +38,7 @@ interface Volcano {
     status: string;
     status_source?: 'live' | 'database';
     ash_active?: boolean;
+    erupting?: boolean;
 }
 
 interface Weather {
@@ -434,6 +435,248 @@ function LegendPanel({
                     tidak terdeteksi sebaran abu
                 </p>
             )}
+        </div>
+    );
+}
+
+interface WavePoint {
+    label: string;
+    temperature: number | null;
+    wind_speed: number | null;
+    humidity: number | null;
+}
+
+function WeatherWaveChart({
+    points,
+    activeKey,
+    waveColor,
+}: {
+    points: WavePoint[];
+    activeKey: string;
+    waveColor: string;
+}) {
+    const series = useMemo(() => {
+        const prevTime = Date.now() - 6 * 60 * 60 * 1000;
+        const step = 6 * 60 * 60 * 1000;
+
+        return points.map((point, idx) => ({
+            idx,
+            label: point.label,
+            t: prevTime + idx * step,
+            v: point.temperature,
+        }));
+    }, [points]);
+
+    const activeIndex = Math.max(
+        0,
+        LAYER_ORDER.indexOf(activeKey as (typeof LAYER_ORDER)[number]),
+    );
+
+    const activeEntry = series[activeIndex] ?? null;
+
+    const values = series.map((entry) => entry.v);
+
+    const validCount = values.filter((value) => value != null).length;
+
+    if (validCount < 2) {
+        return (
+            <div className="mt-2 rounded-xl border border-white/10 bg-white/5 p-2.5">
+                <p className="text-center text-[10px] text-slate-500">
+                    Belum cukup data prakiraan untuk grafik.
+                </p>
+            </div>
+        );
+    }
+
+    const W = 292;
+    const H = 76;
+    const PADX = 6;
+    const PADT = 10;
+    const PADB = 14;
+
+    const minT = series[0].t;
+    const maxT = series[series.length - 1].t;
+    const spanT = Math.max(1, maxT - minT);
+
+    const presentValues = values.filter(
+        (value): value is number => value != null,
+    );
+    const minV = Math.min(...presentValues);
+    const maxV = Math.max(...presentValues);
+    const pad = (maxV - minV) * 0.2 || 1;
+    const lo = minV - pad;
+    const hi = maxV + pad;
+
+    const x = (t: number) => PADX + ((t - minT) / spanT) * (W - PADX * 2);
+    const y = (v: number) => PADT + ((hi - v) / (hi - lo)) * (H - PADT - PADB);
+
+    const coords = series
+        .filter((entry) => entry.v != null)
+        .map((entry) => ({
+            idx: entry.idx,
+            x: x(entry.t),
+            y: y(entry.v as number),
+        }));
+
+    let lineD = `M ${coords[0].x.toFixed(1)},${coords[0].y.toFixed(1)}`;
+
+    for (let i = 1; i < coords.length; i++) {
+        const prev = coords[i - 1];
+        const curr = coords[i];
+        const midX = (prev.x + curr.x) / 2;
+        lineD += ` Q ${midX.toFixed(1)},${prev.y.toFixed(1)} ${curr.x.toFixed(1)},${curr.y.toFixed(1)}`;
+    }
+
+    const lastCoord = coords[coords.length - 1];
+    const areaD = `${lineD} L ${lastCoord.x.toFixed(1)},${H - PADB} L ${coords[0].x.toFixed(1)},${H - PADB} Z`;
+
+    return (
+        <div className="mt-2 rounded-xl border border-white/10 bg-white/5 p-2.5">
+            <div className="relative overflow-hidden rounded-lg">
+                <svg
+                    viewBox={`0 0 ${W} ${H}`}
+                    className="block h-[74px] w-full"
+                    role="img"
+                    aria-label="Grafik suhu per jam observasi & prakiraan"
+                >
+                    <defs>
+                        <linearGradient
+                            id="weatherWaveAreaFill"
+                            x1="0"
+                            y1="0"
+                            x2="0"
+                            y2="1"
+                        >
+                            <stop
+                                offset="0%"
+                                stop-color={waveColor}
+                                stop-opacity="0.3"
+                            />
+                            <stop
+                                offset="100%"
+                                stop-color={waveColor}
+                                stop-opacity="0"
+                            />
+                        </linearGradient>
+                    </defs>
+
+                    {[lo, (lo + hi) / 2, hi].map((gridValue, idx) => (
+                        <line
+                            key={idx}
+                            x1={PADX}
+                            x2={W - PADX}
+                            y1={y(gridValue)}
+                            y2={y(gridValue)}
+                            stroke="rgba(255,255,255,0.06)"
+                            stroke-dasharray="3 4"
+                            stroke-width="1"
+                        />
+                    ))}
+
+                    <path d={areaD} fill="url(#weatherWaveAreaFill)" />
+
+                    <path
+                        d={lineD}
+                        fill="none"
+                        stroke={waveColor}
+                        stroke-width="1.6"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    />
+
+                    {coords.map(({ x: cx, y: cy, idx }) => {
+                        const isActive = idx === activeIndex;
+
+                        return (
+                            <g key={idx}>
+                                {isActive && (
+                                    <>
+                                        <line
+                                            x1={cx}
+                                            x2={cx}
+                                            y1={cy}
+                                            y2={H - PADB}
+                                            stroke={waveColor}
+                                            stroke-opacity={0.35}
+                                            stroke-dasharray="2 3"
+                                            stroke-width="1"
+                                        />
+
+                                        <circle
+                                            cx={cx}
+                                            cy={cy}
+                                            r={7}
+                                            fill={waveColor}
+                                            opacity={0.16}
+                                        />
+                                    </>
+                                )}
+
+                                <circle
+                                    cx={cx}
+                                    cy={cy}
+                                    r={isActive ? 3.4 : 1.6}
+                                    fill="#0a0f1c"
+                                    stroke={waveColor}
+                                    stroke-width={isActive ? 2 : 1.4}
+                                />
+                            </g>
+                        );
+                    })}
+
+                    <rect
+                        className="wave-scan"
+                        x="-1"
+                        y={PADT}
+                        width="1.5"
+                        height={H - PADT - PADB}
+                        style={{ fill: waveColor, fillOpacity: 0.35 }}
+                    />
+
+                    {series.map((entry, idx) => (
+                        <text
+                            key={idx}
+                            x={x(entry.t)}
+                            y={H - 3}
+                            text-anchor={
+                                idx === series.length - 1
+                                    ? 'end'
+                                    : idx === 0
+                                      ? 'start'
+                                      : 'middle'
+                            }
+                            fill="#64748b"
+                            fontSize="7"
+                        >
+                            {entry.label}
+                        </text>
+                    ))}
+                </svg>
+            </div>
+
+            <div className="mt-1 flex items-center justify-between text-[8.5px] text-slate-600">
+                <span>min {minV}°C</span>
+
+                <span className="flex items-center gap-1 font-semibold text-slate-300">
+                    <span
+                        className="h-1 w-1 animate-pulse rounded-full"
+                        style={{ background: waveColor }}
+                    />
+                    {activeEntry?.label}{' '}
+                    {activeEntry?.v != null ? `${activeEntry.v}°C` : '—'}
+                </span>
+
+                <span>maks {maxV}°C</span>
+            </div>
+
+            <p className="mt-1 flex items-center justify-center gap-1 text-[8.5px] text-slate-600">
+                <span
+                    className="h-1 w-1 animate-pulse rounded-full"
+                    style={{ background: waveColor }}
+                />
+                Data sesuai jam observasi &amp; prakiraan · diperbarui otomatis
+                tiap 30 detik
+            </p>
         </div>
     );
 }
@@ -947,7 +1190,7 @@ export default function Monitoring() {
     });
 
     const eruptingVolcanoIds = volcanoes
-        .filter((volcano) => volcano.ash_active)
+        .filter((volcano) => volcano.erupting)
         .map((volcano) => volcano.id);
 
     // ==========================================
@@ -1043,6 +1286,22 @@ export default function Monitoring() {
             parts.find((part) => part.type === type)?.value ?? '';
 
         return `${pick('day')} ${pick('month')}, ${pick('hour')}:${pick('minute')} WIB`;
+    };
+
+    // Usia data dalam jam (null bila tidak valid). Dipakai untuk
+    // memberi peringatan bila data sudah tidak segar.
+    const hoursAgo = (date: string | null | undefined): number | null => {
+        if (!date) {
+            return null;
+        }
+
+        const parsed = new Date(date).getTime();
+
+        if (Number.isNaN(parsed)) {
+            return null;
+        }
+
+        return (Date.now() - parsed) / 3_600_000;
     };
 
     const magnitudeLabel = (magnitude: string | null) =>
@@ -1342,6 +1601,9 @@ export default function Monitoring() {
 
     const ashActive = data.ash_active;
 
+    // Bererupsi mengikuti status erupsi real-time MAGMA Indonesia.
+    const erupting = data.volcano.erupting ?? false;
+
     const realTimeAsh =
         data.ash_advisory?.ash_detected && data.ash_advisory.geometry
             ? data.ash_advisory
@@ -1622,31 +1884,41 @@ export default function Monitoring() {
     // ALERT BERDASARKAN KONDISI MONITORING REAL-TIME
     //
     // Level & judul alert mengikuti kondisi aktual:
-    // - Bererupsi (abu terdeteksi VAAC) -> alert status + info abu.
-    // - Tidak bererupsi                 -> Status Gunung NORMAL
-    //   (real-time), apa pun level resmi PVMBG di database.
+    // - Bererupsi (status erupsi MAGMA)    -> alert status + info abu.
+    // - Abu VAAC tanpa status erupsi MAGMA -> info abu vulkanik terdeteksi.
+    // - Tidak bererupsi                    -> Status Gunung NORMAL,
+    //   apa pun level resmi PVMBG di database.
     // =====================================================
 
-    if (ashActive && status.includes('awas')) {
+    if (erupting && status.includes('awas')) {
         alerts.push({
             id: 'volcano-awas',
             level: 'critical',
             title: 'Status Gunung AWAS',
             message: `${data.volcano.name} berada pada status AWAS.`,
         });
-    } else if (ashActive && status.includes('siaga')) {
+    } else if (erupting && status.includes('siaga')) {
         alerts.push({
             id: 'volcano-siaga',
             level: ashCritical ? 'critical' : 'warning',
             title: 'Status Gunung SIAGA',
             message: `${data.volcano.name} saat ini berada pada status SIAGA.`,
         });
-    } else if (ashActive && status.includes('waspada')) {
+    } else if (erupting && status.includes('waspada')) {
         alerts.push({
             id: 'volcano-waspada',
             level: ashCritical ? 'critical' : 'warning',
             title: 'Status Gunung WASPADA',
             message: `${data.volcano.name} saat ini berada pada status WASPADA.`,
+        });
+    } else if (erupting) {
+        alerts.push({
+            id: 'volcano-eruption',
+            level: ashCritical ? 'critical' : 'warning',
+            title: ashCritical
+                ? 'Kolom Abu Sangat Tinggi'
+                : 'Gunung Sedang Bererupsi',
+            message: 'MAGMA melaporkan gunung ini sedang erupsi.',
         });
     } else if (ashActive) {
         alerts.push({
@@ -1688,26 +1960,36 @@ export default function Monitoring() {
         return { color: '#22c55e', label: 'Normal' };
     })();
 
+    // Status utama memakai laporan erupsi MAGMA (PVMBG). Bila MAGMA
+    // belum menandai erupsi tetapi VAAC mendeteksi abu, jangan
+    // menampilkan "tidak ada erupsi" — tampilkan kondisi abu agar
+    // tidak menyesatkan masyarakat.
     const statusPillText =
         data === null
             ? 'MEMUAT DATA'
-            : ashActive
-              ? 'ERUPSI AKTIF'
-              : 'TIDAK ADA ERUPSI';
+            : erupting
+              ? 'ERUPSI AKTIF (MAGMA)'
+              : ashActive
+                ? 'ABU TERDETEKSI (VAAC)'
+                : 'NORMAL';
 
     const statusPillClass =
         data === null
             ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
-            : ashActive
+            : erupting
               ? 'border-red-500/30 bg-red-500/15 text-red-300 shadow-[0_0_24px_rgba(255,59,59,0.45)]'
-              : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
+              : ashActive
+                ? 'border-orange-500/30 bg-orange-500/15 text-orange-300'
+                : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
 
     const statusDotClass =
         data === null
             ? 'bg-amber-400 animate-pulse'
-            : ashActive
+            : erupting
               ? 'bg-red-500 shadow-[0_0_8px_rgba(255,59,59,1)] animate-pulse'
-              : 'bg-emerald-400 shadow-[0_0_8px_rgba(61,220,132,1)]';
+              : ashActive
+                ? 'bg-orange-400 shadow-[0_0_8px_rgba(251,146,60,1)]'
+                : 'bg-emerald-400 shadow-[0_0_8px_rgba(61,220,132,1)]';
 
     const gdacsBadgeClass =
         gdacsLevel.color === '#ef4444'
@@ -1765,6 +2047,66 @@ export default function Monitoring() {
     const windDeg = bmkgWeather?.wind_direction
         ? (COMPASS_DEGREES[bmkgWeather.wind_direction.toUpperCase()] ?? 0)
         : (data.current_weather?.wind_direction_deg ?? 0);
+
+    // Warna grafik mengikuti level resmi PVMBG
+    const pvmbgWaveColor = (() => {
+        const official = data.volcano.status?.toLowerCase() ?? '';
+
+        if (official.includes('awas')) return '#ef4444';
+
+        if (official.includes('siaga')) return '#f97316';
+
+        if (official.includes('waspada')) return '#eab308';
+
+        return '#22c55e';
+    })();
+
+    // Waktu dasar: issued_at advisory/prediction, fallback ke now.
+    // Tiap titik wave = targetTime + jam forecast (0, 6, 12, 18)
+    // supaya sesuai "penyebaran abu" dari waktu erupsi/advisory.
+    const waveBaseTime = (() => {
+        const raw =
+            data.ash_advisory?.issued_at ??
+            data.ash_prediction?.generated_at ??
+            null;
+
+        if (!raw) return Date.now();
+
+        const parsed = new Date(raw).getTime();
+
+        return Number.isNaN(parsed) ? Date.now() : parsed;
+    })();
+
+    // Data gelombang: Observasi (+6/+12/+18 jam dari issued_at advisory).
+    // Tiap titik diambil dari weather_forecast terdekat di waktu target.
+    const waveDataPoints: WavePoint[] = LAYER_ORDER.map((key) => {
+        const hour = bucketHourOf(key);
+        const targetTime = waveBaseTime + hour * 60 * 60 * 1000;
+
+        let bestForecast: WeatherForecast | Weather | null =
+            data.weather ?? null;
+        let bestDiff = Infinity;
+
+        for (const forecast of data.weather_forecasts ?? []) {
+            const diff = Math.abs(
+                new Date(forecast.forecast_at).getTime() - targetTime,
+            );
+
+            if (diff < bestDiff) {
+                bestDiff = diff;
+                bestForecast = forecast;
+            }
+        }
+
+        const label = key === 'observasi' ? 'Observasi' : `+${hour} jam`;
+
+        return {
+            label,
+            temperature: bestForecast?.temperature ?? null,
+            wind_speed: bestForecast?.wind_speed ?? null,
+            humidity: bestForecast?.humidity ?? null,
+        };
+    });
 
     return (
         <div className="relative h-screen w-screen overflow-hidden bg-[#05070a] text-[#eef1f5]">
@@ -2543,6 +2885,12 @@ export default function Monitoring() {
                             (estimasi)
                         </p>
                     ) : null}
+
+                    <WeatherWaveChart
+                        points={waveDataPoints}
+                        activeKey={timelineBucketKey}
+                        waveColor={pvmbgWaveColor}
+                    />
                 </section>
 
                 {/* KONDISI SAAT INI (OPEN-METEO / REAL-TIME) */}
@@ -2841,9 +3189,17 @@ export default function Monitoring() {
                                 {displayGempa.region}
                             </p>
 
-                            {displayGempa.felt && (
-                                <p className="mt-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
-                                    Dirasakan: {displayGempa.felt}
+                            {displayGempa.potential && (
+                                <p
+                                    className={`mt-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                                        displayGempa.potential
+                                            .toLowerCase()
+                                            .includes('tidak')
+                                            ? 'bg-emerald-500/10 text-emerald-300'
+                                            : 'bg-red-500/10 text-red-300'
+                                    }`}
+                                >
+                                    {displayGempa.potential}
                                 </p>
                             )}
 
@@ -3007,7 +3363,8 @@ export default function Monitoring() {
 
             <footer className="pointer-events-none absolute inset-x-3 bottom-3 z-[1100] flex items-end justify-between gap-2">
                 <div className="pointer-events-auto rounded-xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-3 py-2 text-[10.5px] text-slate-500 backdrop-blur-xl">
-                    Volcano Watch by : Haris Darmawan | • BMKG / PVMBG / VAAC Darwin
+                    Volcano Watch by : Haris Darmawan | • BMKG / PVMBG / VAAC
+                    Darwin
                 </div>
 
                 <div className="pointer-events-auto flex items-center justify-end gap-2 rounded-xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-3 py-2 text-[10.5px] text-slate-400 backdrop-blur-xl">

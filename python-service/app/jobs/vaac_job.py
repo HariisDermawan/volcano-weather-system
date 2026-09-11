@@ -227,6 +227,7 @@ def sync_vaac_advisories():
                                 :movement,
                                 :speed_kts,
                                 :geometry,
+                                :fcst_geometries,
                                 :eruption_detail,
                                 :remarks,
                                 :raw_text,

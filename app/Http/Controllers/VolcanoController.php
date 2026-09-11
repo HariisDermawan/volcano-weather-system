@@ -24,6 +24,9 @@ class VolcanoController extends Controller
         // Status PVMBG real-time dari MAGMA (cached 3m).
         $liveStatuses = $magma->getStatuses();
 
+        // Gunung yang sedang bererupsi menurut MAGMA (erupt_icon) (cached 3m).
+        $eruptingSet = array_flip($magma->getEruptingVolcanoNames());
+
         $volcanoes = Volcano::query()
             ->orderBy('name')
             ->get([
@@ -38,6 +41,7 @@ class VolcanoController extends Controller
             ->map(function ($volcano) use (
                 $liveActiveIds,
                 $liveStatuses,
+                $eruptingSet,
                 $magma,
             ) {
                 $volcano->setAttribute(
@@ -53,6 +57,13 @@ class VolcanoController extends Controller
                 $volcano->setAttribute(
                     'status_source',
                     $live ? 'live' : 'database',
+                );
+
+                $volcano->setAttribute(
+                    'erupting',
+                    isset($eruptingSet[$magma->normalizeName(
+                        $volcano->name
+                    )]),
                 );
 
                 return $volcano;

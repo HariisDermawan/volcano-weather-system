@@ -77,6 +77,11 @@ class GeoHazardController extends Controller
     /**
      * Ambil gempa terakhir yang dirasakan (autogempa.json).
      *
+     * Field `Potensi` pada autogempa.json berisi pesan publikasi
+     * ("Gempa ini dirasakan untuk diteruskan pada masyarakat"),
+     * bukan penilaian tsunami. Penilaian tsunami yang akurat diambil
+     * dari gempaterkini.json dengan mencocokkan DateTime kejadian.
+     *
      * @return array<string, mixed>|null
      */
     private function fetchAutogempa(): ?array
@@ -89,7 +94,47 @@ class GeoHazardController extends Controller
             return null;
         }
 
-        return $this->buildGempaRow($row);
+        $gempa = $this->buildGempaRow($row);
+
+        $dateTime = (string) ($row['DateTime'] ?? '');
+
+        if ($dateTime !== '') {
+            $gempaterkini = Http::timeout(20)
+                ->get('https://data.bmkg.go.id/DataMKG/TEWS/gempaterkini.json')
+                ->json('Infogempa.gempa');
+
+            $gempa['potential'] = $this->tsunamiPotential(
+                $dateTime,
+                is_array($gempaterkini) ? $gempaterkini : [],
+            );
+        }
+
+        return $gempa;
+    }
+
+    /**
+     * Penilaian tsunami yang akurat untuk satu kejadian gempa.
+     *
+     * @param  string  $dateTime  Waktu kejadian (DateTime autogempa).
+     * @param  array<int, array<string, mixed>>  $gempaterkini  Baris mentah gempaterkini.json.
+     */
+    private function tsunamiPotential(string $dateTime, array $gempaterkini): ?string
+    {
+        foreach ($gempaterkini as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $candidate = $row['DateTime'] ?? null;
+
+            if (is_string($candidate) && $candidate !== '' && strtotime($candidate) === strtotime($dateTime)) {
+                $potensi = $row['Potensi'] ?? null;
+
+                return is_string($potensi) && $potensi !== '' ? $potensi : null;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -254,6 +299,17 @@ class GeoHazardController extends Controller
         $latest = $this->buildGempaRow(
             is_array($autogempa) ? $autogempa : [],
         );
+
+        if (is_array($autogempa)) {
+            $dateTime = (string) ($autogempa['DateTime'] ?? '');
+
+            if ($dateTime !== '') {
+                $latest['potential'] = $this->tsunamiPotential(
+                    $dateTime,
+                    is_array($gempaterkini) ? $gempaterkini : [],
+                );
+            }
+        }
 
         return [$latest, $list];
     }

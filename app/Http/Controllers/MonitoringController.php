@@ -31,6 +31,12 @@ class MonitoringController extends Controller
 
         $volcanoStatus = $liveStatus['label'] ?? $volcano->status;
 
+        $eruptingNames = array_flip($magma->getEruptingVolcanoNames());
+
+        $erupting = isset($eruptingNames[$magma->normalizeName(
+            $volcano->name
+        )]);
+
         $liveEruption = $magma->getLatestEruptionForVolcano(
             $volcano->name
         );
@@ -263,6 +269,7 @@ class MonitoringController extends Controller
                 'elevation' => $volcano->elevation,
                 'status' => $volcanoStatus,
                 'status_source' => $liveStatus ? 'live' : 'database',
+                'erupting' => $erupting,
             ],
 
             // =================================================
@@ -313,9 +320,9 @@ class MonitoringController extends Controller
             'current_weather' => $currentWeather
                 ? [
                     'source' => $currentWeather->source,
-                    'observed_at' => $this->formatDateTime(
-                        $currentWeather->observed_at
-                    ),
+                    'observed_at' => $currentWeather->observed_at
+                        ? $currentWeather->observed_at->format('Y-m-d\TH:i:s+00:00')
+                        : null,
                     'temperature_c' => $currentWeather->temperature_c,
                     'apparent_temperature_c' => $currentWeather->apparent_temperature_c,
                     'humidity' => $currentWeather->humidity,

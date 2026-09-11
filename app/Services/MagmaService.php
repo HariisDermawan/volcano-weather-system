@@ -22,11 +22,15 @@ class MagmaService
 
     private const ERUPTIONS_URL = 'https://magma.esdm.go.id/v1/gunung-api/informasi-letusan';
 
+    private const MAP_URL = 'https://magma.esdm.go.id/v1';
+
     private const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36';
 
     private const LEVELS_CACHE_KEY = 'magma:levels';
 
     private const ERUPTIONS_CACHE_KEY = 'magma:eruptions';
+
+    private const ERUPT_CACHE_KEY = 'magma:erupt';
 
     private const CACHE_TTL = 180; // 3 minutes
 
@@ -93,6 +97,63 @@ class MagmaService
         }
 
         return null;
+    }
+
+    /**
+     * Names of volcanoes currently erupting per MAGMA Indonesia.
+     *
+     * Flag `erupt_icon` pada halaman peta /v1 menandai gunung yang
+     * sedang bererupsi (berbeda dari sekadar level status). Dikembalikan
+     * sebagai nama ternormalisasi agar mudah dicocokkan ke database.
+     *
+     * @return list<string>
+     */
+    public function getEruptingVolcanoNames(): array
+    {
+        return Cache::remember(self::ERUPT_CACHE_KEY, self::CACHE_TTL, function () {
+            return $this->fetchEruptingVolcanoNames();
+        });
+    }
+
+    /**
+     * Scrape flag `erupt_icon` dari array `markersGunungApi` di peta /v1.
+     *
+     * @return list<string>
+     */
+    private function fetchEruptingVolcanoNames(): array
+    {
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => self::USER_AGENT,
+                'Accept' => 'text/html,application/xhtml+xml',
+            ])
+                ->timeout(25)
+                ->get(self::MAP_URL);
+
+            if ($response->failed()) {
+                return [];
+            }
+
+            $html = $response->body();
+            $names = [];
+            $matches = [];
+
+            if (! preg_match_all('/"ga_nama_gapi":"([^"]+)".{0,400}?"erupt_icon":(true|false)/', $html, $matches, PREG_SET_ORDER)) {
+                return [];
+            }
+
+            foreach ($matches as $match) {
+                if ($match[2] === 'true') {
+                    $names[] = $this->normalizeName($match[1]);
+                }
+            }
+
+            return $names;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
     }
 
     /**

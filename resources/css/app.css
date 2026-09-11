@@ -111,3 +111,28 @@
     scrollbar-width: thin;
     scrollbar-color: rgba(56, 189, 248, 0.25) transparent;
 }
+
+/* =========================================
+    Wave chart — scan line animasi
+========================================= */
+
+.wave-scan {
+    animation: wave-scan-move 3.6s ease-in-out infinite;
+}
+
+@keyframes wave-scan-move {
+    0% {
+        transform: translateX(0);
+        opacity: 0;
+    }
+    15% {
+        opacity: 1;
+    }
+    85% {
+        opacity: 1;
+    }
+    100% {
+        transform: translateX(292px);
+        opacity: 0;
+    }
+}
