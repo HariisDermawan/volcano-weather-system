@@ -479,6 +479,8 @@ export default function Monitoring() {
 
     const [timelinePlaying, setTimelinePlaying] = useState(false);
 
+    const [timelineBucketKey, setTimelineBucketKey] = useState('observasi');
+
     // ==========================================
     // DATA GEO (GEMPA & GERAKAN TANAH)
     // ==========================================
@@ -931,6 +933,7 @@ export default function Monitoring() {
         setSelectedVolcanoId(id);
         setSelectedForecastId(null);
         setCheckedLayers(['observasi']);
+        setTimelineBucketKey('observasi');
     };
 
     const filteredVolcanoes = volcanoes.filter((volcano) => {
@@ -1130,37 +1133,43 @@ export default function Monitoring() {
             return;
         }
 
-        const predictions = effectivePredictions ?? [];
-
-        if (predictions.length === 0) {
+        if ((effectivePredictions ?? []).length === 0) {
             setTimelinePlaying(false);
 
             return;
         }
 
-        const interval = window.setInterval(() => {
-            setSelectedForecastId((current) => {
-                const index = predictions.findIndex(
-                    (prediction) => prediction.id === current,
-                );
+        const currentIndex = LAYER_ORDER.indexOf(
+            timelineBucketKey as (typeof LAYER_ORDER)[number],
+        );
 
-                const next = predictions[(index + 1) % predictions.length];
+        const nextKey = LAYER_ORDER[(currentIndex + 1) % LAYER_ORDER.length];
 
-                return next?.id ?? current;
-            });
+        const prediction = closestForecastByHour(bucketHourOf(nextKey));
+
+        const timer = window.setTimeout(() => {
+            setTimelineBucketKey(nextKey);
+
+            setCheckedLayers([nextKey]);
+
+            setSelectedForecastId(prediction?.id ?? null);
         }, 900);
 
-        return () => window.clearInterval(interval);
-    }, [timelinePlaying, data]);
+        return () => window.clearTimeout(timer);
+    }, [timelinePlaying, timelineBucketKey, data]);
 
-    const selectForecast = (id: number, forecastHour: number) => {
-        setSelectedForecastId(id);
+    const selectBucket = (key: string) => {
+        const hour = bucketHourOf(key);
 
-        const layerKey = layerKeyForForecastHour(forecastHour);
+        setTimelineBucketKey(key);
 
         setCheckedLayers((prev) =>
-            prev.includes(layerKey) ? prev : [...prev, layerKey],
+            prev.includes(key) ? prev : [...prev, key],
         );
+
+        const prediction = closestForecastByHour(hour);
+
+        setSelectedForecastId(prediction?.id ?? null);
     };
 
     // ==========================================
@@ -1468,21 +1477,8 @@ export default function Monitoring() {
 
     // Pemetaan jam forecast → layer terdekat
     // (dipakai saat mengklik kartu timeline).
-    const layerKeyForForecastHour = (hour: number): string => {
-        if (hour <= 3) {
-            return 'observasi';
-        }
-
-        if (hour <= 9) {
-            return 'hour-6';
-        }
-
-        if (hour <= 15) {
-            return 'hour-12';
-        }
-
-        return 'hour-18';
-    };
+    const bucketHourOf = (key: string): number =>
+        key === 'observasi' ? 0 : Number(key.split('-')[1]);
 
     const forecastForLayer = (key: string): AshPrediction | null => {
         if (key === 'observasi') {
@@ -1507,6 +1503,8 @@ export default function Monitoring() {
                 setSelectedForecastId(prediction.id);
             }
 
+            setTimelineBucketKey(key);
+
             return;
         }
 
@@ -1520,6 +1518,8 @@ export default function Monitoring() {
         const prediction = primaryKey ? forecastForLayer(primaryKey) : null;
 
         setSelectedForecastId(prediction?.id ?? null);
+
+        setTimelineBucketKey(primaryKey ?? 'observasi');
     };
 
     // ==========================================
@@ -1736,9 +1736,35 @@ export default function Monitoring() {
         return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
     })();
 
-    const windDeg = selectedWeather?.wind_direction
-        ? (COMPASS_DEGREES[selectedWeather.wind_direction.toUpperCase()] ?? 0)
-        : 0;
+    // BMKG primary; fallback Open-Meteo untuk yang belum ada
+    // mapping/forecast BMKG (Angin di Kawah & Kondisi Cuaca).
+    const bmkgWeather = selectedWeather;
+
+    const displayWeather: Weather | null = bmkgWeather
+        ? bmkgWeather
+        : data.current_weather
+          ? {
+                forecast_at: data.current_weather.observed_at ?? '',
+                temperature: data.current_weather.temperature_c ?? null,
+                humidity: data.current_weather.humidity ?? null,
+                wind_speed: data.current_weather.wind_speed_kmh ?? null,
+                wind_direction:
+                    data.current_weather.wind_direction_deg != null
+                        ? `${data.current_weather.wind_direction_deg}°${
+                              data.current_weather.wind_direction_cardinal
+                                  ? ` ${data.current_weather.wind_direction_cardinal}`
+                                  : ''
+                          }`
+                        : data.current_weather.wind_direction_cardinal,
+                weather: null,
+            }
+          : null;
+
+    const usingBmkgWeather = bmkgWeather !== null;
+
+    const windDeg = bmkgWeather?.wind_direction
+        ? (COMPASS_DEGREES[bmkgWeather.wind_direction.toUpperCase()] ?? 0)
+        : (data.current_weather?.wind_direction_deg ?? 0);
 
     return (
         <div className="relative h-screen w-screen overflow-hidden bg-[#05070a] text-[#eef1f5]">
@@ -2342,20 +2368,16 @@ export default function Monitoring() {
                                 <span className="absolute top-[9px] right-2 left-2 h-0.5 bg-white/10" />
 
                                 <div className="relative flex h-full items-start justify-between">
-                                    {effectivePredictions.map((prediction) => {
+                                    {LAYER_ORDER.map((key) => {
                                         const active =
-                                            prediction.id ===
-                                            selectedForecastId;
+                                            key === timelineBucketKey;
 
                                         return (
                                             <button
-                                                key={prediction.id}
+                                                key={key}
                                                 type="button"
                                                 onClick={() =>
-                                                    selectForecast(
-                                                        prediction.id,
-                                                        prediction.forecast_hour,
-                                                    )
+                                                    selectBucket(key)
                                                 }
                                                 className="flex cursor-pointer flex-col items-center gap-1"
                                             >
@@ -2374,7 +2396,9 @@ export default function Monitoring() {
                                                             : 'text-slate-500'
                                                     }`}
                                                 >
-                                                    +{prediction.forecast_hour}
+                                                    {key === 'observasi'
+                                                        ? 'Observasi'
+                                                        : `+${bucketHourOf(key)}`}
                                                 </span>
                                             </button>
                                         );
@@ -2428,20 +2452,28 @@ export default function Monitoring() {
                         <div className="text-xs leading-relaxed text-slate-400">
                             <div>
                                 <b className="text-[15px] text-white">
-                                    {selectedWeather?.wind_speed ?? '-'}
+                                    {displayWeather?.wind_speed ?? '-'}
                                 </b>{' '}
                                 km/j
                             </div>
 
                             <div>
-                                arah {selectedWeather?.wind_direction ?? '-'}
+                                arah {displayWeather?.wind_direction ?? '-'}
                             </div>
 
                             <div>
-                                suhu {selectedWeather?.temperature ?? '-'}°C
+                                suhu {displayWeather?.temperature ?? '-'}°C
                             </div>
                         </div>
                     </div>
+
+                    {!usingBmkgWeather && displayWeather?.forecast_at ? (
+                        <p className="mt-1.5 text-[9.5px] text-slate-500">
+                            Open-Meteo (GFS/ICON) •{' '}
+                            {formatWIBStamp(displayWeather.forecast_at)}{' '}
+                            (estimasi)
+                        </p>
+                    ) : null}
                 </section>
 
                 {/* KONDISI CUACA */}
@@ -2459,7 +2491,7 @@ export default function Monitoring() {
                             </div>
 
                             <p className="mt-0.5 text-[15px] font-bold text-white">
-                                {selectedWeather?.temperature ?? '-'}°
+                                {displayWeather?.temperature ?? '-'}°
                             </p>
                         </div>
 
@@ -2470,7 +2502,7 @@ export default function Monitoring() {
                             </div>
 
                             <p className="mt-0.5 text-[15px] font-bold text-white">
-                                {selectedWeather?.humidity ?? '-'}%
+                                {displayWeather?.humidity ?? '-'}%
                             </p>
                         </div>
 
@@ -2481,7 +2513,7 @@ export default function Monitoring() {
                             </div>
 
                             <p className="mt-0.5 text-[15px] font-bold text-white">
-                                {selectedWeather?.wind_speed ?? '-'} km/j
+                                {displayWeather?.wind_speed ?? '-'} km/j
                             </p>
                         </div>
 
@@ -2492,15 +2524,23 @@ export default function Monitoring() {
                             </div>
 
                             <p className="mt-0.5 text-[15px] font-bold text-white">
-                                {selectedWeather?.wind_direction ?? '-'}
+                                {displayWeather?.wind_direction ?? '-'}
                             </p>
                         </div>
                     </div>
 
-                    {selectedWeather?.forecast_at ? (
+                    {usingBmkgWeather && selectedWeather?.forecast_at ? (
                         <p className="mt-1.5 text-[9.5px] text-slate-500">
                             Prakiraan BMKG •{' '}
                             {formatWIBStamp(selectedWeather.forecast_at)}
+                        </p>
+                    ) : null}
+
+                    {!usingBmkgWeather && displayWeather?.forecast_at ? (
+                        <p className="mt-1.5 text-[9.5px] text-slate-500">
+                            Open-Meteo (GFS/ICON) •{' '}
+                            {formatWIBStamp(displayWeather.forecast_at)}{' '}
+                            (estimasi)
                         </p>
                     ) : null}
                 </section>
