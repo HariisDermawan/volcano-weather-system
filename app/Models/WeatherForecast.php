@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use Database\Factories\WeatherForecastFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WeatherForecast extends Model
 {
+    /** @use HasFactory<WeatherForecastFactory> */
     use HasFactory;
 
     protected $fillable = [
@@ -27,7 +30,10 @@ class WeatherForecast extends Model
         'wind_speed' => 'float',
     ];
 
-    public function volcano()
+    /**
+     * @return BelongsTo<Volcano, $this>
+     */
+    public function volcano(): BelongsTo
     {
         return $this->belongsTo(Volcano::class);
     }

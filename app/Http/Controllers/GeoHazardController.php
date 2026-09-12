@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -24,7 +25,7 @@ class GeoHazardController extends Controller
      * =====================================================
      */
 
-    public function gempa()
+    public function gempa(): JsonResponse
     {
         $data = Cache::remember('geo:gempa', 90, function () {
             // Utama: "Gempa Dirasakan" (autogempa.json) — sumber yang
@@ -121,10 +122,6 @@ class GeoHazardController extends Controller
     private function tsunamiPotential(string $dateTime, array $gempaterkini): ?string
     {
         foreach ($gempaterkini as $row) {
-            if (! is_array($row)) {
-                continue;
-            }
-
             $candidate = $row['DateTime'] ?? null;
 
             if (is_string($candidate) && $candidate !== '' && strtotime($candidate) === strtotime($dateTime)) {
@@ -258,28 +255,37 @@ class GeoHazardController extends Controller
 
     /**
      * Temukan node `Infogempa` di dalam payload yang sudah diurai.
+     *
+     * @return array<string, mixed>
      */
-    private function findInfogempa(mixed $node, array &$found = []): array
+    private function findInfogempa(mixed $node): array
     {
         if (! is_array($node)) {
-            return $found;
+            return [];
         }
 
         if (array_key_exists('Infogempa', $node)) {
-            $found = is_array($node['Infogempa']) ? $node['Infogempa'] : [];
-
-            return $found;
+            return is_array($node['Infogempa']) ? $node['Infogempa'] : [];
         }
 
         foreach ($node as $child) {
             if (is_array($child)) {
-                $found = $this->findInfogempa($child, $found);
+                $result = $this->findInfogempa($child);
+
+                if ($result !== []) {
+                    return $result;
+                }
             }
         }
 
-        return $found;
+        return [];
     }
 
+    /**
+     * Ambil gempa terkini dari gempaterkini.json + autogempa.json.
+     *
+     * @return array{0: array<string, mixed>, 1: list<array<string, mixed>>}
+     */
     private function fetchGempa(): array
     {
         $gempaterkini = Http::timeout(20)
@@ -362,7 +368,7 @@ class GeoHazardController extends Controller
      * =====================================================
      */
 
-    public function gerakanTanah()
+    public function gerakanTanah(): JsonResponse
     {
         $data = Cache::remember('geo:gerakan-tanah', 180, function () {
             try {

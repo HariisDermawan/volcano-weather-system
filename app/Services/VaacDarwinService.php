@@ -575,7 +575,7 @@ class VaacDarwinService
     /**
      * Extract FCST VA CLD +N HR geometries.
      *
-     * @return array<string, array<string, mixed>>
+     * @return array<int, array<string, mixed>>
      */
     private function extractFcstVaCloudGeometries(string $block): array
     {

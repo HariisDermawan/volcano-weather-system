@@ -5,13 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\Volcano;
 use App\Services\MagmaService;
 use App\Services\VaacDarwinService;
+use Illuminate\Http\JsonResponse;
 
 class VolcanoController extends Controller
 {
     public function index(
         VaacDarwinService $vaac,
         MagmaService $magma,
-    ) {
+    ): JsonResponse {
         // =====================================================
         // STATUS ABU REAL-TIME PER GUNUNG
         //

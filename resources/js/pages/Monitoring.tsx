@@ -2293,21 +2293,28 @@ export default function Monitoring() {
 
             <header className="pointer-events-none absolute inset-x-0 top-0 z-[1200] px-3 pt-3">
                 <div className="pointer-events-auto rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-4 py-3 shadow-2xl shadow-black/50 backdrop-blur-xl">
-                    <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                         <div className="flex min-w-0 items-center gap-2.5">
                             <img
                                 src="/logo/logoSi.png"
                                 alt="Volcano Watch"
-                                className="h-10 w-auto shrink-0 object-contain drop-shadow-[0_0_14px_rgba(14,165,233,0.5)]"
+                                className="h-8 w-auto shrink-0 object-contain drop-shadow-[0_0_14px_rgba(14,165,233,0.5)] sm:h-10"
                             />
 
-                            <div className="hidden min-w-0 sm:block">
-                                <p className="truncate text-[15px] leading-tight font-black tracking-tight text-white">
+                            <div className="min-w-0">
+                                <p className="truncate bg-gradient-to-r from-white via-sky-100 to-sky-300 bg-clip-text text-sm leading-tight font-black tracking-tight text-transparent sm:text-[15px]">
                                     Volcano Watch
                                 </p>
 
-                                <p className="truncate text-[9px] font-extrabold tracking-[2px] text-sky-400/90 uppercase">
-                                    Live Monitoring · 24 Jam
+                                <p className="mt-0.5 flex items-center gap-1.5">
+                                    <span className="relative flex h-1.5 w-1.5">
+                                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75" />
+                                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-sky-400" />
+                                    </span>
+
+                                    <span className="truncate text-[8px] font-extrabold tracking-[2px] text-sky-400/90 uppercase sm:text-[9px]">
+                                        Live Monitoring · 24 Jam
+                                    </span>
                                 </p>
                             </div>
                         </div>
