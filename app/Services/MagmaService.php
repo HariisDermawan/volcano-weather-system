@@ -82,21 +82,53 @@ class MagmaService
     }
 
     /**
+     * All eruption events for a volcano matched by name, newest first.
+     *
+     * Mengambil halaman khusus gunung (`informasi-letusan/{slug}`) seperti
+     * yang dilihat user, sehingga gunung yang jarang erupsi (mis. Krakatau)
+     * tetap mendapat riwayat erupsi sebenarnya — bukan laporan harian.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function getEruptionsForVolcano(string $volcanoName): array
+    {
+        $slug = $this->getVolcanoSlugForName($volcanoName);
+
+        if ($slug === null) {
+            return [];
+        }
+
+        return $this->fromCacheSafe(Cache::remember(
+            'magma:eruptions:'.mb_strtolower($slug),
+            self::CACHE_TTL,
+            function () use ($slug) {
+                return $this->toCacheSafe(
+                    $this->fetchEruptionsForVolcano($slug)
+                );
+            },
+        ));
+    }
+
+    /**
      * Latest eruption event for a volcano matched by name.
      *
      * @return array<string, mixed>|null
      */
     public function getLatestEruptionForVolcano(string $volcanoName): ?array
     {
+        return $this->getEruptionsForVolcano(
+            $volcanoName
+        )[0] ?? null;
+    }
+
+    /**
+     * Resolve MAGMA slug (`KRA`) for a volcano name.
+     */
+    public function getVolcanoSlugForName(string $volcanoName): ?string
+    {
         $key = $this->normalizeName($volcanoName);
 
-        foreach ($this->getEruptions() as $eruption) {
-            if ($this->normalizeName($eruption['name'] ?? '') === $key) {
-                return $eruption;
-            }
-        }
-
-        return null;
+        return $this->getVolcanoSlugs()[$key] ?? null;
     }
 
     /**
@@ -239,6 +271,142 @@ class MagmaService
     }
 
     /**
+     * Slug map untuk setiap gunung (dari daftar tombol halaman letusan).
+     *
+     * @return array<string, string>
+     */
+    private function getVolcanoSlugs(): array
+    {
+        return Cache::remember(
+            'magma:volcano-slugs',
+            self::CACHE_TTL,
+            function (): array {
+                return $this->fetchVolcanoSlugs();
+            },
+        );
+    }
+
+    /**
+     * Parse daftar tombol `<a href=".../informasi-letusan/{SLUG}">` menjadi
+     * map nama ternormalisasi -> slug.
+     *
+     * @return array<string, string>
+     */
+    private function fetchVolcanoSlugs(): array
+    {
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => self::USER_AGENT,
+                'Accept' => 'text/html,application/xhtml+xml',
+            ])
+                ->timeout(25)
+                ->get(self::ERUPTIONS_URL);
+
+            if ($response->failed()) {
+                return [];
+            }
+
+            $html = $response->body();
+            $slugs = [];
+            $matches = [];
+
+            if (! preg_match_all(
+                '/informasi-letusan\/([A-Z]+)"[^>]*>([^<]+)<\/a>/',
+                $html,
+                $matches,
+                PREG_SET_ORDER,
+            )) {
+                return [];
+            }
+
+            foreach ($matches as $match) {
+                $slugs[$this->normalizeName($match[2])] = $match[1];
+            }
+
+            return $slugs;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
+    }
+
+    /**
+     * Parse the per-volcano eruption page into events, newest first.
+     *
+     * Halaman ini memuat hanya erupsi gunung tersebut lengkap dengan
+     * header tanggal (`.timeline-day`) dan jam (`09:10 WIB`).
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function fetchEruptionsForVolcano(string $slug): array
+    {
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => self::USER_AGENT,
+                'Accept' => 'text/html,application/xhtml+xml',
+            ])
+                ->timeout(25)
+                ->get(self::ERUPTIONS_URL.'/'.$slug);
+
+            if ($response->failed()) {
+                return [];
+            }
+
+            $html = $response->body();
+            $result = [];
+            $currentDateLabel = null;
+
+            $matches = [];
+
+            preg_match_all(
+                '/<div class="timeline-item(?:\s+timeline-day)?">(.*?)<\/div>\s*<\/div>/is',
+                $html,
+                $matches,
+                PREG_SET_ORDER,
+            );
+
+            foreach ($matches as $match) {
+                $chunk = $match[1];
+                $whole = $match[0];
+
+                if (str_contains($whole, 'timeline-day')) {
+                    if (preg_match(
+                        '/<p class="timeline-date">([^<]+)<\/p>/',
+                        $chunk,
+                        $date,
+                    )) {
+                        $currentDateLabel = trim(
+                            html_entity_decode(
+                                $date[1],
+                                ENT_QUOTES | ENT_HTML5,
+                                'UTF-8',
+                            ),
+                        );
+                    }
+
+                    continue;
+                }
+
+                $eruption = $this->parseEruptionChunk(
+                    $chunk,
+                    $currentDateLabel,
+                );
+
+                if ($eruption !== null) {
+                    $result[] = $eruption;
+                }
+            }
+
+            return $result;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return [];
+        }
+    }
+
+    /**
      * Parse the eruption info page into events, newest first.
      *
      * @return list<array<string, mixed>>
@@ -284,8 +452,10 @@ class MagmaService
      *
      * @return array<string, mixed>|null
      */
-    private function parseEruptionChunk(string $chunk): ?array
-    {
+    private function parseEruptionChunk(
+        string $chunk,
+        ?string $dateLabel = null,
+    ): ?array {
         if (! preg_match('/<p class="timeline-title"><a href="#">([^<]+)<\/a><\/p>/', $chunk, $title)) {
             return null;
         }
@@ -307,7 +477,61 @@ class MagmaService
             'occurred_at' => $occurredAt,
             'ash_height' => $this->extractAshHeight($description),
             'description' => $description !== '' ? $description : null,
+            'author' => $this->extractAuthor($chunk),
+            'image' => $this->extractImage($chunk),
+            'time_label' => $this->extractTimeLabel($chunk),
+            'date_label' => $dateLabel,
         ];
+    }
+
+    /**
+     * Extract the event time displayed on the source page (`09:10 WIB`).
+     */
+    private function extractTimeLabel(string $chunk): ?string
+    {
+        if (! preg_match('/<div class="timeline-time"><small>(.*?)<\/small><\/div>/is', $chunk, $m)) {
+            return null;
+        }
+
+        $time = preg_replace('/\s+/', ' ', html_entity_decode(
+            trim(strip_tags($m[1])),
+            ENT_QUOTES | ENT_HTML5,
+            'UTF-8',
+        ));
+
+        return $time !== '' ? $time : null;
+    }
+
+    /**
+     * Extract the report author (`Dibuat oleh ...`) from the chunk.
+     */
+    private function extractAuthor(string $chunk): ?string
+    {
+        if (! preg_match('/<p class="timeline-author">\s*(.*?)\s*<\/p>/is', $chunk, $m)) {
+            return null;
+        }
+
+        $author = preg_replace('/\s+/', ' ', html_entity_decode(
+            trim(strip_tags($m[1])),
+            ENT_QUOTES | ENT_HTML5,
+            'UTF-8',
+        ));
+
+        $author = preg_replace('/^(dibuat\s+oleh\s*[:-]?\s*)/i', '', $author);
+
+        return $author !== '' ? $author : null;
+    }
+
+    /**
+     * Extract the eruption photo URL from the chunk.
+     */
+    private function extractImage(string $chunk): ?string
+    {
+        if (! preg_match('/<img[^>]+src="(https?:\/\/[^"]+)"/', $chunk, $m)) {
+            return null;
+        }
+
+        return $m[1];
     }
 
     /**

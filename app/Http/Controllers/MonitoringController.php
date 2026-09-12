@@ -41,6 +41,10 @@ class MonitoringController extends Controller
             $volcano->name
         );
 
+        $volcanoEruptions = $magma->getEruptionsForVolcano(
+            $volcano->name
+        );
+
         if ($liveEruption !== null) {
             $liveEruption['activity_level'] = $volcanoStatus;
             $activity = $liveEruption;
@@ -279,6 +283,33 @@ class MonitoringController extends Controller
             'activity' => $this->formatActivity($activity),
 
             // =================================================
+            // RIWAYAT ERUPSI (MAGMA per-gunung)
+            //
+            // Daftar lengkap erupsi dari halaman
+            // `/v1/gunung-api/informasi-letusan/{slug}` — termasuk
+            // yang sudah lewat beberapa hari, persis seperti sumber.
+            // =================================================
+
+            'eruptions' => collect($volcanoEruptions)
+                ->map(function ($eruption) use ($volcanoStatus) {
+                    return [
+                        'name' => $eruption['name'] ?? null,
+                        'occurred_at' => $this->formatDateTime(
+                            $eruption['occurred_at'] ?? null
+                        ),
+                        'activity_level' => $volcanoStatus,
+                        'ash_height' => $eruption['ash_height'] ?? null,
+                        'description' => $eruption['description'] ?? null,
+                        'author' => $eruption['author'] ?? null,
+                        'image' => $eruption['image'] ?? null,
+                        'time_label' => $eruption['time_label'] ?? null,
+                        'date_label' => $eruption['date_label'] ?? null,
+                        'source' => 'MAGMA (live)',
+                    ];
+                })
+                ->values(),
+
+            // =================================================
             // WEATHER UTAMA
             // =================================================
 
@@ -470,6 +501,8 @@ class MonitoringController extends Controller
                 'activity_level' => $activity->activity_level,
                 'ash_height' => $activity->ash_height,
                 'description' => $activity->description,
+                'author' => null,
+                'image' => null,
                 'source' => 'MAGMA (database)',
             ];
         }
@@ -481,6 +514,8 @@ class MonitoringController extends Controller
             'activity_level' => $activity['activity_level'] ?? null,
             'ash_height' => $activity['ash_height'] ?? null,
             'description' => $activity['description'] ?? null,
+            'author' => $activity['author'] ?? null,
+            'image' => $activity['image'] ?? null,
             'source' => 'MAGMA (live)',
         ];
     }

@@ -116,6 +116,39 @@
     Wave chart — scan line animasi
 ========================================= */
 
+/* =========================================
+    Notifikasi gempa (bel bergetar)
+========================================= */
+
+.vg-bell-shake {
+    animation: vg-bell-shake 1s ease-in-out infinite;
+}
+
+@keyframes vg-bell-shake {
+    0%,
+    100% {
+        transform: rotate(0deg);
+    }
+    12% {
+        transform: rotate(14deg);
+    }
+    24% {
+        transform: rotate(-12deg);
+    }
+    36% {
+        transform: rotate(9deg);
+    }
+    48% {
+        transform: rotate(-7deg);
+    }
+    60% {
+        transform: rotate(4deg);
+    }
+    72% {
+        transform: rotate(-2deg);
+    }
+}
+
 .wave-scan {
     animation: wave-scan-move 3.6s ease-in-out infinite;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import {
     Activity,
@@ -9,6 +9,7 @@ import {
     CloudSun,
     Droplets,
     ExternalLink,
+    Flame,
     Gauge,
     LandPlot,
     Layers,
@@ -65,6 +66,20 @@ interface Activity {
     activity_level: string | null;
     ash_height: number | null;
     description: string | null;
+    author?: string | null;
+    image?: string | null;
+    source?: string;
+}
+
+interface EruptionEvent {
+    name: string | null;
+    occurred_at: string;
+    ash_height: number | null;
+    description: string | null;
+    author?: string | null;
+    image?: string | null;
+    time_label?: string | null;
+    date_label?: string | null;
     source?: string;
 }
 
@@ -101,6 +116,7 @@ interface CurrentWeather {
 interface MonitoringData {
     volcano: Volcano;
     activity: Activity | null;
+    eruptions?: EruptionEvent[];
     weather: Weather | null;
     weather_forecasts: WeatherForecast[];
     current_weather: CurrentWeather | null;
@@ -267,6 +283,18 @@ function PanelTitle({
 
 const LAYER_ORDER = ['observasi', 'hour-6', 'hour-12', 'hour-18'] as const;
 
+const PANEL_ITEMS = [
+    { key: 'kota', label: 'Kota Saya', Icon: MapPin },
+    { key: 'letusan', label: 'Informasi Letusan', Icon: Flame },
+    { key: 'status', label: 'Status Erupsi & PVMBG', Icon: Activity },
+    { key: 'cuaca', label: 'Cuaca & Sebaran Abu', Icon: CloudSun },
+    { key: 'advisory', label: 'Advisory Abu Vulkanik', Icon: Radio },
+    { key: 'gempa', label: 'Gempa Terkini', Icon: Siren },
+    { key: 'gerakan', label: 'Gerakan Tanah', Icon: LandPlot },
+] as const;
+
+type PanelKey = (typeof PANEL_ITEMS)[number]['key'];
+
 const LAYER_COLORS: Record<string, string> = {
     observasi: '#ef4444',
     'hour-6': '#f97316',
@@ -422,12 +450,6 @@ function LegendPanel({
                             </label>
                         );
                     })}
-
-                    <p className="mt-2 text-[10px] leading-relaxed text-slate-600">
-                        Klik salah satu titik timeline di panel kiri buat sorot
-                        layer itu doang di peta, atau pencet play buat muter
-                        sebarannya otomatis.
-                    </p>
                 </>
             ) : (
                 <p className="mt-1 flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-medium text-emerald-300">
@@ -668,15 +690,6 @@ function WeatherWaveChart({
 
                 <span>maks {maxV}°C</span>
             </div>
-
-            <p className="mt-1 flex items-center justify-center gap-1 text-[8.5px] text-slate-600">
-                <span
-                    className="h-1 w-1 animate-pulse rounded-full"
-                    style={{ background: waveColor }}
-                />
-                Data sesuai jam observasi &amp; prakiraan · diperbarui otomatis
-                tiap 30 detik
-            </p>
         </div>
     );
 }
@@ -714,8 +727,6 @@ export default function Monitoring() {
 
     const [refreshing, setRefreshing] = useState(false);
 
-    const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
     const [volcanoOpen, setVolcanoOpen] = useState(false);
 
     const [volcanoQuery, setVolcanoQuery] = useState('');
@@ -724,11 +735,25 @@ export default function Monitoring() {
 
     const [timelineBucketKey, setTimelineBucketKey] = useState('observasi');
 
+    const [openPanel, setOpenPanel] = useState<PanelKey | null>(null);
+
     // ==========================================
     // DATA GEO (GEMPA & GERAKAN TANAH)
     // ==========================================
 
     const [gempa, setGempa] = useState<GempaData | null>(null);
+
+    const [hasNewQuake, setHasNewQuake] = useState(false);
+
+    const lastQuakeKeysRef = useRef<Set<string>>(new Set());
+
+    const firstQuakeFetchRef = useRef(true);
+
+    const [hasNewEruption, setHasNewEruption] = useState(false);
+
+    const lastEruptionKeysRef = useRef<Set<string>>(new Set());
+
+    const firstEruptionFetchRef = useRef(true);
 
     const [gerakanTanah, setGerakanTanah] = useState<GerakanTanahData | null>(
         null,
@@ -842,9 +867,26 @@ export default function Monitoring() {
 
                 setData(result);
 
-                if (!cancelled) {
-                    setLastUpdated(new Date());
+                const eruptionKeys = new Set(
+                    (result.eruptions ?? []).map((item) =>
+                        `${item.occurred_at}|${item.name ?? ''}`.replace(
+                            /null/g,
+                            '?',
+                        ),
+                    ),
+                );
+
+                const freshEruptions = [...eruptionKeys].filter(
+                    (key) => !lastEruptionKeysRef.current.has(key),
+                );
+
+                if (firstEruptionFetchRef.current) {
+                    firstEruptionFetchRef.current = false;
+                } else if (freshEruptions.length > 0) {
+                    setHasNewEruption(true);
                 }
+
+                lastEruptionKeysRef.current = eruptionKeys;
 
                 // Reset / pertahankan forecast
                 // sesuai gunung yang sedang aktif.
@@ -911,6 +953,14 @@ export default function Monitoring() {
         };
     }, [selectedVolcanoId, refreshKey]);
 
+    // Reset deteksi erupsi baru saat gunung diganti,
+    // supaya tidak muncul alert "1" karena pindah gunung.
+    useEffect(() => {
+        lastEruptionKeysRef.current = new Set();
+        firstEruptionFetchRef.current = true;
+        setHasNewEruption(false);
+    }, [selectedVolcanoId]);
+
     // ==========================================
     // AMBIL GEMPA TERKINI & GERAKAN TANAH
     // (sekali pada load; refresh manual via tombol)
@@ -948,7 +998,31 @@ export default function Monitoring() {
             }
 
             if (gempaResult) {
-                setGempa(gempaResult as GempaData);
+                const gempaData = gempaResult as GempaData;
+
+                const quakeKeys = new Set(
+                    (gempaData.list ?? []).map(
+                        (item) =>
+                            item.eventid ??
+                            `${item.datetime}|${item.latitude}|${item.longitude}`
+                                .replace(/null/g, '?')
+                                .trim(),
+                    ),
+                );
+
+                const freshOnes = [...quakeKeys].filter(
+                    (key) => !lastQuakeKeysRef.current.has(key),
+                );
+
+                if (firstQuakeFetchRef.current) {
+                    firstQuakeFetchRef.current = false;
+                } else if (freshOnes.length > 0) {
+                    setHasNewQuake(true);
+                }
+
+                lastQuakeKeysRef.current = quakeKeys;
+
+                setGempa(gempaData);
             }
 
             if (gerakanTanahResult) {
@@ -1288,20 +1362,43 @@ export default function Monitoring() {
         return `${pick('day')} ${pick('month')}, ${pick('hour')}:${pick('minute')} WIB`;
     };
 
-    // Usia data dalam jam (null bila tidak valid). Dipakai untuk
-    // memberi peringatan bila data sudah tidak segar.
-    const hoursAgo = (date: string | null | undefined): number | null => {
-        if (!date) {
-            return null;
+    const formatWIBLongDate = (date: string) => {
+        const parsed = new Date(date);
+
+        if (Number.isNaN(parsed.getTime())) {
+            return '-';
         }
 
-        const parsed = new Date(date).getTime();
+        const parts = new Intl.DateTimeFormat('id-ID', {
+            timeZone: 'Asia/Jakarta',
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+        }).formatToParts(parsed);
 
-        if (Number.isNaN(parsed)) {
-            return null;
+        const pick = (type: string) =>
+            parts.find((part) => part.type === type)?.value ?? '';
+
+        return `${pick('weekday')}, ${pick('day')} ${pick('month')} ${pick('year')}`;
+    };
+
+    const isEruptionToday = (date: string) => {
+        const parsed = new Date(date);
+
+        if (Number.isNaN(parsed.getTime())) {
+            return false;
         }
 
-        return (Date.now() - parsed) / 3_600_000;
+        const keyOf = (value: Date) =>
+            new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Jakarta',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+            }).format(value);
+
+        return keyOf(parsed) === keyOf(new Date());
     };
 
     const magnitudeLabel = (magnitude: string | null) =>
@@ -2108,6 +2205,12 @@ export default function Monitoring() {
         };
     });
 
+    const availPanels = PANEL_ITEMS;
+
+    const active = availPanels.some((panel) => panel.key === openPanel)
+        ? openPanel
+        : null;
+
     return (
         <div className="relative h-screen w-screen overflow-hidden bg-[#05070a] text-[#eef1f5]">
             {/* =====================================
@@ -2410,945 +2513,1332 @@ export default function Monitoring() {
             DECK KIRI (INFO MONITORING)
         ====================================== */}
 
-            <aside className="pointer-events-auto absolute top-[128px] left-2 z-[1100] flex max-h-[calc(100dvh-205px)] w-[308px] max-w-[calc(100vw-32px)] flex-col gap-3.5 overflow-y-auto rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 p-3.5 shadow-2xl shadow-black/50 backdrop-blur-xl sm:left-3">
-                {/* KOTA SAYA & SEBARAN ABU */}
+            <aside className="pointer-events-auto absolute top-[190px] left-2 z-[1100] flex items-start gap-2 sm:left-3">
+                {/* TOGGLE PANEL (KAYA LULCC IPB) */}
 
-                <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-3.5">
-                    <PanelTitle icon={<MapPin size={11} strokeWidth={2.5} />}>
-                        Kota Saya &amp; Sebaran Abu
-                    </PanelTitle>
+                <div className="flex min-h-0 w-14 flex-col items-center justify-center gap-2 rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 py-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
+                    {availPanels.map(({ key, label, Icon }) => {
+                        const isActive = active === key;
 
-                    {geoState === 'idle' && !cityCoords && (
-                        <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
-                            Klik{' '}
-                            <span className="font-bold text-sky-400">
-                                Kota Saya
-                            </span>{' '}
-                            di bar atas untuk mendeteksi lokasi Anda. Browser
-                            akan meminta izin (Allow/Izinkan), lalu kota Anda
-                            dipantau sebaran abu vulkanik secara real-time.
-                        </p>
-                    )}
+                        const isQuake = key === 'gempa' && hasNewQuake;
 
-                    {geoState === 'requesting' && (
-                        <p className="mt-2 flex items-center gap-2 text-[11px] text-sky-300">
-                            <span className="h-2 w-2 animate-pulse rounded-full bg-sky-400" />
-                            Meminta izin lokasi… Lihat popup Allow/Izinkan di
-                            browser Anda.
-                        </p>
-                    )}
+                        const isEruptionNotif =
+                            key === 'letusan' && hasNewEruption;
 
-                    {geoState === 'denied' && geoError && (
-                        <div className="mt-2 rounded-lg border border-red-500/25 bg-red-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-red-300">
-                            {geoError}
-                        </div>
-                    )}
+                        const isAlert = isQuake || isEruptionNotif;
 
-                    {geoState === 'error' && geoError && (
-                        <div className="mt-2 rounded-lg border border-orange-500/25 bg-orange-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-orange-300">
-                            {geoError}
-                        </div>
-                    )}
+                        return (
+                            <button
+                                key={key}
+                                type="button"
+                                title={label}
+                                aria-label={label}
+                                onClick={() => {
+                                    setOpenPanel(isActive ? null : key);
 
-                    {geoState === 'success' && cityData && (
-                        <>
-                            <div
-                                className={`relative mt-2.5 overflow-hidden rounded-xl border px-3 pt-3 pb-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${
-                                    cityData.summary.inside_plume
-                                        ? 'border-red-500/30 bg-gradient-to-br from-red-500/15 via-[#180b12] to-[#0a0f1c]'
-                                        : 'border-sky-500/25 bg-gradient-to-br from-sky-500/15 via-[#0a1220] to-[#0a0f1c]'
+                                    if (key === 'gempa') {
+                                        setHasNewQuake(false);
+                                    }
+
+                                    if (key === 'letusan') {
+                                        setHasNewEruption(false);
+                                    }
+                                }}
+                                className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition ${
+                                    isAlert
+                                        ? isActive
+                                            ? 'border-red-400/60 bg-gradient-to-b from-[#111b2e] to-[#0a0f1c] text-red-400 shadow-[0_0_16px_rgba(239,68,68,0.45)]'
+                                            : 'border-red-400/40 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 text-red-400 hover:border-red-400/70 hover:text-red-300'
+                                        : isActive
+                                          ? 'border-sky-400/60 bg-gradient-to-b from-[#111b2e] to-[#0a0f1c] text-sky-300 shadow-[0_0_14px_rgba(56,189,248,0.35)]'
+                                          : 'border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 text-slate-300 hover:border-sky-500/40 hover:text-sky-300'
                                 }`}
                             >
                                 <span
-                                    className={`pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full blur-2xl ${
-                                        cityData.summary.inside_plume
-                                            ? 'bg-red-500/25'
-                                            : 'bg-sky-500/25'
+                                    className={`relative flex items-center justify-center ${
+                                        isAlert ? 'vg-bell-shake' : ''
                                     }`}
-                                />
+                                >
+                                    <Icon size={18} strokeWidth={2.5} />
 
-                                <div className="relative flex items-center gap-2">
-                                    <span
-                                        className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border ${
-                                            cityData.summary.inside_plume
-                                                ? 'border-red-400/40 bg-red-500/15 shadow-[0_0_16px_rgba(255,59,59,0.4)]'
-                                                : 'border-sky-400/30 bg-sky-500/15 shadow-[0_0_16px_rgba(14,165,233,0.35)]'
-                                        }`}
-                                    >
-                                        {cityData.summary.inside_plume ? (
-                                            <TriangleAlert
-                                                size={15}
-                                                strokeWidth={2.5}
-                                                className="text-red-400"
-                                            />
-                                        ) : (
-                                            <MapPin
-                                                size={15}
-                                                strokeWidth={2.5}
-                                                className="text-sky-400"
-                                            />
-                                        )}
-                                    </span>
-
-                                    <div className="min-w-0 flex-1">
-                                        <p className="truncate text-[14px] font-extrabold text-white">
-                                            {cityLocationLabel ||
-                                                `⌀ ${cityData.city.latitude.toFixed(2)}, ${cityData.city.longitude.toFixed(2)}`}
-                                        </p>
-
-                                        {cityData.summary.inside_plume && (
-                                            <p className="flex animate-pulse items-center gap-1 text-[9px] font-extrabold text-red-400 uppercase">
-                                                <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-                                                Di dalam sebaran abu
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {cityData.summary.inside_plume ? (
-                                    <p className="relative mt-2 text-[15px] font-bold text-red-300">
-                                        Di dalam area sebaran abu.
-                                    </p>
-                                ) : cityData.summary.plume_volcanoes.length >
-                                  0 ? (
-                                    <p className="relative mt-2 flex items-baseline gap-1.5">
-                                        <span className="text-[30px] leading-none font-black text-sky-300 tabular-nums drop-shadow-[0_0_18px_rgba(56,189,248,0.35)]">
-                                            ≈{' '}
-                                            {formatAshKm(
-                                                cityData.summary.ash_edge_km ??
-                                                    0,
-                                            )}
-                                        </span>
-
-                                        <span className="text-[10px] font-semibold text-slate-400">
-                                            km dari tepi abu
-                                        </span>
-                                    </p>
-                                ) : (
-                                    <p className="relative mt-2 text-[13px] font-bold text-emerald-300">
-                                        Tidak ada sebaran abu aktif
-                                    </p>
-                                )}
-                            </div>
-                        </>
-                    )}
-                </section>
-
-                {/* STATUS ERUPSI */}
-
-                <section>
-                    <PanelTitle icon={<Activity size={11} strokeWidth={2.5} />}>
-                        Status Erupsi
-                    </PanelTitle>
-
-                    {alerts.map((alert) => {
-                        const alertClass =
-                            alert.level === 'critical'
-                                ? 'border-red-500/25 border-l-red-500/70 bg-red-500/10 text-red-200 shadow-[0_0_20px_rgba(255,59,59,0.15)]'
-                                : alert.level === 'warning'
-                                  ? 'border-orange-500/25 border-l-orange-500/70 bg-orange-500/10 text-orange-200 shadow-[0_0_20px_rgba(251,146,60,0.12)]'
-                                  : 'border-emerald-500/25 border-l-emerald-500/70 bg-emerald-500/10 text-emerald-200';
-
-                        const IconComponent =
-                            alert.level === 'critical'
-                                ? TriangleAlert
-                                : alert.level === 'warning'
-                                  ? AlertTriangle
-                                  : CircleCheck;
-
-                        return (
-                            <div
-                                key={alert.id}
-                                className={`flex items-start gap-2 rounded-xl border-l-[3px] px-3 py-2.5 text-[12.5px] leading-relaxed ${alertClass}`}
-                            >
-                                <span className="mt-0.5 shrink-0">
-                                    <IconComponent
-                                        size={15}
-                                        strokeWidth={2.5}
-                                        className="text-current"
-                                    />
-                                </span>
-
-                                <div>
-                                    <p className="font-bold">{alert.title}</p>
-
-                                    <p className="mt-0.5 font-medium text-slate-300">
-                                        {alert.message}
-                                    </p>
-
-                                    {data.ash_advisory && (
-                                        <p className="mt-2 border-t border-white/10 pt-2 text-[9.5px] leading-relaxed text-slate-400">
-                                            Data diambil{' '}
-                                            <span className="font-semibold text-slate-300">
-                                                {data.ash_advisory.issued_at
-                                                    ? formatWIBStamp(
-                                                          data.ash_advisory
-                                                              .issued_at,
-                                                      )
-                                                    : '-'}
-                                            </span>{' '}
-                                            · update berikutnya paling lambat{' '}
-                                            <span className="font-semibold text-sky-300">
-                                                {data.ash_advisory
-                                                    .next_advisory_at
-                                                    ? formatWIBStamp(
-                                                          data.ash_advisory
-                                                              .next_advisory_at,
-                                                      )
-                                                    : 'segera'}
-                                            </span>
-                                        </p>
+                                    {isQuake && (
+                                        <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,1)]" />
                                     )}
-                                </div>
-                            </div>
+
+                                    {isEruptionNotif && (
+                                        <span className="absolute -top-2 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] leading-none font-black text-white shadow-[0_0_8px_rgba(239,68,68,1)]">
+                                            1
+                                        </span>
+                                    )}
+                                </span>
+                            </button>
                         );
                     })}
+                </div>
 
-                    {/* BADGE GDACS */}
+                {/* PANEL AKTIF */}
 
+                <div
+                    className={`w-[308px] max-w-[calc(100vw-96px)] self-start overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e] to-[#0a0f1c] pt-3.5 pb-3.5 pl-3.5 shadow-2xl shadow-black/50 ${
+                        active !== null ? '' : 'hidden'
+                    }`}
+                    style={{ maxHeight: 'calc(100dvh - 280px)' }}
+                >
                     <div
-                        className={`mt-2 flex items-center gap-2 rounded-xl border px-3 py-2 text-[11.5px] font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${gdacsBadgeClass}`}
+                        className="flex w-full min-w-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent] flex-col gap-3 overflow-x-hidden overflow-y-auto pr-2.5 [&::-webkit-scrollbar]:w-[4px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-track]:bg-transparent"
+                        style={{ maxHeight: 'calc(100dvh - 280px)' }}
                     >
-                        <span
-                            className="h-2.5 w-2.5 shrink-0 rounded-full shadow-[0_0_10px_currentColor]"
-                            style={{ background: gdacsLevel.color }}
-                        />
+                        {active === 'kota' && (
+                            <section>
+                                <PanelTitle
+                                    icon={
+                                        <MapPin size={11} strokeWidth={2.5} />
+                                    }
+                                >
+                                    Kota Saya &amp; Sebaran Abu
+                                </PanelTitle>
 
-                        <span>
-                            <span className="block text-[9px] font-extrabold tracking-widest uppercase opacity-70">
-                                Status Bahaya (GDACS)
-                            </span>
-
-                            {gdacsLevel.label.toUpperCase()}
-                        </span>
-                    </div>
-                </section>
-
-                {/* STATUS RESMI PVMBG */}
-
-                <section>
-                    <PanelTitle
-                        icon={<ShieldCheck size={11} strokeWidth={2.5} />}
-                    >
-                        Status Resmi PVMBG
-                    </PanelTitle>
-
-                    <div
-                        className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-[12.5px] font-extrabold shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${pvmbgClass}`}
-                    >
-                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/10">
-                            <ShieldCheck size={15} strokeWidth={2.5} />
-                        </span>
-
-                        <span>
-                            <span className="block text-[9px] font-extrabold tracking-widest uppercase opacity-70">
-                                Level Resmi
-                            </span>
-                            {pvmbgLevelText}
-                        </span>
-                    </div>
-
-                    <p className="mt-1.5 flex items-center gap-1.5 text-[10px] text-slate-500">
-                        <span
-                            className={
-                                data.volcano.status_source === 'live'
-                                    ? 'inline-block size-1.5 rounded-full bg-emerald-400'
-                                    : 'inline-block size-1.5 rounded-full bg-slate-500'
-                            }
-                        />
-                        {data.volcano.status_source === 'live'
-                            ? 'Status Resmi MAGMA'
-                            : 'status tersimpan (fallback)'}
-                    </p>
-
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10.5px] text-slate-400">
-                        <span className="font-semibold text-slate-300">
-                            {data.volcano.code}
-                        </span>
-
-                        <span>•</span>
-
-                        <span>
-                            Elevasi {data.volcano.elevation ?? '-'} mdpl
-                        </span>
-
-                        <span>•</span>
-
-                        <span>
-                            {data.volcano.latitude}, {data.volcano.longitude}
-                        </span>
-                    </div>
-                </section>
-
-                {/* TIMELINE SEBARAN */}
-
-                {hasTimelineData && (
-                    <section>
-                        <PanelTitle
-                            icon={<Gauge size={11} strokeWidth={2.5} />}
-                        >
-                            Timeline Sebaran
-                        </PanelTitle>
-
-                        <div className="flex items-center gap-1.5">
-                            <button
-                                type="button"
-                                onClick={() =>
-                                    setTimelinePlaying((playing) => !playing)
-                                }
-                                aria-label={timelinePlaying ? 'Jeda' : 'Putar'}
-                                className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/10 bg-white/5 text-[9px] text-white transition hover:bg-white/10"
-                            >
-                                {timelinePlaying ? (
-                                    <Pause size={11} strokeWidth={2.5} />
-                                ) : (
-                                    <Play size={11} strokeWidth={2.5} />
+                                {geoState === 'idle' && !cityCoords && (
+                                    <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+                                        Klik{' '}
+                                        <span className="font-bold text-sky-400">
+                                            Kota Saya
+                                        </span>{' '}
+                                        di bar atas untuk mendeteksi lokasi
+                                        Anda. Browser akan meminta izin
+                                        (Allow/Izinkan), lalu kota Anda dipantau
+                                        sebaran abu vulkanik secara real-time.
+                                    </p>
                                 )}
-                            </button>
 
-                            <div className="relative h-8 flex-1">
-                                <span className="absolute top-[9px] right-2 left-2 h-0.5 bg-white/10" />
+                                {geoState === 'requesting' && (
+                                    <p className="mt-2 flex items-center gap-2 text-[11px] text-sky-300">
+                                        <span className="h-2 w-2 animate-pulse rounded-full bg-sky-400" />
+                                        Meminta izin lokasi… Lihat popup
+                                        Allow/Izinkan di browser Anda.
+                                    </p>
+                                )}
 
-                                <div className="relative flex h-full items-start justify-between">
-                                    {LAYER_ORDER.map((key) => {
-                                        const active =
-                                            key === timelineBucketKey;
+                                {geoState === 'denied' && geoError && (
+                                    <div className="mt-2 rounded-lg border border-red-500/25 bg-red-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-red-300">
+                                        {geoError}
+                                    </div>
+                                )}
 
-                                        return (
-                                            <button
-                                                key={key}
-                                                type="button"
-                                                onClick={() =>
-                                                    selectBucket(key)
-                                                }
-                                                className="flex cursor-pointer flex-col items-center gap-1"
-                                            >
+                                {geoState === 'error' && geoError && (
+                                    <div className="mt-2 rounded-lg border border-orange-500/25 bg-orange-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-orange-300">
+                                        {geoError}
+                                    </div>
+                                )}
+
+                                {geoState === 'success' && cityData && (
+                                    <>
+                                        <div
+                                            className={`relative mt-2.5 overflow-hidden rounded-xl border px-3 pt-3 pb-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${
+                                                cityData.summary.inside_plume
+                                                    ? 'border-red-500/30 bg-gradient-to-br from-red-500/15 via-[#180b12] to-[#0a0f1c]'
+                                                    : 'border-sky-500/25 bg-gradient-to-br from-sky-500/15 via-[#0a1220] to-[#0a0f1c]'
+                                            }`}
+                                        >
+                                            <span
+                                                className={`pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full blur-2xl ${
+                                                    cityData.summary
+                                                        .inside_plume
+                                                        ? 'bg-red-500/25'
+                                                        : 'bg-sky-500/25'
+                                                }`}
+                                            />
+
+                                            <div className="relative flex items-center gap-2">
                                                 <span
-                                                    className={`z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 transition ${
-                                                        active
-                                                            ? 'scale-125 border-sky-500 bg-sky-500/40 shadow-[0_0_12px_#38bdf8]'
-                                                            : 'border-white/20 bg-[#141821]'
-                                                    }`}
-                                                />
-
-                                                <span
-                                                    className={`text-[9.5px] font-bold ${
-                                                        active
-                                                            ? 'text-white'
-                                                            : 'text-slate-500'
+                                                    className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border ${
+                                                        cityData.summary
+                                                            .inside_plume
+                                                            ? 'border-red-400/40 bg-red-500/15 shadow-[0_0_16px_rgba(255,59,59,0.4)]'
+                                                            : 'border-sky-400/30 bg-sky-500/15 shadow-[0_0_16px_rgba(14,165,233,0.35)]'
                                                     }`}
                                                 >
-                                                    {key === 'observasi'
-                                                        ? 'Observasi'
-                                                        : `+${bucketHourOf(key)}`}
+                                                    {cityData.summary
+                                                        .inside_plume ? (
+                                                        <TriangleAlert
+                                                            size={15}
+                                                            strokeWidth={2.5}
+                                                            className="text-red-400"
+                                                        />
+                                                    ) : (
+                                                        <MapPin
+                                                            size={15}
+                                                            strokeWidth={2.5}
+                                                            className="text-sky-400"
+                                                        />
+                                                    )}
                                                 </span>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-                )}
 
-                {/* ANGIN DI KAWAH */}
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-[14px] font-extrabold text-white">
+                                                        {cityLocationLabel ||
+                                                            `⌀ ${cityData.city.latitude.toFixed(2)}, ${cityData.city.longitude.toFixed(2)}`}
+                                                    </p>
 
-                <section>
-                    <PanelTitle icon={<Wind size={11} strokeWidth={2.5} />}>
-                        Angin di Kawah
-                    </PanelTitle>
+                                                    {cityData.summary
+                                                        .inside_plume && (
+                                                        <p className="flex animate-pulse items-center gap-1 text-[9px] font-extrabold text-red-400 uppercase">
+                                                            <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                                                            Di dalam sebaran abu
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </div>
 
-                    <div className="flex items-center gap-3">
-                        <div className="relative h-[66px] w-[66px] shrink-0 rounded-full border border-white/10 bg-[radial-gradient(circle,rgba(255,255,255,0.04),transparent_70%)]">
-                            <span className="absolute top-0.5 left-1/2 -translate-x-1/2 text-[8px] font-extrabold text-slate-600">
-                                U
-                            </span>
+                                            {cityData.summary.inside_plume ? (
+                                                <p className="relative mt-2 text-[15px] font-bold text-red-300">
+                                                    Di dalam area sebaran abu.
+                                                </p>
+                                            ) : cityData.summary.plume_volcanoes
+                                                  .length > 0 ? (
+                                                <p className="relative mt-2 flex items-baseline gap-1.5">
+                                                    <span className="text-[30px] leading-none font-black text-sky-300 tabular-nums drop-shadow-[0_0_18px_rgba(56,189,248,0.35)]">
+                                                        ≈{' '}
+                                                        {formatAshKm(
+                                                            cityData.summary
+                                                                .ash_edge_km ??
+                                                                0,
+                                                        )}
+                                                    </span>
 
-                            <span className="absolute top-1/2 right-1 -translate-y-1/2 text-[8px] font-extrabold text-slate-600">
-                                T
-                            </span>
-
-                            <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[8px] font-extrabold text-slate-600">
-                                S
-                            </span>
-
-                            <span className="absolute top-1/2 left-1 -translate-y-1/2 text-[8px] font-extrabold text-slate-600">
-                                B
-                            </span>
-
-                            <span
-                                className="absolute rounded-sm bg-gradient-to-b from-blue-500 to-transparent"
-                                style={{
-                                    left: '50%',
-                                    top: '50%',
-                                    width: '3px',
-                                    height: '24px',
-                                    marginLeft: '-1.5px',
-                                    marginTop: '-24px',
-                                    transformOrigin: '50% 24px',
-                                    transform: `rotate(${windDeg}deg)`,
-                                }}
-                            />
-                        </div>
-
-                        <div className="text-xs leading-relaxed text-slate-400">
-                            <div>
-                                <b className="text-[15px] text-white">
-                                    {displayWeather?.wind_speed ?? '-'}
-                                </b>{' '}
-                                km/j
-                            </div>
-
-                            <div>
-                                arah {displayWeather?.wind_direction ?? '-'}
-                            </div>
-
-                            <div>
-                                suhu {displayWeather?.temperature ?? '-'}°C
-                            </div>
-                        </div>
-                    </div>
-
-                    {!usingBmkgWeather && displayWeather?.forecast_at ? (
-                        <p className="mt-1.5 text-[9.5px] text-slate-500">
-                            Angin dari Open-Meteo (GFS/ICON) — estimasi
-                            model •{' '}
-                            {formatWIBStamp(displayWeather.forecast_at)}
-                        </p>
-                    ) : null}
-                </section>
-
-                {/* KONDISI CUACA */}
-
-                <section>
-                    <PanelTitle icon={<CloudSun size={11} strokeWidth={2.5} />}>
-                        Kondisi Cuaca
-                    </PanelTitle>
-
-                    <div className="grid grid-cols-2 gap-1.5">
-                        <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                            <div className="flex items-center gap-1.5 text-slate-500">
-                                <Thermometer size={11} strokeWidth={2.5} />
-                                <p className="text-[10px]">Suhu</p>
-                            </div>
-
-                            <p className="mt-0.5 text-[15px] font-bold text-white">
-                                {displayWeather?.temperature ?? '-'}°
-                            </p>
-                        </div>
-
-                        <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                            <div className="flex items-center gap-1.5 text-slate-500">
-                                <Droplets size={11} strokeWidth={2.5} />
-                                <p className="text-[10px]">Kelembapan</p>
-                            </div>
-
-                            <p className="mt-0.5 text-[15px] font-bold text-white">
-                                {displayWeather?.humidity ?? '-'}%
-                            </p>
-                        </div>
-
-                        <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                            <div className="flex items-center gap-1.5 text-slate-500">
-                                <Wind size={11} strokeWidth={2.5} />
-                                <p className="text-[10px]">Angin</p>
-                            </div>
-
-                            <p className="mt-0.5 text-[15px] font-bold text-white">
-                                {displayWeather?.wind_speed ?? '-'} km/j
-                            </p>
-                        </div>
-
-                        <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                            <div className="flex items-center gap-1.5 text-slate-500">
-                                <Navigation size={11} strokeWidth={2.5} />
-                                <p className="text-[10px]">Arah</p>
-                            </div>
-
-                            <p className="mt-0.5 text-[15px] font-bold text-white">
-                                {displayWeather?.wind_direction ?? '-'}
-                            </p>
-                        </div>
-                    </div>
-
-                    {usingBmkgWeather && selectedWeather?.forecast_at ? (
-                        <p className="mt-1.5 text-[9.5px] text-slate-500">
-                            Prakiraan cuaca BMKG •{' '}
-                            {formatWIBStamp(selectedWeather.forecast_at)}
-                        </p>
-                    ) : null}
-
-                    {!usingBmkgWeather && displayWeather?.forecast_at ? (
-                        <p className="mt-1.5 text-[9.5px] text-slate-500">
-                            Kondisi cuaca Open-Meteo (GFS/ICON) — estimasi
-                            model, bukan pengukuran alat •{' '}
-                            {formatWIBStamp(displayWeather.forecast_at)}
-                        </p>
-                    ) : null}
-
-                    <WeatherWaveChart
-                        points={waveDataPoints}
-                        activeKey={timelineBucketKey}
-                        waveColor={pvmbgWaveColor}
-                    />
-                </section>
-
-                {/* KONDISI SAAT INI (OPEN-METEO / REAL-TIME) */}
-
-                <section>
-                    <PanelTitle icon={<Gauge size={11} strokeWidth={2.5} />}>
-                        Kondisi Saat Ini
-                    </PanelTitle>
-
-                    {data.current_weather ? (
-                        <>
-                            <div className="grid grid-cols-2 gap-1.5">
-                                <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                    <div className="flex items-center gap-1.5 text-slate-500">
-                                        <Thermometer
-                                            size={11}
-                                            strokeWidth={2.5}
-                                        />
-                                        <p className="text-[10px]">Suhu</p>
-                                    </div>
-
-                                    <p className="mt-0.5 text-[15px] font-bold text-white">
-                                        {data.current_weather.temperature_c ??
-                                            '-'}
-                                        °
-                                    </p>
-                                </div>
-
-                                <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                    <div className="flex items-center gap-1.5 text-slate-500">
-                                        <Droplets size={11} strokeWidth={2.5} />
-                                        <p className="text-[10px]">
-                                            Kelembapan
-                                        </p>
-                                    </div>
-
-                                    <p className="mt-0.5 text-[15px] font-bold text-white">
-                                        {data.current_weather.humidity ?? '-'}%
-                                    </p>
-                                </div>
-
-                                <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                    <div className="flex items-center gap-1.5 text-slate-500">
-                                        <Wind size={11} strokeWidth={2.5} />
-                                        <p className="text-[10px]">Tekanan</p>
-                                    </div>
-
-                                    <p className="mt-0.5 text-[15px] font-bold text-white">
-                                        {data.current_weather.pressure_msl ??
-                                            '-'}{' '}
-                                        hPa
-                                    </p>
-                                </div>
-
-                                <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                    <div className="flex items-center gap-1.5 text-slate-500">
-                                        <Navigation
-                                            size={11}
-                                            strokeWidth={2.5}
-                                        />
-                                        <p className="text-[10px]">Angin</p>
-                                    </div>
-
-                                    <p className="mt-0.5 text-[15px] font-bold text-white">
-                                        {data.current_weather.wind_speed_kmh ??
-                                            '-'}{' '}
-                                        km/j
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="mt-1.5 rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-400">
-                                <p>
-                                    arah{' '}
-                                    {data.current_weather.wind_direction_deg !=
-                                    null
-                                        ? `${data.current_weather.wind_direction_deg}°${
-                                              data.current_weather
-                                                  .wind_direction_cardinal
-                                                  ? ` (${data.current_weather.wind_direction_cardinal})`
-                                                  : ''
-                                          }`
-                                        : '-'}
-                                    {data.current_weather.wind_gust_kmh != null
-                                        ? ` • hembusan ${data.current_weather.wind_gust_kmh} km/j`
-                                        : ''}
-                                    {data.current_weather
-                                        .apparent_temperature_c != null
-                                        ? ` • terasa ${data.current_weather.apparent_temperature_c}°C`
-                                        : ''}
-                                </p>
-                            </div>
-
-                            {data.current_weather.observed_at ? (
-                                <p className="mt-1.5 text-[9.5px] text-slate-500">
-                                    Open-Meteo (GFS/ICON) — estimasi
-                                    model, bukan pengukuran alat •{' '}
-                                    {formatWIBStamp(
-                                        data.current_weather.observed_at,
-                                    )}
-                                    {(hoursAgo(
-                                        data.current_weather.observed_at,
-                                    ) ?? 99) > 1.5 && (
-                                        <span className="ml-1 text-orange-400">
-                                            (data tidak segar)
-                                        </span>
-                                    )}
-                                </p>
-                            ) : null}
-                        </>
-                    ) : (
-                        <p className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-500">
-                            Belum ada data kondisi saat ini. Sinkronisasi
-                            berjalan berkala (±8–10 menit) oleh sistem
-                            pemantauan.
-                        </p>
-                    )}
-                </section>
-
-                {/* ADVISORY ABU VULKANIK */}
-
-                <section>
-                    <PanelTitle icon={<Radio size={11} strokeWidth={2.5} />}>
-                        Advisory Abu Vulkanik
-                    </PanelTitle>
-
-                    {data.ash_advisory ? (
-                        <div className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11.5px]">
-                            <div className="flex items-center justify-between gap-2">
-                                <p className="font-bold text-white">
-                                    {data.ash_advisory.volcano_name ??
-                                        data.volcano.name}
-                                </p>
-
-                                <span
-                                    className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase ${
-                                        data.ash_advisory.ash_detected
-                                            ? 'bg-red-500/15 text-red-300'
-                                            : 'bg-emerald-500/10 text-emerald-300'
-                                    }`}
-                                >
-                                    {data.ash_advisory.ash_detected
-                                        ? 'Abu terdeteksi'
-                                        : 'Tidak ada abu'}
-                                </span>
-                            </div>
-
-                            <div className="mt-2 space-y-0.5 leading-relaxed text-slate-400">
-                                <p>
-                                    Tinggi abu ~
-                                    {data.ash_advisory.ash_height_m != null
-                                        ? `${(
-                                              data.ash_advisory.ash_height_m /
-                                              1000
-                                          ).toFixed(1)} km`
-                                        : '-'}
-                                    {data.ash_advisory.movement
-                                        ? ` • arah ${
-                                              data.ash_advisory.movement
-                                          }${
-                                              data.ash_advisory.speed_kts
-                                                  ? ` (${data.ash_advisory.speed_kts} kt)`
-                                                  : ''
-                                          }`
-                                        : ''}
-                                </p>
-
-                                <p>
-                                    Advisory #
-                                    {data.ash_advisory.advisory_nr ?? '-'} •{' '}
-                                    {formatWIB(data.ash_advisory.issued_at)} WIB
-                                </p>
-
-                                {/* PERINGATAN STALE ADVISORY */}
-                                {data.ash_advisory.ash_detected &&
-                                    (hoursAgo(data.ash_advisory.issued_at) ??
-                                        99) > 4 && (
-                                        <p className="mt-1 rounded-md bg-orange-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-orange-300">
-                                            Advisory terakhir{' '}
-                                            {Math.round(
-                                                hoursAgo(
-                                                    data.ash_advisory
-                                                        .issued_at,
-                                                ) ?? 0,
-                                            )}{' '}
-                                            jam lalu — konfirmasi ke
-                                            PVMBG/VAAC untuk data terkini.
-                                        </p>
-                                    )}
-
-                                {/* DISCLAIMER KEAMANAN PUBLIK */}
-                                <p className="mt-1 text-[9px] text-slate-600 italic">
-                                    Sumber: VAAC Darwin (BOM). Gunakan
-                                    bersama info resmi PVMBG / BPBD.
-                                </p>
-                            </div>
-                        </div>
-                    ) : (
-                        <p className="rounded-xl border border-dashed border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-500">
-                            Belum ada advisory VAAC Darwin untuk gunung ini
-                            dalam 24 jam terakhir.
-                        </p>
-                    )}
-                </section>
-
-                {/* PREDIKSI SEBARAN ABU */}
-
-                {ashActive && selectedForecast && (
-                    <section>
-                        <PanelTitle
-                            icon={<Navigation size={11} strokeWidth={2.5} />}
-                        >
-                            Perkiraan Sebaran Abu (Perhitungan Sistem)
-                        </PanelTitle>
-
-                        <div className="grid grid-cols-2 gap-1.5">
-                            <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                <div className="flex items-center gap-1.5 text-slate-500">
-                                    <Navigation size={11} strokeWidth={2.5} />
-                                    <p className="text-[10px]">Arah Sebaran</p>
-                                </div>
-
-                                <p className="mt-0.5 text-[15px] font-bold text-white">
-                                    {selectedForecast.direction != null
-                                        ? `${Number(
-                                              selectedForecast.direction,
-                                          ).toFixed(2)}°`
-                                        : '-'}
-                                </p>
-                            </div>
-
-                            <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                <div className="flex items-center gap-1.5 text-slate-500">
-                                    <Wind size={11} strokeWidth={2.5} />
-                                    <p className="text-[10px]">
-                                        Kecepatan Angin
-                                    </p>
-                                </div>
-
-                                <p className="mt-0.5 text-[15px] font-bold text-white">
-                                    {selectedForecast.speed != null
-                                        ? `${Number(
-                                              selectedForecast.speed,
-                                          ).toFixed(1)} km/h`
-                                        : '-'}
-                                </p>
-                            </div>
-
-                            <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                <div className="flex items-center gap-1.5 text-slate-500">
-                                    <TriangleAlert
-                                        size={11}
-                                        strokeWidth={2.5}
-                                    />
-                                    <p className="text-[10px]">Risiko</p>
-                                </div>
-
-                                <p
-                                    className={`mt-0.5 text-[15px] font-bold uppercase ${riskClass}`}
-                                >
-                                    {selectedForecast.risk_level}
-                                </p>
-                            </div>
-
-                            <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                <div className="flex items-center gap-1.5 text-slate-500">
-                                    <Gauge size={11} strokeWidth={2.5} />
-                                    <p className="text-[10px]">Confidence</p>
-                                </div>
-
-                                <p className="mt-0.5 text-[15px] font-bold text-white">
-                                    {selectedForecast.confidence != null
-                                        ? `${Number(
-                                              selectedForecast.confidence,
-                                          ).toFixed(2)}%`
-                                        : '-'}
-                                </p>
-                            </div>
-                        </div>
-
-                        <p className="mt-1.5 rounded-md border border-orange-500/20 bg-orange-500/5 px-1.5 py-0.5 text-[9.5px] text-orange-300 italic">
-                            Ini adalah perhitungan sistem internal (VAAC +
-                            model angin). BUKAN keluaran badan resmi.
-                            Selalu ikuti anjuran PVMBG / BPBD setempat.
-                        </p>
-                    </section>
-                )}
-
-                {/* GEMPA TERKINI (BMKG) */}
-
-                <section>
-                    <PanelTitle icon={<Siren size={11} strokeWidth={2.5} />}>
-                        Gempa Terkini (BMKG)
-                    </PanelTitle>
-
-                    {selectedGempa && (
-                        <button
-                            type="button"
-                            onClick={() => setSelectedGempa(null)}
-                            className="mb-1.5 flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[9.5px] font-semibold text-slate-400 transition hover:border-sky-500/40 hover:text-white"
-                        >
-                            <ArrowLeft size={10} strokeWidth={2.5} />
-                            Kembali ke gempa terbaru
-                        </button>
-                    )}
-
-                    {gempa === null ? (
-                        <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] text-slate-500">
-                            Memuat data gempa…
-                        </p>
-                    ) : displayGempa?.region ? (
-                        <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
-                            <div className="flex items-start justify-between gap-2">
-                                <p className="text-[11px] font-semibold text-slate-300">
-                                    {displayGempa.datetime
-                                        ? formatWIBShort(displayGempa.datetime)
-                                        : `${displayGempa.tanggal ?? '-'}${
-                                              displayGempa.jam
-                                                  ? ` • ${displayGempa.jam}`
-                                                  : ''
-                                          }`}
-                                </p>
-
-                                {displayGempa.status && (
-                                    <span className="shrink-0 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
-                                        {displayGempa.status === 'confirmed'
-                                            ? 'Terkonfirmasi'
-                                            : displayGempa.status}
-                                    </span>
+                                                    <span className="text-[10px] font-semibold text-slate-400">
+                                                        km dari tepi abu
+                                                    </span>
+                                                </p>
+                                            ) : (
+                                                <p className="relative mt-2 text-[13px] font-bold text-emerald-300">
+                                                    Tidak ada sebaran abu aktif
+                                                </p>
+                                            )}
+                                        </div>
+                                    </>
                                 )}
-                            </div>
+                            </section>
+                        )}
 
-                            <p className="mt-0.5 text-[13px] leading-snug font-bold text-white">
-                                {displayGempa.region}
-                            </p>
+                        {/* LETUSAN GUNUNG (MAGMA informasi-letusan) */}
 
-                            {displayGempa.potential && (
-                                <p
-                                    className={`mt-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
-                                        displayGempa.potential
-                                            .toLowerCase()
-                                            .includes('tidak')
-                                            ? 'bg-emerald-500/10 text-emerald-300'
-                                            : 'bg-red-500/10 text-red-300'
-                                    }`}
+                        {active === 'letusan' && (
+                            <section>
+                                <PanelTitle
+                                    icon={<Flame size={11} strokeWidth={2.5} />}
                                 >
-                                    {displayGempa.potential}
-                                </p>
-                            )}
+                                    Letusan Gunung
+                                </PanelTitle>
 
-                            <dl className="mt-2.5 space-y-1.5 text-[11px]">
-                                <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
-                                    <dt className="font-semibold text-slate-500">
-                                        Magnitudo
-                                    </dt>
+                                {(data.eruptions?.length ?? 0) > 0 ? (
+                                    <div className="flex flex-col gap-3">
+                                        {data.eruptions!.map(
+                                            (eruption, index) => (
+                                                <div
+                                                    key={
+                                                        eruption.occurred_at
+                                                            ? `${eruption.occurred_at}-${index}`
+                                                            : `${eruption.name}-${index}`
+                                                    }
+                                                    className="rounded-xl border border-orange-400/25 border-l-orange-400/80 bg-orange-400/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                                                >
+                                                    <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-orange-300 uppercase">
+                                                        <Flame
+                                                            size={10}
+                                                            strokeWidth={2.5}
+                                                        />
+                                                        Informasi Letusan ·
+                                                        MAGMA
+                                                    </p>
 
-                                    <dd
-                                        className="font-black"
-                                        style={{
-                                            color: gempaMagColor(
-                                                displayGempa.magnitude != null
-                                                    ? Number(
-                                                          displayGempa.magnitude,
-                                                      )
-                                                    : null,
+                                                    <p className="mt-1.5 text-[12px] font-black text-white">
+                                                        {eruption.date_label ??
+                                                            (isEruptionToday(
+                                                                eruption.occurred_at,
+                                                            )
+                                                                ? `Hari Ini, ${formatWIBLongDate(eruption.occurred_at)}`
+                                                                : formatWIBLongDate(
+                                                                      eruption.occurred_at,
+                                                                  ))}
+                                                    </p>
+
+                                                    <p className="mt-0.5 text-[13px] font-black text-white">
+                                                        {eruption.time_label
+                                                            ? `${eruption.time_label} · `
+                                                            : ''}
+                                                        {eruption.name ??
+                                                            data.volcano.name}
+                                                    </p>
+
+                                                    {eruption.author && (
+                                                        <p className="mt-1 text-[10.5px] text-slate-400">
+                                                            Dibuat oleh{' '}
+                                                            <span className="font-semibold text-slate-300">
+                                                                {
+                                                                    eruption.author
+                                                                }
+                                                            </span>
+                                                        </p>
+                                                    )}
+
+                                                    {eruption.description && (
+                                                        <p className="mt-2.5 border-t border-white/10 pt-2 text-[11.5px] leading-relaxed text-slate-200">
+                                                            {
+                                                                eruption.description
+                                                            }
+                                                        </p>
+                                                    )}
+
+                                                    {eruption.image && (
+                                                        <a
+                                                            href={
+                                                                eruption.image
+                                                            }
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="mt-3 block overflow-hidden rounded-lg border border-white/10"
+                                                        >
+                                                            <img
+                                                                src={
+                                                                    eruption.image
+                                                                }
+                                                                alt={`Letusan G. ${eruption.name ?? data.volcano.name}`}
+                                                                loading="lazy"
+                                                                className="h-40 w-full object-cover transition duration-300 hover:scale-105"
+                                                            />
+                                                        </a>
+                                                    )}
+                                                </div>
                                             ),
-                                        }}
-                                    >
-                                        {magnitudeLabel(displayGempa.magnitude)}
-                                    </dd>
-                                </div>
+                                        )}
+                                    </div>
+                                ) : data.activity?.description ? (
+                                    <div className="rounded-xl border border-orange-400/25 border-l-orange-400/80 bg-orange-400/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                                        <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-orange-300 uppercase">
+                                            <Flame
+                                                size={10}
+                                                strokeWidth={2.5}
+                                            />
+                                            Informasi Letusan · MAGMA
+                                        </p>
 
-                                <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
-                                    <dt className="font-semibold text-slate-500">
-                                        Kedalaman
-                                    </dt>
+                                        <p className="mt-1.5 text-[13px] font-black text-white">
+                                            {isEruptionToday(
+                                                data.activity.occurred_at,
+                                            ) && 'Hari Ini, '}
+                                            {formatWIBLongDate(
+                                                data.activity.occurred_at,
+                                            )}
+                                        </p>
 
-                                    <dd className="font-semibold text-slate-300">
-                                        {kedalamanLabel(displayGempa.depth)}
-                                    </dd>
-                                </div>
+                                        <p className="mt-0.5 text-[13px] font-black text-white">
+                                            {data.volcano.name}
+                                        </p>
 
-                                <div className="flex items-center justify-between">
-                                    <dt className="font-semibold text-slate-500">
-                                        Lokasi
-                                    </dt>
+                                        {data.activity.author && (
+                                            <p className="mt-1 text-[10.5px] text-slate-400">
+                                                Dibuat oleh{' '}
+                                                <span className="font-semibold text-slate-300">
+                                                    {data.activity.author}
+                                                </span>
+                                            </p>
+                                        )}
 
-                                    <dd className="text-right font-semibold text-slate-300">
-                                        {locationLabel(displayGempa)}
-                                    </dd>
-                                </div>
-                            </dl>
-                        </div>
-                    ) : (
-                        <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] text-slate-500">
-                            {gempa.error ?? 'Data gempa belum tersedia.'}
-                        </p>
-                    )}
-                </section>
+                                        <p className="mt-2.5 border-t border-white/10 pt-2 text-[11.5px] leading-relaxed text-slate-200">
+                                            {data.activity.description}
+                                        </p>
 
-                {/* GERAKAN TANAH (PVMBG / VSI) */}
+                                        {data.activity.image && (
+                                            <a
+                                                href={data.activity.image}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="mt-3 block overflow-hidden rounded-lg border border-white/10"
+                                            >
+                                                <img
+                                                    src={data.activity.image}
+                                                    alt={`Letusan G. ${data.volcano.name}`}
+                                                    loading="lazy"
+                                                    className="h-40 w-full object-cover transition duration-300 hover:scale-105"
+                                                />
+                                            </a>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-4 text-[11.5px] leading-relaxed text-slate-400">
+                                        Belum ada laporan letusan terbaru dari
+                                        MAGMA.
+                                    </div>
+                                )}
+                            </section>
+                        )}
 
-                <section>
-                    <PanelTitle icon={<LandPlot size={11} strokeWidth={2.5} />}>
-                        Gerakan Tanah (PVMBG)
-                    </PanelTitle>
+                        {/* STATUS ERUPSI */}
 
-                    {gerakanTanah === null ? (
-                        <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] text-slate-500">
-                            Memuat laporan tanggapan…
-                        </p>
-                    ) : gerakanTanah.list.length > 0 ? (
-                        <ul className="space-y-1.5">
-                            {gerakanTanah.list.map((item, index) => (
-                                <li
-                                    key={String(item.id ?? item.title ?? index)}
+                        {active === 'status' && (
+                            <section>
+                                <PanelTitle
+                                    icon={
+                                        <Activity size={11} strokeWidth={2.5} />
+                                    }
                                 >
-                                    <a
-                                        href={item.url ?? '#'}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="group block rounded-lg border border-white/5 bg-white/[0.04] px-2.5 py-2 text-[11px] transition hover:border-sky-500/30 hover:bg-sky-500/10"
-                                    >
-                                        <span className="flex items-start justify-between gap-2">
-                                            <span className="leading-snug font-semibold text-slate-300 group-hover:text-white">
-                                                {item.title}
+                                    Status Erupsi
+                                </PanelTitle>
+
+                                {data.activity?.description && (
+                                    <div className="mb-2 rounded-xl border border-sky-400/25 border-l-sky-400/80 bg-sky-400/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                                        <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-sky-300 uppercase">
+                                            <Radio
+                                                size={10}
+                                                strokeWidth={2.5}
+                                            />
+                                            Informasi Letusan · MAGMA
+                                        </p>
+
+                                        <p className="mt-1.5 text-[13px] font-black text-white">
+                                            {data.volcano.name}
+                                        </p>
+
+                                        <p className="mt-0.5 text-[10.5px] font-semibold text-sky-200">
+                                            {data.activity.occurred_at
+                                                ? formatWIBStamp(
+                                                      data.activity.occurred_at,
+                                                  )
+                                                : '-'}
+                                            {data.activity.ash_height != null &&
+                                                ` · tinggi kolom abu ±${data.activity.ash_height} m`}
+                                        </p>
+
+                                        {data.activity.author && (
+                                            <p className="mt-1.5 text-[9.5px] text-slate-400">
+                                                Dibuat oleh{' '}
+                                                <span className="font-semibold text-slate-300">
+                                                    {data.activity.author}
+                                                </span>
+                                            </p>
+                                        )}
+
+                                        <p className="mt-2.5 border-t border-white/10 pt-2 text-[11.5px] leading-relaxed text-slate-200">
+                                            {data.activity.description}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {alerts.map((alert) => {
+                                    const alertClass =
+                                        alert.level === 'critical'
+                                            ? 'border-red-500/25 border-l-red-500/70 bg-red-500/10 text-red-200 shadow-[0_0_20px_rgba(255,59,59,0.15)]'
+                                            : alert.level === 'warning'
+                                              ? 'border-orange-500/25 border-l-orange-500/70 bg-orange-500/10 text-orange-200 shadow-[0_0_20px_rgba(251,146,60,0.12)]'
+                                              : 'border-emerald-500/25 border-l-emerald-500/70 bg-emerald-500/10 text-emerald-200';
+
+                                    const IconComponent =
+                                        alert.level === 'critical'
+                                            ? TriangleAlert
+                                            : alert.level === 'warning'
+                                              ? AlertTriangle
+                                              : CircleCheck;
+
+                                    return (
+                                        <div
+                                            key={alert.id}
+                                            className={`mt-2 flex items-start gap-2 rounded-xl border-l-[3px] px-3 py-2.5 text-[12.5px] leading-relaxed ${alertClass}`}
+                                        >
+                                            <span className="mt-0.5 shrink-0">
+                                                <IconComponent
+                                                    size={15}
+                                                    strokeWidth={2.5}
+                                                    className="text-current"
+                                                />
                                             </span>
 
-                                            <ExternalLink
+                                            <div>
+                                                <p className="font-bold">
+                                                    {alert.title}
+                                                </p>
+
+                                                <p className="mt-0.5 font-medium text-slate-300">
+                                                    {alert.message}
+                                                </p>
+
+                                                {data.ash_advisory && (
+                                                    <p className="mt-2 border-t border-white/10 pt-2 text-[9.5px] leading-relaxed text-slate-400">
+                                                        Data diambil{' '}
+                                                        <span className="font-semibold text-slate-300">
+                                                            {data.ash_advisory
+                                                                .issued_at
+                                                                ? formatWIBStamp(
+                                                                      data
+                                                                          .ash_advisory
+                                                                          .issued_at,
+                                                                  )
+                                                                : '-'}
+                                                        </span>{' '}
+                                                        · update berikutnya
+                                                        paling lambat{' '}
+                                                        <span className="font-semibold text-sky-300">
+                                                            {data.ash_advisory
+                                                                .next_advisory_at
+                                                                ? formatWIBStamp(
+                                                                      data
+                                                                          .ash_advisory
+                                                                          .next_advisory_at,
+                                                                  )
+                                                                : 'segera'}
+                                                        </span>
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                {/* BADGE GDACS */}
+
+                                <div
+                                    className={`mt-2 flex items-center gap-2 rounded-xl border px-3 py-2 text-[11.5px] font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${gdacsBadgeClass}`}
+                                >
+                                    <span
+                                        className="h-2.5 w-2.5 shrink-0 rounded-full shadow-[0_0_10px_currentColor]"
+                                        style={{ background: gdacsLevel.color }}
+                                    />
+
+                                    <span>
+                                        <span className="block text-[9px] font-extrabold tracking-widest uppercase opacity-70">
+                                            Status Bahaya (GDACS)
+                                        </span>
+
+                                        {gdacsLevel.label.toUpperCase()}
+                                    </span>
+                                </div>
+                            </section>
+                        )}
+
+                        {/* STATUS RESMI PVMBG */}
+
+                        {active === 'status' && (
+                            <section>
+                                <PanelTitle
+                                    icon={
+                                        <ShieldCheck
+                                            size={11}
+                                            strokeWidth={2.5}
+                                        />
+                                    }
+                                >
+                                    Status Resmi PVMBG
+                                </PanelTitle>
+
+                                <div
+                                    className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-[12.5px] font-extrabold shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${pvmbgClass}`}
+                                >
+                                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/10">
+                                        <ShieldCheck
+                                            size={15}
+                                            strokeWidth={2.5}
+                                        />
+                                    </span>
+
+                                    <span>
+                                        <span className="block text-[9px] font-extrabold tracking-widest uppercase opacity-70">
+                                            Level Resmi
+                                        </span>
+                                        {pvmbgLevelText}
+                                    </span>
+                                </div>
+
+                                <p className="mt-1.5 flex items-center gap-1.5 text-[10px] text-slate-500">
+                                    <span
+                                        className={
+                                            data.volcano.status_source ===
+                                            'live'
+                                                ? 'inline-block size-1.5 rounded-full bg-emerald-400'
+                                                : 'inline-block size-1.5 rounded-full bg-slate-500'
+                                        }
+                                    />
+                                    {data.volcano.status_source === 'live'
+                                        ? 'Status Resmi MAGMA'
+                                        : 'status tersimpan (fallback)'}
+                                </p>
+
+                                <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10.5px] text-slate-400">
+                                    <span className="font-semibold text-slate-300">
+                                        {data.volcano.code}
+                                    </span>
+
+                                    <span>•</span>
+
+                                    <span>
+                                        Elevasi {data.volcano.elevation ?? '-'}{' '}
+                                        mdpl
+                                    </span>
+
+                                    <span>•</span>
+
+                                    <span>
+                                        {data.volcano.latitude},{' '}
+                                        {data.volcano.longitude}
+                                    </span>
+                                </div>
+                            </section>
+                        )}
+
+                        {/* TIMELINE SEBARAN */}
+
+                        {active === 'cuaca' && hasTimelineData && (
+                            <section>
+                                <PanelTitle
+                                    icon={<Gauge size={11} strokeWidth={2.5} />}
+                                >
+                                    Timeline Sebaran
+                                </PanelTitle>
+
+                                <div className="flex items-center gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setTimelinePlaying(
+                                                (playing) => !playing,
+                                            )
+                                        }
+                                        aria-label={
+                                            timelinePlaying ? 'Jeda' : 'Putar'
+                                        }
+                                        className="flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/10 bg-white/5 text-[9px] text-white transition hover:bg-white/10"
+                                    >
+                                        {timelinePlaying ? (
+                                            <Pause
                                                 size={11}
                                                 strokeWidth={2.5}
-                                                className="mt-0.5 shrink-0 text-slate-600 group-hover:text-sky-400"
                                             />
+                                        ) : (
+                                            <Play size={11} strokeWidth={2.5} />
+                                        )}
+                                    </button>
+
+                                    <div className="relative h-8 flex-1">
+                                        <span className="absolute top-[9px] right-2 left-2 h-0.5 bg-white/10" />
+
+                                        <div className="relative flex h-full items-start justify-between">
+                                            {LAYER_ORDER.map((key) => {
+                                                const active =
+                                                    key === timelineBucketKey;
+
+                                                return (
+                                                    <button
+                                                        key={key}
+                                                        type="button"
+                                                        onClick={() =>
+                                                            selectBucket(key)
+                                                        }
+                                                        className="flex cursor-pointer flex-col items-center gap-1"
+                                                    >
+                                                        <span
+                                                            className={`z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 transition ${
+                                                                active
+                                                                    ? 'scale-125 border-sky-500 bg-sky-500/40 shadow-[0_0_12px_#38bdf8]'
+                                                                    : 'border-white/20 bg-[#141821]'
+                                                            }`}
+                                                        />
+
+                                                        <span
+                                                            className={`text-[9.5px] font-bold ${
+                                                                active
+                                                                    ? 'text-white'
+                                                                    : 'text-slate-500'
+                                                            }`}
+                                                        >
+                                                            {key === 'observasi'
+                                                                ? 'Observasi'
+                                                                : `+${bucketHourOf(key)}`}
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                        )}
+
+                        {/* ANGIN DI KAWAH */}
+
+                        {active === 'cuaca' && (
+                            <section>
+                                <PanelTitle
+                                    icon={<Wind size={11} strokeWidth={2.5} />}
+                                >
+                                    Angin di Kawah
+                                </PanelTitle>
+
+                                <div className="flex items-center gap-3">
+                                    <div className="relative h-[66px] w-[66px] shrink-0 rounded-full border border-white/10 bg-[radial-gradient(circle,rgba(255,255,255,0.04),transparent_70%)]">
+                                        <span className="absolute top-0.5 left-1/2 -translate-x-1/2 text-[8px] font-extrabold text-slate-600">
+                                            U
                                         </span>
 
-                                        {item.date && (
-                                            <span className="mt-1 block text-[9.5px] font-medium text-slate-600">
-                                                {formatWIB(item.date)}
-                                            </span>
+                                        <span className="absolute top-1/2 right-1 -translate-y-1/2 text-[8px] font-extrabold text-slate-600">
+                                            T
+                                        </span>
+
+                                        <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[8px] font-extrabold text-slate-600">
+                                            S
+                                        </span>
+
+                                        <span className="absolute top-1/2 left-1 -translate-y-1/2 text-[8px] font-extrabold text-slate-600">
+                                            B
+                                        </span>
+
+                                        <span
+                                            className="absolute rounded-sm bg-gradient-to-b from-blue-500 to-transparent"
+                                            style={{
+                                                left: '50%',
+                                                top: '50%',
+                                                width: '3px',
+                                                height: '24px',
+                                                marginLeft: '-1.5px',
+                                                marginTop: '-24px',
+                                                transformOrigin: '50% 24px',
+                                                transform: `rotate(${windDeg}deg)`,
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div className="text-xs leading-relaxed text-slate-400">
+                                        <div>
+                                            <b className="text-[15px] text-white">
+                                                {displayWeather?.wind_speed ??
+                                                    '-'}
+                                            </b>{' '}
+                                            km/j
+                                        </div>
+
+                                        <div>
+                                            arah{' '}
+                                            {displayWeather?.wind_direction ??
+                                                '-'}
+                                        </div>
+
+                                        <div>
+                                            suhu{' '}
+                                            {displayWeather?.temperature ?? '-'}
+                                            °C
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+                        )}
+
+                        {/* KONDISI CUACA */}
+
+                        {active === 'cuaca' && (
+                            <section>
+                                <PanelTitle
+                                    icon={
+                                        <CloudSun size={11} strokeWidth={2.5} />
+                                    }
+                                >
+                                    Kondisi Cuaca
+                                </PanelTitle>
+
+                                <div className="grid grid-cols-2 gap-1.5">
+                                    <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                        <div className="flex items-center gap-1.5 text-slate-500">
+                                            <Thermometer
+                                                size={11}
+                                                strokeWidth={2.5}
+                                            />
+                                            <p className="text-[10px]">Suhu</p>
+                                        </div>
+
+                                        <p className="mt-0.5 text-[15px] font-bold text-white">
+                                            {displayWeather?.temperature ?? '-'}
+                                            °
+                                        </p>
+                                    </div>
+
+                                    <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                        <div className="flex items-center gap-1.5 text-slate-500">
+                                            <Droplets
+                                                size={11}
+                                                strokeWidth={2.5}
+                                            />
+                                            <p className="text-[10px]">
+                                                Kelembapan
+                                            </p>
+                                        </div>
+
+                                        <p className="mt-0.5 text-[15px] font-bold text-white">
+                                            {displayWeather?.humidity ?? '-'}%
+                                        </p>
+                                    </div>
+
+                                    <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                        <div className="flex items-center gap-1.5 text-slate-500">
+                                            <Wind size={11} strokeWidth={2.5} />
+                                            <p className="text-[10px]">Angin</p>
+                                        </div>
+
+                                        <p className="mt-0.5 text-[15px] font-bold text-white">
+                                            {displayWeather?.wind_speed ?? '-'}{' '}
+                                            km/j
+                                        </p>
+                                    </div>
+
+                                    <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                        <div className="flex items-center gap-1.5 text-slate-500">
+                                            <Navigation
+                                                size={11}
+                                                strokeWidth={2.5}
+                                            />
+                                            <p className="text-[10px]">Arah</p>
+                                        </div>
+
+                                        <p className="mt-0.5 text-[15px] font-bold text-white">
+                                            {displayWeather?.wind_direction ??
+                                                '-'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {usingBmkgWeather &&
+                                selectedWeather?.forecast_at ? (
+                                    <p className="mt-1.5 text-[9.5px] text-slate-500">
+                                        Prakiraan cuaca BMKG •{' '}
+                                        {formatWIBStamp(
+                                            selectedWeather.forecast_at,
                                         )}
-                                    </a>
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] text-slate-500">
-                            {gerakanTanah.error ?? 'Belum ada laporan.'}
-                        </p>
-                    )}
-                </section>
+                                    </p>
+                                ) : null}
 
-                {/* META */}
+                                <WeatherWaveChart
+                                    points={waveDataPoints}
+                                    activeKey={timelineBucketKey}
+                                    waveColor={pvmbgWaveColor}
+                                />
+                            </section>
+                        )}
 
-                <div className="border-t border-white/10 pt-2.5 text-[10px] leading-relaxed text-slate-600">
-                    <p>
-                        <b className="text-slate-500">Sumber:</b> VAAC Darwin
-                        (BOM Australia) • PVMBG/MAGMA-VSI • BMKG
-                    </p>
+                        {/* KONDISI SAAT INI (OPEN-METEO / REAL-TIME) */}
+
+                        {active === 'cuaca' && (
+                            <section>
+                                <PanelTitle
+                                    icon={<Gauge size={11} strokeWidth={2.5} />}
+                                >
+                                    Kondisi Saat Ini
+                                </PanelTitle>
+
+                                {data.current_weather ? (
+                                    <>
+                                        <div className="grid grid-cols-2 gap-1.5">
+                                            <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                                <div className="flex items-center gap-1.5 text-slate-500">
+                                                    <Thermometer
+                                                        size={11}
+                                                        strokeWidth={2.5}
+                                                    />
+                                                    <p className="text-[10px]">
+                                                        Suhu
+                                                    </p>
+                                                </div>
+
+                                                <p className="mt-0.5 text-[15px] font-bold text-white">
+                                                    {data.current_weather
+                                                        .temperature_c ?? '-'}
+                                                    °
+                                                </p>
+                                            </div>
+
+                                            <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                                <div className="flex items-center gap-1.5 text-slate-500">
+                                                    <Droplets
+                                                        size={11}
+                                                        strokeWidth={2.5}
+                                                    />
+                                                    <p className="text-[10px]">
+                                                        Kelembapan
+                                                    </p>
+                                                </div>
+
+                                                <p className="mt-0.5 text-[15px] font-bold text-white">
+                                                    {data.current_weather
+                                                        .humidity ?? '-'}
+                                                    %
+                                                </p>
+                                            </div>
+
+                                            <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                                <div className="flex items-center gap-1.5 text-slate-500">
+                                                    <Wind
+                                                        size={11}
+                                                        strokeWidth={2.5}
+                                                    />
+                                                    <p className="text-[10px]">
+                                                        Tekanan
+                                                    </p>
+                                                </div>
+
+                                                <p className="mt-0.5 text-[15px] font-bold text-white">
+                                                    {data.current_weather
+                                                        .pressure_msl ??
+                                                        '-'}{' '}
+                                                    hPa
+                                                </p>
+                                            </div>
+
+                                            <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                                <div className="flex items-center gap-1.5 text-slate-500">
+                                                    <Navigation
+                                                        size={11}
+                                                        strokeWidth={2.5}
+                                                    />
+                                                    <p className="text-[10px]">
+                                                        Angin
+                                                    </p>
+                                                </div>
+
+                                                <p className="mt-0.5 text-[15px] font-bold text-white">
+                                                    {data.current_weather
+                                                        .wind_speed_kmh ??
+                                                        '-'}{' '}
+                                                    km/j
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-1.5 rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-400">
+                                            <p>
+                                                arah{' '}
+                                                {data.current_weather
+                                                    .wind_direction_deg != null
+                                                    ? `${data.current_weather.wind_direction_deg}°${
+                                                          data.current_weather
+                                                              .wind_direction_cardinal
+                                                              ? ` (${data.current_weather.wind_direction_cardinal})`
+                                                              : ''
+                                                      }`
+                                                    : '-'}
+                                                {data.current_weather
+                                                    .wind_gust_kmh != null
+                                                    ? ` • hembusan ${data.current_weather.wind_gust_kmh} km/j`
+                                                    : ''}
+                                                {data.current_weather
+                                                    .apparent_temperature_c !=
+                                                null
+                                                    ? ` • terasa ${data.current_weather.apparent_temperature_c}°C`
+                                                    : ''}
+                                            </p>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <p className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-500">
+                                        Belum ada data kondisi saat ini.
+                                        Sinkronisasi berjalan berkala (±8–10
+                                        menit) oleh sistem pemantauan.
+                                    </p>
+                                )}
+                            </section>
+                        )}
+
+                        {/* ADVISORY ABU VULKANIK */}
+
+                        {active === 'advisory' && (
+                            <section>
+                                <PanelTitle
+                                    icon={<Radio size={11} strokeWidth={2.5} />}
+                                >
+                                    Advisory Abu Vulkanik
+                                </PanelTitle>
+
+                                {data.ash_advisory ? (
+                                    <div className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11.5px]">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <p className="font-bold text-white">
+                                                {data.ash_advisory
+                                                    .volcano_name ??
+                                                    data.volcano.name}
+                                            </p>
+
+                                            <span
+                                                className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase ${
+                                                    data.ash_advisory
+                                                        .ash_detected
+                                                        ? 'bg-red-500/15 text-red-300'
+                                                        : 'bg-emerald-500/10 text-emerald-300'
+                                                }`}
+                                            >
+                                                {data.ash_advisory.ash_detected
+                                                    ? 'Abu terdeteksi'
+                                                    : 'Tidak ada abu'}
+                                            </span>
+                                        </div>
+
+                                        <div className="mt-2 space-y-0.5 leading-relaxed text-slate-400">
+                                            <p>
+                                                Tinggi abu ~
+                                                {data.ash_advisory
+                                                    .ash_height_m != null
+                                                    ? `${(
+                                                          data.ash_advisory
+                                                              .ash_height_m /
+                                                          1000
+                                                      ).toFixed(1)} km`
+                                                    : '-'}
+                                                {data.ash_advisory.movement
+                                                    ? ` • arah ${
+                                                          data.ash_advisory
+                                                              .movement
+                                                      }${
+                                                          data.ash_advisory
+                                                              .speed_kts
+                                                              ? ` (${data.ash_advisory.speed_kts} kt)`
+                                                              : ''
+                                                      }`
+                                                    : ''}
+                                            </p>
+
+                                            <p>
+                                                Advisory #
+                                                {data.ash_advisory
+                                                    .advisory_nr ?? '-'}{' '}
+                                                •{' '}
+                                                {formatWIB(
+                                                    data.ash_advisory.issued_at,
+                                                )}{' '}
+                                                WIB
+                                            </p>
+
+                                            {/* DISCLAIMER KEAMANAN PUBLIK */}
+                                            <p className="mt-1 text-[9px] text-slate-600 italic">
+                                                Sumber: VAAC Darwin (BOM).
+                                                Gunakan bersama info resmi PVMBG
+                                                / BPBD.
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <p className="rounded-xl border border-dashed border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-500">
+                                        Belum ada advisory VAAC Darwin untuk
+                                        gunung ini dalam 24 jam terakhir.
+                                    </p>
+                                )}
+                            </section>
+                        )}
+
+                        {/* PREDIKSI SEBARAN ABU */}
+
+                        {active === 'cuaca' &&
+                            ashActive &&
+                            selectedForecast && (
+                                <section>
+                                    <PanelTitle
+                                        icon={
+                                            <Navigation
+                                                size={11}
+                                                strokeWidth={2.5}
+                                            />
+                                        }
+                                    >
+                                        Perkiraan Sebaran Abu (Perhitungan
+                                        Sistem)
+                                    </PanelTitle>
+
+                                    <div className="grid grid-cols-2 gap-1.5">
+                                        <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                            <div className="flex items-center gap-1.5 text-slate-500">
+                                                <Navigation
+                                                    size={11}
+                                                    strokeWidth={2.5}
+                                                />
+                                                <p className="text-[10px]">
+                                                    Arah Sebaran
+                                                </p>
+                                            </div>
+
+                                            <p className="mt-0.5 text-[15px] font-bold text-white">
+                                                {selectedForecast.direction !=
+                                                null
+                                                    ? `${Number(
+                                                          selectedForecast.direction,
+                                                      ).toFixed(2)}°`
+                                                    : '-'}
+                                            </p>
+                                        </div>
+
+                                        <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                            <div className="flex items-center gap-1.5 text-slate-500">
+                                                <Wind
+                                                    size={11}
+                                                    strokeWidth={2.5}
+                                                />
+                                                <p className="text-[10px]">
+                                                    Kecepatan Angin
+                                                </p>
+                                            </div>
+
+                                            <p className="mt-0.5 text-[15px] font-bold text-white">
+                                                {selectedForecast.speed != null
+                                                    ? `${Number(
+                                                          selectedForecast.speed,
+                                                      ).toFixed(1)} km/h`
+                                                    : '-'}
+                                            </p>
+                                        </div>
+
+                                        <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                            <div className="flex items-center gap-1.5 text-slate-500">
+                                                <TriangleAlert
+                                                    size={11}
+                                                    strokeWidth={2.5}
+                                                />
+                                                <p className="text-[10px]">
+                                                    Risiko
+                                                </p>
+                                            </div>
+
+                                            <p
+                                                className={`mt-0.5 text-[15px] font-bold uppercase ${riskClass}`}
+                                            >
+                                                {selectedForecast.risk_level}
+                                            </p>
+                                        </div>
+
+                                        <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                            <div className="flex items-center gap-1.5 text-slate-500">
+                                                <Gauge
+                                                    size={11}
+                                                    strokeWidth={2.5}
+                                                />
+                                                <p className="text-[10px]">
+                                                    Confidence
+                                                </p>
+                                            </div>
+
+                                            <p className="mt-0.5 text-[15px] font-bold text-white">
+                                                {selectedForecast.confidence !=
+                                                null
+                                                    ? `${Number(
+                                                          selectedForecast.confidence,
+                                                      ).toFixed(2)}%`
+                                                    : '-'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </section>
+                            )}
+
+                        {/* GEMPA TERKINI (BMKG) */}
+
+                        {active === 'gempa' && (
+                            <section>
+                                <PanelTitle
+                                    icon={<Siren size={11} strokeWidth={2.5} />}
+                                >
+                                    Gempa Terkini (BMKG)
+                                </PanelTitle>
+
+                                {selectedGempa && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedGempa(null)}
+                                        className="mb-1.5 flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[9.5px] font-semibold text-slate-400 transition hover:border-sky-500/40 hover:text-white"
+                                    >
+                                        <ArrowLeft
+                                            size={10}
+                                            strokeWidth={2.5}
+                                        />
+                                        Kembali ke gempa terbaru
+                                    </button>
+                                )}
+
+                                {gempa === null ? (
+                                    <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] text-slate-500">
+                                        Memuat data gempa…
+                                    </p>
+                                ) : displayGempa?.region ? (
+                                    <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+                                        <div className="flex items-start justify-between gap-2">
+                                            <p className="text-[11px] font-semibold text-slate-300">
+                                                {displayGempa.datetime
+                                                    ? formatWIBShort(
+                                                          displayGempa.datetime,
+                                                      )
+                                                    : `${displayGempa.tanggal ?? '-'}${
+                                                          displayGempa.jam
+                                                              ? ` • ${displayGempa.jam}`
+                                                              : ''
+                                                      }`}
+                                            </p>
+
+                                            {displayGempa.status && (
+                                                <span className="shrink-0 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                                                    {displayGempa.status ===
+                                                    'confirmed'
+                                                        ? 'Terkonfirmasi'
+                                                        : displayGempa.status}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <p className="mt-0.5 text-[13px] leading-snug font-bold text-white">
+                                            {displayGempa.region}
+                                        </p>
+
+                                        {displayGempa.potential && (
+                                            <p
+                                                className={`mt-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                                                    displayGempa.potential
+                                                        .toLowerCase()
+                                                        .includes('tidak')
+                                                        ? 'bg-emerald-500/10 text-emerald-300'
+                                                        : 'bg-red-500/10 text-red-300'
+                                                }`}
+                                            >
+                                                {displayGempa.potential}
+                                            </p>
+                                        )}
+
+                                        <dl className="mt-2.5 space-y-1.5 text-[11px]">
+                                            <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                                                <dt className="font-semibold text-slate-500">
+                                                    Magnitudo
+                                                </dt>
+
+                                                <dd
+                                                    className="font-black"
+                                                    style={{
+                                                        color: gempaMagColor(
+                                                            displayGempa.magnitude !=
+                                                                null
+                                                                ? Number(
+                                                                      displayGempa.magnitude,
+                                                                  )
+                                                                : null,
+                                                        ),
+                                                    }}
+                                                >
+                                                    {magnitudeLabel(
+                                                        displayGempa.magnitude,
+                                                    )}
+                                                </dd>
+                                            </div>
+
+                                            <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                                                <dt className="font-semibold text-slate-500">
+                                                    Kedalaman
+                                                </dt>
+
+                                                <dd className="font-semibold text-slate-300">
+                                                    {kedalamanLabel(
+                                                        displayGempa.depth,
+                                                    )}
+                                                </dd>
+                                            </div>
+
+                                            <div className="flex items-center justify-between">
+                                                <dt className="font-semibold text-slate-500">
+                                                    Lokasi
+                                                </dt>
+
+                                                <dd className="text-right font-semibold text-slate-300">
+                                                    {locationLabel(
+                                                        displayGempa,
+                                                    )}
+                                                </dd>
+                                            </div>
+                                        </dl>
+                                    </div>
+                                ) : (
+                                    <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] text-slate-500">
+                                        {gempa.error ??
+                                            'Data gempa belum tersedia.'}
+                                    </p>
+                                )}
+                            </section>
+                        )}
+
+                        {/* GERAKAN TANAH (PVMBG / VSI) */}
+
+                        {active === 'gerakan' && (
+                            <section>
+                                <PanelTitle
+                                    icon={
+                                        <LandPlot size={11} strokeWidth={2.5} />
+                                    }
+                                >
+                                    Gerakan Tanah (PVMBG)
+                                </PanelTitle>
+
+                                {gerakanTanah === null ? (
+                                    <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] text-slate-500">
+                                        Memuat laporan tanggapan…
+                                    </p>
+                                ) : gerakanTanah.list.length > 0 ? (
+                                    <ul className="space-y-1.5">
+                                        {gerakanTanah.list.map(
+                                            (item, index) => (
+                                                <li
+                                                    key={String(
+                                                        item.id ??
+                                                            item.title ??
+                                                            index,
+                                                    )}
+                                                >
+                                                    <a
+                                                        href={item.url ?? '#'}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="group block rounded-lg border border-white/5 bg-white/[0.04] px-2.5 py-2 text-[11px] transition hover:border-sky-500/30 hover:bg-sky-500/10"
+                                                    >
+                                                        <span className="flex items-start justify-between gap-2">
+                                                            <span className="leading-snug font-semibold text-slate-300 group-hover:text-white">
+                                                                {item.title}
+                                                            </span>
+
+                                                            <ExternalLink
+                                                                size={11}
+                                                                strokeWidth={
+                                                                    2.5
+                                                                }
+                                                                className="mt-0.5 shrink-0 text-slate-600 group-hover:text-sky-400"
+                                                            />
+                                                        </span>
+
+                                                        {item.date && (
+                                                            <span className="mt-1 block text-[9.5px] font-medium text-slate-600">
+                                                                {formatWIB(
+                                                                    item.date,
+                                                                )}
+                                                            </span>
+                                                        )}
+                                                    </a>
+                                                </li>
+                                            ),
+                                        )}
+                                    </ul>
+                                ) : (
+                                    <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] text-slate-500">
+                                        {gerakanTanah.error ??
+                                            'Belum ada laporan.'}
+                                    </p>
+                                )}
+                            </section>
+                        )}
+
+                        {/* META */}
+
+                        {active !== null && (
+                            <div className="border-t border-white/10 pt-2.5 text-[10px] leading-relaxed text-slate-600">
+                                <p>
+                                    <b className="text-slate-500">Sumber:</b>{' '}
+                                    VAAC Darwin (BOM Australia) •
+                                    PVMBG/MAGMA-VSI • BMKG
+                                </p>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </aside>
 
@@ -3356,7 +3846,7 @@ export default function Monitoring() {
             LEGENDA & LAYER (KANAN)
         ====================================== */}
 
-            <aside className="pointer-events-auto absolute top-[128px] right-2 z-[1100] hidden w-[230px] max-w-[40vw] rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 p-3.5 shadow-2xl shadow-black/50 backdrop-blur-xl lg:block">
+            <aside className="pointer-events-auto absolute top-[190px] right-2 z-[1100] hidden w-[230px] max-w-[40vw] rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e] to-[#0a0f1c] p-3.5 shadow-2xl shadow-black/50 lg:block">
                 <LegendPanel
                     showGempaMarkers={showGempaMarkers}
                     onToggleGempa={() => setShowGempaMarkers((value) => !value)}
@@ -3403,13 +3893,6 @@ export default function Monitoring() {
                 <div className="pointer-events-auto rounded-xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-3 py-2 text-[10.5px] text-slate-500 backdrop-blur-xl">
                     Volcano Watch by : Haris Darmawan | • BMKG / PVMBG / VAAC
                     Darwin
-                </div>
-
-                <div className="pointer-events-auto flex items-center justify-end gap-2 rounded-xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-3 py-2 text-[10.5px] text-slate-400 backdrop-blur-xl">
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(61,220,132,1)]" />
-                    Update terakhir:{' '}
-                    {lastUpdated ? formatWIB(lastUpdated.toISOString()) : '-'}{' '}
-                    WIB
                 </div>
             </footer>
         </div>
