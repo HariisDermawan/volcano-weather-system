@@ -1,6 +1,10 @@
+<<<<<<< HEAD
 ![Volcano Watch](https://raw.githubusercontent.com/HariisDermawan/volcano-weather-system/main/public/gambar/image.png)
 
 Volcano Watch
+=======
+# Volcano Watch
+>>>>>>> a56385f (feat: add new image asset for volcano monitoring)
 
 Sistem pemantauan **gunung api & cuaca** interaktif untuk Indonesia. Menampilkan status aktivitas gunung api (PVMBG/MAGMA), informasi letusan, advisory abu vulkanik VAAC Darwin (BOM), prakiraan & prediksi sebaran abu, gempa bumi terkini (BMKG), gerakan tanah, serta prakiraan cuaca (BMKG & Open-Meteo) — semuanya divisualisasikan di atas peta Leaflet secara real-time.
 
@@ -168,3 +172,74 @@ DB_PASSWORD=
 | Prakiraan cuaca per gunung | BMKG (via python service) |
 | Cuaca terkini | Open-Meteo (`WeatherCurrent`, unik per volcano) |
 | Konsentrasi SO₂ | Windy / CAMS layer |
+<<<<<<< HEAD
+=======
+
+## Struktur Proyek
+
+```
+app/
+├── Http/Controllers/        # MonitoringController, VolcanoController, GeoHazardController, CityMonitoringController
+├── Models/                  # Volcano, Eruption, AshAdvisory, AshPrediction, WeatherForecast, WeatherObservation, WindObservation, WeatherCurrent, User
+└── Services/                # VaacDarwinService, MagmaService, GdacsService
+database/migrations/         # 18 migrasi (termasuk merge_duplicate_volcanoes, unique volcano/issued_at)
+resources/js/
+├── pages/Monitoring.tsx     # Dashboard utama (SPA, fetch client-side)
+├── components/VolcanoMap.tsx # Peta Leaflet + marker & layer abu
+└── components/WindyMap.tsx  # Layer Windy SO₂
+python-service/
+├── app/
+│   ├── main.py              # FastAPI entry (port 8000)
+│   ├── scheduler.py         # run_all_jobs() tiap 10 menit
+│   ├── collectors/          # vaac, activity, volcano, weather, openmeteo, wind
+│   ├── jobs/                # production jobs + helper scripts
+│   └── models/              # SQLAlchemy models (ash_model: simulasi plume)
+└── wilayah-adm4/            # pemetaan admin region BMKG (Rust + SQLite)
+routes/
+├── web.php                  # /monitoring (Inertia), redirect /, robots, sitemap
+└── api.php                  # 6 API endpoint
+```
+
+## Model Database (8 tabel utama)
+
+- **Volcano** — nama, kode, koordinat, elevasi, status
+- **Eruption** — riwayat letusan per gunung
+- **AshAdvisory** — unik `(volcano_id, issued_at)`, JSON `geometry` & `fcst_geometries`
+- **AshPrediction** — risiko sebaran abu (`low/medium/high/extreme`) + `forecast_at`
+- **WeatherForecast** — unik `(volcano_id, forecast_at)`, prakiraan BMKG
+- **WeatherObservation** / **WindObservation** — observasi cuaca & angin
+- **WeatherCurrent** — cuaca terkini Open-Meteo (unik per volcano)
+- **Tabel join** `volcano_weather_sources` — pemetaan volcano ↔ BMKG adm4
+
+## Quality & CI
+
+```bash
+composer lint            # formatter Pint (fix)
+composer lint:check      # Pint dry-run
+composer types:check     # PHPStan level 7
+composer test            # lint → types → pest (semua)
+npm run check            # vite-plus lint JS/TS
+npm run types:check      # tsc --noEmit
+composer ci:check        # mirip pipeline CI
+
+php artisan test --compact                        # semua test
+php artisan test --compact --filter=testName      # per nama
+```
+
+CI tunggal (`.github/workflows/tests.yml`) berjalan pada push ke `main` dan semua PR: checkout → PHP 8.3 → Node 22 → `composer setup` → `composer ci:check`.
+
+## FAQ & Troubleshooting
+
+**Vite manifest error saat akses halaman?**
+Bangun aset dulu: `npm run build`, atau jalankan `composer dev`.
+
+**Aplikasi tidak terhubung ke MySQL?**
+Pastikan `python-service/.env` berisi kredensial MySQL yang sesuai, dan service scheduler berjalan.
+
+**Collector gagal karena `bs4`?**
+Instal dependensi yang belum tercantum: `pip install beautifulsoup4` lalu tambahkan ke `requirements.txt`.
+
+## Lisensi
+
+MIT
+>>>>>>> a56385f (feat: add new image asset for volcano monitoring)
