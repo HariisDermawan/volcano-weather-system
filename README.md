@@ -1,5 +1,5 @@
 <<<<<<< HEAD
-![Volcano Watch](https://raw.githubusercontent.com/HariisDermawan/volcano-weather-system/main/public/gambar/image.png)
+![Volcano Watch](https://github.com/HariisDermawan/volcano-weather-system/blob/main/public/gambar/gam.png)
 
 Volcano Watch
 =======
@@ -238,8 +238,6 @@ Pastikan `python-service/.env` berisi kredensial MySQL yang sesuai, dan service 
 
 **Collector gagal karena `bs4`?**
 Instal dependensi yang belum tercantum: `pip install beautifulsoup4` lalu tambahkan ke `requirements.txt`.
-
-## Lisensi
 
 MIT
 >>>>>>> a56385f (feat: add new image asset for volcano monitoring)
