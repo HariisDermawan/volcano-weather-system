@@ -28,24 +28,52 @@ class GeoHazardController extends Controller
     public function gempa(): JsonResponse
     {
         $data = Cache::remember('geo:gempa', 90, function () {
-            // Utama: "Gempa Dirasakan" (autogempa.json) — sumber yang
-            // sama persis dengan banner Gempa Dirasakan di situs BMKG.
-            // Paling cepat (hari ini pukul 20:54:13 WIB) dan terbaru.
+            // Utama: halaman "Gempabumi Terkini (Real-time)"
+            // https://www.bmkg.go.id/gempabumi/gempabumi-realtime
+            // Berisi 35+ gempa terakhir — paling cepat update dan
+            // mencakup gempa yang belum tentu dirasakan.
+            try {
+                $list = $this->fetchRealtimeGempa();
+
+                if (! empty($list)) {
+                    $latest = $list[0];
+
+                    // Cocokkan potensi tsunami dari gempaterkini.json
+                    // berdasarkan waktu kejadian.
+                    $dateTime = (string) ($latest['datetime'] ?? '');
+
+                    if ($dateTime !== '') {
+                        try {
+                            $gempaterkini = Http::timeout(20)
+                                ->get('https://data.bmkg.go.id/DataMKG/TEWS/gempaterkini.json')
+                                ->json('Infogempa.gempa');
+
+                            $latest['potential'] = $this->tsunamiPotential(
+                                $dateTime,
+                                is_array($gempaterkini)
+                                    ? $gempaterkini
+                                    : [],
+                            );
+
+                            $list[0] = $latest;
+                        } catch (\Throwable $e) {
+                            // potential tetap null — tidak kritis
+                        }
+                    }
+
+                    return ['latest' => $latest, 'list' => $list];
+                }
+            } catch (\Throwable $e) {
+                // lanjut ke fallback berikutnya
+            }
+
+            // Fallback 1: autogempa.json — gempa terakhir yang dirasakan.
             try {
                 $latest = $this->fetchAutogempa();
 
                 if ($latest !== null) {
                     return ['latest' => $latest, 'list' => [$latest]];
                 }
-            } catch (\Throwable $e) {
-                // lanjut ke fallback berikutnya
-            }
-
-            // Fallback 1: halaman "Gempabumi Terkini (Real-time)".
-            try {
-                $list = $this->fetchRealtimeGempa();
-
-                return ['latest' => $list[0] ?? null, 'list' => $list];
             } catch (\Throwable $e) {
                 // lanjut ke fallback berikutnya
             }
