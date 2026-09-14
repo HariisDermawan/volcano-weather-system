@@ -234,6 +234,3 @@ Pastikan `python-service/.env` berisi kredensial MySQL yang sesuai, dan service 
 
 **Collector gagal karena `bs4`?**
 Instal dependensi yang belum tercantum: `pip install beautifulsoup4` lalu tambahkan ke `requirements.txt`.
-
-MIT
->>>>>>> a56385f (feat: add new image asset for volcano monitoring)
