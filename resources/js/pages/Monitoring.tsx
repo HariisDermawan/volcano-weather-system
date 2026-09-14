@@ -10,6 +10,8 @@ import {
 
 import { Head } from '@inertiajs/react';
 
+import VolcanoIcon from '@/components/VolcanoIcon';
+
 import {
     Activity,
     AlertTriangle,
@@ -23,7 +25,6 @@ import {
     CloudSnow,
     CloudSun,
     ExternalLink,
-    Flame,
     Gauge,
     LandPlot,
     Layers,
@@ -143,6 +144,40 @@ interface UserCityWeather {
     weather_code: number | null;
 }
 
+interface CityWeather {
+    source: string;
+    adm4?: string | null;
+    location?: string | null;
+    time?: string | null;
+    temperature?: number | null;
+    humidity?: number | null;
+    wind_speed?: number | null;
+    wind_direction_deg?: number | null;
+    wind_direction_cardinal?: string | null;
+    visibility?: number | null;
+    visibility_text?: string | null;
+    weather_code?: number | null;
+    weather_desc?: string | null;
+}
+
+interface WorkingCityWeather {
+    source: 'BMKG' | 'Open-Meteo';
+    location: string | null;
+    time: string | null;
+    temperature: number | null;
+    humidity: number | null;
+    wind_speed: number | null;
+    wind_direction_deg: number | null;
+    wind_direction_cardinal: string | null;
+    visibility: number | null;
+    visibility_text: string | null;
+    weather_code: number | null;
+    weather_desc: string | null;
+    pressure_msl: number | null;
+    wind_gust: number | null;
+    apparent_temperature: number | null;
+}
+
 interface MonitoringData {
     volcano: Volcano;
     activity: Activity | null;
@@ -240,6 +275,7 @@ interface CityData {
         nearest_ash_volcano: string | null;
         plume_volcanoes: Array<string | null>;
     };
+    weather?: CityWeather | null;
 }
 
 interface EarthquakeMarkerInfo {
@@ -321,7 +357,7 @@ const LAYER_ORDER = ['observasi', 'hour-6', 'hour-12', 'hour-18'] as const;
 
 const PANEL_ITEMS = [
     { key: 'kota', label: 'Kota Saya', Icon: MapPin },
-    { key: 'letusan', label: 'Informasi Letusan', Icon: Flame },
+    { key: 'letusan', label: 'Informasi Letusan', Icon: VolcanoIcon },
     { key: 'status', label: 'Status Erupsi & PVMBG', Icon: Activity },
     { key: 'cuaca', label: 'Cuaca & Sebaran Abu', Icon: CloudSun },
     { key: 'advisory', label: 'Advisory Abu Vulkanik', Icon: Radio },
@@ -527,6 +563,74 @@ function bmkgConditionIcon(weather: string | null) {
     }
 
     return { Icon: CloudSun, className: 'text-slate-400' };
+}
+
+/**
+ * Kondisi cuaca BMKG: label memakai deskripsi resmi BMKG,
+ * icon dipilih berdasar teks deskripsi; fallback ke kode WMO.
+ */
+function bmkgCondition(
+    code: number | null,
+    desc: string | null,
+): { Icon: LucideIcon; className: string; label: string } {
+    const fallback = openMeteoCondition(code);
+
+    if (!desc) {
+        return fallback;
+    }
+
+    return { ...bmkgConditionIcon(desc), label: desc };
+}
+
+/**
+ * Normalisasi cuaca kota: BMKG (dari backend) diprioritaskan,
+ * Open-Meteo jadi cadangan bila BMKG tidak tersedia.
+ */
+function toDisplayWeather(
+    bmkg: CityWeather | null | undefined,
+    openMeteo: UserCityWeather | null,
+): WorkingCityWeather | null {
+    if (bmkg?.source === 'BMKG') {
+        return {
+            source: 'BMKG',
+            location: bmkg.location ?? null,
+            time: bmkg.time ?? null,
+            temperature: bmkg.temperature ?? null,
+            humidity: bmkg.humidity ?? null,
+            wind_speed: bmkg.wind_speed ?? null,
+            wind_direction_deg: bmkg.wind_direction_deg ?? null,
+            wind_direction_cardinal: bmkg.wind_direction_cardinal ?? null,
+            visibility: bmkg.visibility ?? null,
+            visibility_text: bmkg.visibility_text ?? null,
+            weather_code: bmkg.weather_code ?? null,
+            weather_desc: bmkg.weather_desc ?? null,
+            pressure_msl: null,
+            wind_gust: null,
+            apparent_temperature: null,
+        };
+    }
+
+    if (openMeteo) {
+        return {
+            source: 'Open-Meteo',
+            location: null,
+            time: openMeteo.time,
+            temperature: openMeteo.temperature,
+            humidity: openMeteo.humidity,
+            wind_speed: openMeteo.wind_speed,
+            wind_direction_deg: openMeteo.wind_direction_deg,
+            wind_direction_cardinal: null,
+            visibility: openMeteo.visibility,
+            visibility_text: null,
+            weather_code: openMeteo.weather_code,
+            weather_desc: null,
+            pressure_msl: openMeteo.pressure_msl,
+            wind_gust: openMeteo.wind_gust,
+            apparent_temperature: openMeteo.apparent_temperature,
+        };
+    }
+
+    return null;
 }
 
 const WIND_DIRECTION_LABELS: Record<string, string> = {
@@ -881,6 +985,8 @@ export default function Monitoring() {
     } | null>(null);
 
     const [cityData, setCityData] = useState<CityData | null>(null);
+
+    const [bmkgWeather, setBmkgWeather] = useState<CityWeather | null>(null);
 
     const [geoError, setGeoError] = useState<string | null>(null);
 
@@ -1307,6 +1413,7 @@ export default function Monitoring() {
 
                 if (!cancelled) {
                     setCityData(result);
+                    setBmkgWeather(result.weather ?? null);
                     setGeoState('success');
                 }
             } catch {
@@ -1324,7 +1431,7 @@ export default function Monitoring() {
     }, [cityCoords, refreshKey]);
 
     // ==========================================
-    // CUACA KOTA SAYA — REAL-TIME (OPEN-METEO)
+    // CUACA KOTA SAYA — REAL-TIME (BMKG, FALLBACK OPEN-METEO)
     // ==========================================
 
     const [userWeather, setUserWeather] = useState<UserCityWeather | null>(
@@ -1683,39 +1790,17 @@ export default function Monitoring() {
     // ==========================================
 
     const bmkgForecasts = useMemo(() => {
-        const wibHourOf = (iso: string) => {
-            const parsed = new Date(iso);
-
-            if (Number.isNaN(parsed.getTime())) {
-                return -1;
-            }
-
-            const parts = new Intl.DateTimeFormat('en-US', {
-                timeZone: 'Asia/Jakarta',
-                hour: 'numeric',
-                hourCycle: 'h23',
-            }).formatToParts(parsed);
-
-            return Number(
-                parts.find((part) => part.type === 'hour')?.value ?? -1,
-            );
-        };
-
         const sorted = (data?.weather_forecasts ?? [])
-            .filter((forecast) => {
-                const parsed = new Date(forecast.forecast_at);
-
-                return (
-                    !Number.isNaN(parsed.getTime()) &&
-                    parsed.getTime() >= Date.now() - 60 * 60 * 1000 &&
-                    wibHourOf(forecast.forecast_at) % 3 === 0
-                );
-            })
-            .sort(
-                (a, b) =>
-                    new Date(a.forecast_at).getTime() -
-                    new Date(b.forecast_at).getTime(),
-            );
+            .map((forecast) => ({
+                forecast,
+                ts: new Date(forecast.forecast_at).getTime(),
+            }))
+            .filter(
+                ({ ts }) =>
+                    !Number.isNaN(ts) && ts >= Date.now() - 3 * 60 * 60 * 1000,
+            )
+            .sort((a, b) => a.ts - b.ts)
+            .map(({ forecast }) => forecast);
 
         const daysMap = new Map<string, typeof sorted>();
 
@@ -2890,7 +2975,8 @@ export default function Monitoring() {
                                       geoState === 'error' ? (
                                         <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
                                             <p className="text-[11px] leading-relaxed text-slate-500">
-                                                {geoError ?? 'Lokasi tidak tersedia.'}
+                                                {geoError ??
+                                                    'Lokasi tidak tersedia.'}
                                             </p>
 
                                             <button
@@ -2907,7 +2993,10 @@ export default function Monitoring() {
                                                 Coba lagi
                                             </button>
                                         </div>
-                                    ) : !userWeather ? (
+                                    ) : !toDisplayWeather(
+                                          bmkgWeather,
+                                          userWeather,
+                                      ) ? (
                                         <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
                                             <p className="text-[11px] leading-relaxed text-slate-500">
                                                 {userWeatherLoading
@@ -2936,10 +3025,33 @@ export default function Monitoring() {
                                         </div>
                                     ) : (
                                         (() => {
+                                            const weather = toDisplayWeather(
+                                                bmkgWeather,
+                                                userWeather,
+                                            )!;
+
+                                            const weatherTime = weather.time
+                                                ? weather.time.replace(' ', 'T')
+                                                : null;
+
                                             const { Icon, className, label } =
-                                                openMeteoCondition(
-                                                    userWeather.weather_code,
-                                                );
+                                                weather.weather_desc
+                                                    ? bmkgCondition(
+                                                          weather.weather_code,
+                                                          weather.weather_desc,
+                                                      )
+                                                    : openMeteoCondition(
+                                                          weather.weather_code,
+                                                      );
+
+                                            const windLabel =
+                                                weather.wind_direction_cardinal
+                                                    ? bmkgWindDirectionLabel(
+                                                          weather.wind_direction_cardinal,
+                                                      )
+                                                    : (degreesToWindDirection(
+                                                          weather.wind_direction_deg,
+                                                      ) ?? '-');
 
                                             return (
                                                 <div className="rounded-xl border border-emerald-400/20 bg-gradient-to-b from-emerald-400/10 to-white/[0.03] p-3">
@@ -2954,13 +3066,17 @@ export default function Monitoring() {
 
                                                         <span className="text-[8.5px] text-slate-500">
                                                             Pemutakhiran:{' '}
-                                                            {formatNaiveDate(
-                                                                userWeather.time,
-                                                            )}{' '}
+                                                            {weatherTime
+                                                                ? formatNaiveDate(
+                                                                      weatherTime,
+                                                                  )
+                                                                : '-'}{' '}
                                                             •{' '}
-                                                            {formatNaiveTime(
-                                                                userWeather.time,
-                                                            )}{' '}
+                                                            {weatherTime
+                                                                ? formatNaiveTime(
+                                                                      weatherTime,
+                                                                  )
+                                                                : '-'}{' '}
                                                             WIB
                                                         </span>
                                                     </div>
@@ -2975,7 +3091,7 @@ export default function Monitoring() {
                                                         <div>
                                                             <p className="text-[30px] leading-none font-extrabold text-white">
                                                                 {bmkgNumber(
-                                                                    userWeather.temperature,
+                                                                    weather.temperature,
                                                                 )}
                                                                 °
                                                             </p>
@@ -3000,7 +3116,7 @@ export default function Monitoring() {
 
                                                             <p className="mt-0.5 text-[12px] font-bold text-white">
                                                                 {bmkgNumber(
-                                                                    userWeather.humidity,
+                                                                    weather.humidity,
                                                                 )}
                                                                 %
                                                             </p>
@@ -3013,7 +3129,7 @@ export default function Monitoring() {
 
                                                             <p className="mt-0.5 text-[12px] font-bold text-white">
                                                                 {bmkgNumber(
-                                                                    userWeather.wind_speed,
+                                                                    weather.wind_speed,
                                                                 )}{' '}
                                                                 km/jam
                                                             </p>
@@ -3025,9 +3141,7 @@ export default function Monitoring() {
                                                             </p>
 
                                                             <p className="mt-0.5 text-[12px] font-bold text-white">
-                                                                {degreesToWindDirection(
-                                                                    userWeather.wind_direction_deg,
-                                                                ) ?? '-'}
+                                                                {windLabel}
                                                             </p>
                                                         </div>
 
@@ -3037,48 +3151,48 @@ export default function Monitoring() {
                                                             </p>
 
                                                             <p className="mt-0.5 text-[12px] font-bold text-white">
-                                                                {formatVisibility(
-                                                                    userWeather.visibility,
-                                                                )}
+                                                                {weather.visibility_text ??
+                                                                    formatVisibility(
+                                                                        weather.visibility,
+                                                                    )}
                                                             </p>
                                                         </div>
                                                     </div>
 
                                                     <div className="mt-2 flex items-center justify-between border-t border-white/5 pt-1.5 text-[9px] text-slate-500">
                                                         <span>
-                                                            {userWeather.pressure_msl !==
+                                                            {weather.pressure_msl !==
                                                             null
                                                                 ? `tekanan ${bmkgNumber(
-                                                                      userWeather.pressure_msl,
+                                                                      weather.pressure_msl,
                                                                   )} hPa`
                                                                 : ''}
                                                         </span>
 
                                                         <span>
-                                                            {userWeather.wind_gust !==
+                                                            {weather.wind_gust !==
                                                             null
                                                                 ? `hembusan ${bmkgNumber(
-                                                                      userWeather.wind_gust,
+                                                                      weather.wind_gust,
                                                                   )} km/jam`
                                                                 : ''}
                                                         </span>
 
                                                         <span>
-                                                            {userWeather.apparent_temperature !==
+                                                            {weather.apparent_temperature !==
                                                             null
                                                                 ? `terasa ${bmkgNumber(
-                                                                      userWeather.apparent_temperature,
+                                                                      weather.apparent_temperature,
                                                                   )}°C`
                                                                 : ''}
                                                         </span>
                                                     </div>
 
                                                     <p className="mt-1.5 text-[8.5px] leading-relaxed text-slate-600">
-                                                        Sumber: Open-Meteo (data
-                                                        meteorologi
-                                                        internasional, bukan
-                                                        data resmi BMKG) • Lokasi
-                                                        dari GPS perangkat
+                                                        {weather.source ===
+                                                        'BMKG'
+                                                            ? `Sumber: BMKG (prakiraan resmi)${weather.location ? ` • Prakiraan ${weather.location}` : ''} • Lokasi dari GPS perangkat`
+                                                            : 'Sumber: Open-Meteo (data meteorologi internasional, bukan data resmi BMKG) • Lokasi dari GPS perangkat'}
                                                     </p>
                                                 </div>
                                             );
@@ -3093,7 +3207,12 @@ export default function Monitoring() {
                         {active === 'letusan' && (
                             <section>
                                 <PanelTitle
-                                    icon={<Flame size={11} strokeWidth={2.5} />}
+                                    icon={
+                                        <VolcanoIcon
+                                            size={11}
+                                            strokeWidth={2.5}
+                                        />
+                                    }
                                 >
                                     Letusan Gunung
                                 </PanelTitle>
@@ -3111,7 +3230,7 @@ export default function Monitoring() {
                                                     className="rounded-xl border border-orange-400/25 border-l-orange-400/80 bg-orange-400/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
                                                 >
                                                     <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-orange-300 uppercase">
-                                                        <Flame
+                                                        <VolcanoIcon
                                                             size={10}
                                                             strokeWidth={2.5}
                                                         />
@@ -3183,7 +3302,7 @@ export default function Monitoring() {
                                 ) : data.activity?.description ? (
                                     <div className="rounded-xl border border-orange-400/25 border-l-orange-400/80 bg-orange-400/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
                                         <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-orange-300 uppercase">
-                                            <Flame
+                                            <VolcanoIcon
                                                 size={10}
                                                 strokeWidth={2.5}
                                             />
@@ -3533,7 +3652,10 @@ export default function Monitoring() {
 
                                                             <p className="mt-0.5 text-[12px] font-bold text-white">
                                                                 {bmkgCurrent.visibility_text ??
-                                                                    '-'}
+                                                                    (bmkgCurrent.visibility !=
+                                                                    null
+                                                                        ? `${bmkgCurrent.visibility} km`
+                                                                        : '—')}
                                                             </p>
                                                         </div>
                                                     </div>
@@ -3541,6 +3663,155 @@ export default function Monitoring() {
                                             );
                                         })()}
                                     </>
+                                ) : data.current_weather ? (
+                                    (() => {
+                                        const numOrDash = (
+                                            value: number | null | undefined,
+                                            suffix = '',
+                                        ) =>
+                                            value != null
+                                                ? `${Math.round(value)}${suffix}`
+                                                : '-';
+
+                                        const openMeteoWind =
+                                            data.current_weather
+                                                .wind_direction_cardinal ??
+                                            degreesToWindDirection(
+                                                data.current_weather
+                                                    .wind_direction_deg,
+                                            );
+
+                                        return (
+                                            <div className="mt-2.5 rounded-xl border border-white/10 bg-white/5 p-3">
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-[10px] font-extrabold tracking-wide text-slate-400 uppercase">
+                                                        Saat ini (pengukuran
+                                                        langsung)
+                                                    </p>
+
+                                                    <span className="text-[8.5px] text-slate-500">
+                                                        Pemutakhiran:{' '}
+                                                        {data.current_weather
+                                                            .observed_at
+                                                            ? `${formatWIBShortDate(data.current_weather.observed_at)} • ${formatWIBTimeHM(data.current_weather.observed_at)} WIB`
+                                                            : '-'}
+                                                    </span>
+                                                </div>
+
+                                                <div className="mt-2 flex items-center gap-3">
+                                                    <Gauge
+                                                        size={38}
+                                                        strokeWidth={2}
+                                                        className="shrink-0 text-slate-400"
+                                                    />
+
+                                                    <div>
+                                                        <p className="text-[30px] leading-none font-extrabold text-white">
+                                                            {numOrDash(
+                                                                data
+                                                                    .current_weather
+                                                                    .temperature_c,
+                                                            )}
+                                                            °
+                                                        </p>
+
+                                                        <p className="mt-1 text-[11px] font-semibold text-slate-300">
+                                                            Open-Meteo
+                                                            (cadangan)
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="mt-2.5 grid grid-cols-2 gap-1.5">
+                                                    <div className="rounded-lg bg-white/5 p-2">
+                                                        <p className="text-[8px] tracking-wide text-slate-500 uppercase">
+                                                            Kelembapan
+                                                        </p>
+
+                                                        <p className="mt-0.5 text-[12px] font-bold text-white">
+                                                            {numOrDash(
+                                                                data
+                                                                    .current_weather
+                                                                    .humidity,
+                                                                '%',
+                                                            )}
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="rounded-lg bg-white/5 p-2">
+                                                        <p className="text-[8px] tracking-wide text-slate-500 uppercase">
+                                                            Kecepatan Angin
+                                                        </p>
+
+                                                        <p className="mt-0.5 text-[12px] font-bold text-white">
+                                                            {numOrDash(
+                                                                data
+                                                                    .current_weather
+                                                                    .wind_speed_kmh,
+                                                                ' km/jam',
+                                                            )}
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="rounded-lg bg-white/5 p-2">
+                                                        <p className="text-[8px] tracking-wide text-slate-500 uppercase">
+                                                            Arah Angin dari
+                                                        </p>
+
+                                                        <p className="mt-0.5 text-[12px] font-bold text-white">
+                                                            {openMeteoWind ??
+                                                                '-'}
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="rounded-lg bg-white/5 p-2">
+                                                        <p className="text-[8px] tracking-wide text-slate-500 uppercase">
+                                                            Hembusan Angin
+                                                        </p>
+
+                                                        <p className="mt-0.5 text-[12px] font-bold text-white">
+                                                            {numOrDash(
+                                                                data
+                                                                    .current_weather
+                                                                    .wind_gust_kmh,
+                                                                ' km/jam',
+                                                            )}
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="rounded-lg bg-white/5 p-2">
+                                                        <p className="text-[8px] tracking-wide text-slate-500 uppercase">
+                                                            Suhu Terasa
+                                                        </p>
+
+                                                        <p className="mt-0.5 text-[12px] font-bold text-white">
+                                                            {numOrDash(
+                                                                data
+                                                                    .current_weather
+                                                                    .apparent_temperature_c,
+                                                                '°',
+                                                            )}
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="rounded-lg bg-white/5 p-2">
+                                                        <p className="text-[8px] tracking-wide text-slate-500 uppercase">
+                                                            Tekanan Udara
+                                                        </p>
+
+                                                        <p className="mt-0.5 text-[12px] font-bold text-white">
+                                                            {numOrDash(
+                                                                data
+                                                                    .current_weather
+                                                                    .pressure_msl,
+                                                                ' hPa',
+                                                            )}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()
                                 ) : (
                                     <p className="mt-2.5 rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-500">
                                         Belum ada kondisi cuaca saat ini untuk

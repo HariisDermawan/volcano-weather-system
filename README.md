@@ -1,7 +1,17 @@
 
+<<<<<<< HEAD
 ![Volcano Watch](https://github.com/HariisDermawan/volcano-weather-system/blob/main/public/gambar/gam.png)
 
 # Volcano Watch
+=======
+Volcano Watch
+=======
+
+# Volcano Watch
+
+> > > > > > > a56385f (feat: add new image asset for volcano monitoring)
+
+>>>>>>> eb20ca3 (Add CO2 and Volcano SVG icons, implement VolcanoIcon component, and update Monitoring page to display weather data)
 Sistem pemantauan **gunung api & cuaca** interaktif untuk Indonesia. Menampilkan status aktivitas gunung api (PVMBG/MAGMA), informasi letusan, advisory abu vulkanik VAAC Darwin (BOM), prakiraan & prediksi sebaran abu, gempa bumi terkini (BMKG), gerakan tanah, serta prakiraan cuaca (BMKG & Open-Meteo) — semuanya divisualisasikan di atas peta Leaflet secara real-time.
 
 ## Fitur Utama
@@ -38,14 +48,14 @@ Sistem pemantauan **gunung api & cuaca** interaktif untuk Indonesia. Menampilkan
 
 ## Tech Stack
 
-| Lapisan | Teknologi |
-|---|---|
-| Backend | PHP 8.3, Laravel 13, Laravel Sanctum |
-| Frontend | Inertia v3, React 19, TypeScript 5.7, Vite 8 (vite-plus), Tailwind CSS 4, Leaflet 1.9.4 / react-leaflet 5, lucide-react, React Compiler |
-| Python Service | FastAPI, SQLAlchemy 2, PyMySQL, APScheduler, requests |
-| Database | MySQL (`db_weather_sistem` untuk python service), SQLite (dev DB Laravel) |
-| Kualitas | Pest v4, PHPStan level 7, Pint (preset `laravel`), TypeScript strict |
-| Networking | GitHub Actions (PHP 8.3 + Node 22, `composer ci:check`) |
+| Lapisan        | Teknologi                                                                                                                               |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend        | PHP 8.3, Laravel 13, Laravel Sanctum                                                                                                    |
+| Frontend       | Inertia v3, React 19, TypeScript 5.7, Vite 8 (vite-plus), Tailwind CSS 4, Leaflet 1.9.4 / react-leaflet 5, lucide-react, React Compiler |
+| Python Service | FastAPI, SQLAlchemy 2, PyMySQL, APScheduler, requests                                                                                   |
+| Database       | MySQL (`db_weather_sistem` untuk python service), SQLite (dev DB Laravel)                                                               |
+| Kualitas       | Pest v4, PHPStan level 7, Pint (preset `laravel`), TypeScript strict                                                                    |
+| Networking     | GitHub Actions (PHP 8.3 + Node 22, `composer ci:check`)                                                                                 |
 
 ## Prasyarat
 
@@ -139,37 +149,37 @@ DB_PASSWORD=
 
 ## API Endpoint (Laravel)
 
-| Method | Endpoint | Deskripsi |
-|---|---|---|
-| GET | `/api/volcanoes` | Daftar gunung api dengan flag `ash_active`, `status`, `erupting` secara live |
-| GET | `/api/monitoring/volcano/{volcano}` | Payload lengkap per gunung (aktivitas, letusan, GDACS, cuaca, advisori & prediksi abu) |
-| GET | `/api/gempa` | Gempa terkini BMKG (cache 90 detik) |
-| GET | `/api/gerakan-tanah` | Kejadian gerakan tanah PVMBG (cache 180 detik) |
-| GET | `/api/kota?lat=&lon=` | Cek apakah lokasi di dalam sebaran abu aktif (point-in-polygon) |
+| Method | Endpoint                            | Deskripsi                                                                              |
+| ------ | ----------------------------------- | -------------------------------------------------------------------------------------- |
+| GET    | `/api/volcanoes`                    | Daftar gunung api dengan flag `ash_active`, `status`, `erupting` secara live           |
+| GET    | `/api/monitoring/volcano/{volcano}` | Payload lengkap per gunung (aktivitas, letusan, GDACS, cuaca, advisori & prediksi abu) |
+| GET    | `/api/gempa`                        | Gempa terkini BMKG (cache 90 detik)                                                    |
+| GET    | `/api/gerakan-tanah`                | Kejadian gerakan tanah PVMBG (cache 180 detik)                                         |
+| GET    | `/api/kota?lat=&lon=`               | Cek apakah lokasi di dalam sebaran abu aktif (point-in-polygon)                        |
 
 ### Endpoint Web
 
-| Method | Path | Deskripsi |
-|---|---|---|
-| GET | `/` → `/monitoring` | Redirect permanen ke dashboard |
-| GET | `/monitoring` | Halaman dashboard SPA (Inertia) |
-| GET | `/robots.txt` | Robots + sitemap reference |
-| GET | `/sitemap.xml` | Sitemap |
+| Method | Path                | Deskripsi                       |
+| ------ | ------------------- | ------------------------------- |
+| GET    | `/` → `/monitoring` | Redirect permanen ke dashboard  |
+| GET    | `/monitoring`       | Halaman dashboard SPA (Inertia) |
+| GET    | `/robots.txt`       | Robots + sitemap reference      |
+| GET    | `/sitemap.xml`      | Sitemap                         |
 
 ## Sumber Data
 
-| Data | Sumber |
-|---|---|
-| Level aktivitas & letusan gunung | PVMBG / MAGMA (via `MagmaService`, cache 3 menit) |
-| Advisory abu vulkanik | VAAC Darwin — BOM (via `VaacDarwinService`, cache 2 menit) |
-| Peringatan / alert | GDACS (cache 10 menit) |
-| Gempa terkini | BMKG (`autogempa.json`, fallback Nuxt SSR, `gempaterkini.json`; cache 90 detik) |
-| Gerakan tanah | PVMBG tanggapan-kejadian (cache 180 detik) |
-| Prakiraan cuaca per gunung | BMKG (via python service) |
-| Cuaca terkini | Open-Meteo (`WeatherCurrent`, unik per volcano) |
-| Konsentrasi SO₂ | Windy / CAMS layer |
-<<<<<<< HEAD
-=======
+| Data                             | Sumber                                                                          |
+| -------------------------------- | ------------------------------------------------------------------------------- |
+| Level aktivitas & letusan gunung | PVMBG / MAGMA (via `MagmaService`, cache 3 menit)                               |
+| Advisory abu vulkanik            | VAAC Darwin — BOM (via `VaacDarwinService`, cache 2 menit)                      |
+| Peringatan / alert               | GDACS (cache 10 menit)                                                          |
+| Gempa terkini                    | BMKG (`autogempa.json`, fallback Nuxt SSR, `gempaterkini.json`; cache 90 detik) |
+| Gerakan tanah                    | PVMBG tanggapan-kejadian (cache 180 detik)                                      |
+| Prakiraan cuaca per gunung       | BMKG (via python service)                                                       |
+| Cuaca terkini                    | Open-Meteo (`WeatherCurrent`, unik per volcano)                                 |
+| Konsentrasi SO₂                  | Windy / CAMS layer                                                              |
+| <<<<<<< HEAD                     |
+| =======                          |
 
 ## Struktur Proyek
 
@@ -234,3 +244,12 @@ Pastikan `python-service/.env` berisi kredensial MySQL yang sesuai, dan service 
 
 **Collector gagal karena `bs4`?**
 Instal dependensi yang belum tercantum: `pip install beautifulsoup4` lalu tambahkan ke `requirements.txt`.
+<<<<<<< HEAD
+=======
+
+## Lisensi
+
+MIT
+
+> > > > > > > a56385f (feat: add new image asset for volcano monitoring)
+>>>>>>> eb20ca3 (Add CO2 and Volcano SVG icons, implement VolcanoIcon component, and update Monitoring page to display weather data)

@@ -19,6 +19,16 @@ class CityMonitoringController extends Controller
 
     private const USER_AGENT = 'Pantau-Abu-Vulkanik/1.0 (+monitoring lokal)';
 
+    private const BMKG_URL = 'https://api.bmkg.go.id/publik/prakiraan-cuaca';
+
+    private const BMKG_CACHE_TTL = 1800; // 30 menit
+
+    private const ADM4_CACHE_TTL = 604800; // 7 hari
+
+    private const WILAYAH_DB_PATH = 'python-service/wilayah-adm4/locations.db';
+
+    private const MAX_ADM4_DISTANCE_KM = 40;
+
     public function show(
         Request $request,
         VaacDarwinService $vaac,
@@ -47,6 +57,8 @@ class CityMonitoringController extends Controller
         }
 
         $city = $this->resolveCity($latitude, $longitude);
+
+        $weather = $this->resolveCityWeather($latitude, $longitude);
 
         // Advisory abu VAAC Darwin real-time (cached 2m),
         // diambil hanya untuk gunung yang abunya aktif (< 24 jam).
@@ -121,6 +133,7 @@ class CityMonitoringController extends Controller
                     ->map(fn (int $id): ?string => $names[$id] ?? null)
                     ->values(),
             ],
+            'weather' => $weather,
         ]);
     }
 
@@ -151,6 +164,370 @@ class CityMonitoringController extends Controller
         }
 
         return $active;
+    }
+
+    /**
+     * Cuaca BMKG terkini untuk koordinat pengguna.
+     *
+     * ADM4 (desa) terdekat diambil dari database wilayah, lalu prakiraan
+     * BMKG dicache per ADM4 selama 30 menit agar tidak membebani rate
+     * limit API BMKG. Mengembalikan null bila wilayah tidak dikenal atau
+     * fetch BMKG gagal, frontend kemudian memakai cadangan Open-Meteo.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function resolveCityWeather(
+        float $latitude,
+        float $longitude,
+    ): ?array {
+        $adm4 = $this->resolveAdm4($latitude, $longitude);
+
+        if ($adm4 === null) {
+            return null;
+        }
+
+        $code = is_string($adm4['kode'] ?? null) ? $adm4['kode'] : null;
+
+        if ($code === null) {
+            return null;
+        }
+
+        $cacheKey = 'bmkg:city:weather:v1:'.$code;
+
+        $cached = Cache::get($cacheKey);
+
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $weather = $this->fetchAndBuildCityWeather($adm4);
+
+        if (is_array($weather)) {
+            Cache::put($cacheKey, $weather, self::BMKG_CACHE_TTL);
+        }
+
+        return $weather;
+    }
+
+    /**
+     * Desa ADM4 (kode wilayah BMKG) terdekat dari koordinat GPS.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function resolveAdm4(float $latitude, float $longitude): ?array
+    {
+        $key = 'geo:adm4:v2:'.(int) round($latitude * 1000).':'.(int) round($longitude * 1000);
+
+        $cached = Cache::get($key);
+
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $adm4 = $this->findNearestAdm4($latitude, $longitude);
+
+        if (is_array($adm4)) {
+            Cache::put($key, $adm4, self::ADM4_CACHE_TTL);
+        }
+
+        return $adm4;
+    }
+
+    /**
+     * Cari desa terdekat pada database wilayah adm4 (SQLite read-only).
+     *
+     * Filter bounding-box dulu, lalu perhitungan haversine untuk presisi.
+     * Cukup dengan query satu tabel; database hanya dibaca.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function findNearestAdm4(float $latitude, float $longitude): ?array
+    {
+        $path = base_path(self::WILAYAH_DB_PATH);
+
+        if (! is_file($path)) {
+            return null;
+        }
+
+        try {
+            $pdo = new \PDO('sqlite:'.$path, null, null, [
+                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                \PDO::ATTR_TIMEOUT => 5,
+            ]);
+
+            $delta = 0.5;
+            $minLat = $latitude - $delta;
+            $maxLat = $latitude + $delta;
+            $minLon = $longitude - $delta;
+            $maxLon = $longitude + $delta;
+
+            $statement = $pdo->prepare(
+                'SELECT kode, nama, kecamatan, kota, provinsi, lat, lon
+                 FROM locations
+                 WHERE lat BETWEEN :minLat AND :maxLat
+                   AND lon BETWEEN :minLon AND :maxLon',
+            );
+
+            $statement->execute([
+                'minLat' => $minLat,
+                'maxLat' => $maxLat,
+                'minLon' => $minLon,
+                'maxLon' => $maxLon,
+            ]);
+
+            /** @var list<array<string, mixed>> $rows */
+            $rows = $statement->fetchAll(\PDO::FETCH_ASSOC);
+        } catch (\Throwable) {
+            return null;
+        } finally {
+            $pdo = null;
+        }
+
+        $best = null;
+        $bestDistance = null;
+
+        foreach ($rows as $row) {
+            $distance = $this->haversineKm(
+                $latitude,
+                $longitude,
+                (float) ($row['lat'] ?? 0),
+                (float) ($row['lon'] ?? 0),
+            );
+
+            if ($bestDistance === null || $distance < $bestDistance) {
+                $bestDistance = $distance;
+                $best = $row;
+            }
+        }
+
+        if ($best === null || $bestDistance > self::MAX_ADM4_DISTANCE_KM) {
+            return null;
+        }
+
+        $best['distance_km'] = round($bestDistance, 2);
+
+        return $best;
+    }
+
+    /**
+     * Jarak dua koordinat dalam kilometer (haversine).
+     */
+    private function haversineKm(
+        float $lat1,
+        float $lon1,
+        float $lat2,
+        float $lon2,
+    ): float {
+        $radius = 6371.0;
+
+        $phi1 = deg2rad($lat1);
+        $phi2 = deg2rad($lat2);
+
+        $dPhi = deg2rad($lat2 - $lat1);
+        $dLambda = deg2rad($lon2 - $lon1);
+
+        $a = sin($dPhi / 2) ** 2
+            + cos($phi1) * cos($phi2) * sin($dLambda / 2) ** 2;
+
+        return $radius * 2 * asin(sqrt($a));
+    }
+
+    /**
+     * Ambil prakiraan BMKG untuk ADM4 lalu susun payload cuaca kota.
+     *
+     * @param  array<string, mixed>  $adm4
+     * @return array<string, mixed>|null
+     */
+    private function fetchAndBuildCityWeather(array $adm4): ?array
+    {
+        $code = is_string($adm4['kode'] ?? null) ? $adm4['kode'] : null;
+
+        if ($code === null) {
+            return null;
+        }
+
+        try {
+            $json = Http::retry(3, 500, null, false)
+                ->timeout(25)
+                ->withHeaders([
+                    'User-Agent' => self::USER_AGENT,
+                    'Accept' => 'application/json',
+                ])
+                ->get(self::BMKG_URL, ['adm4' => $code])
+                ->json();
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if (! is_array($json)) {
+            return null;
+        }
+
+        $entries = $this->flattenBmkgForecasts($json);
+
+        if ($entries === []) {
+            return null;
+        }
+
+        $entry = $this->pickNearestForecast($entries);
+
+        if ($entry === null) {
+            return null;
+        }
+
+        $lokasi = is_array($json['lokasi'] ?? null) ? $json['lokasi'] : [];
+
+        return $this->buildCityWeather($adm4, $lokasi, $entry);
+    }
+
+    /**
+     * Ratakan kelompok prakiraan BMKG (data[].cuaca[][]) jadi daftar entri.
+     *
+     * @param  array<string, mixed>  $json
+     * @return list<array<string, mixed>>
+     */
+    private function flattenBmkgForecasts(array $json): array
+    {
+        $entries = [];
+
+        $data = $json['data'] ?? [];
+
+        if (! is_array($data)) {
+            return [];
+        }
+
+        foreach ($data as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $cuaca = $item['cuaca'] ?? [];
+
+            if (! is_array($cuaca)) {
+                continue;
+            }
+
+            foreach ($cuaca as $group) {
+                if (! is_array($group)) {
+                    continue;
+                }
+
+                foreach ($group as $forecast) {
+                    if (is_array($forecast)) {
+                        $entries[] = $forecast;
+                    }
+                }
+            }
+        }
+
+        return $entries;
+    }
+
+    /**
+     * Pilih entri prakiraan yang paling dekat dengan waktu sekarang (WIB).
+     *
+     * @param  list<array<string, mixed>>  $entries
+     * @return array<string, mixed>|null
+     */
+    private function pickNearestForecast(array $entries): ?array
+    {
+        $now = new \DateTimeImmutable(
+            'now',
+            new \DateTimeZone('Asia/Jakarta'),
+        );
+
+        $best = null;
+        $bestDiff = null;
+
+        foreach ($entries as $entry) {
+            $local = $entry['local_datetime'] ?? null;
+
+            if (! is_string($local)) {
+                $best ??= $entry;
+
+                continue;
+            }
+
+            try {
+                $date = new \DateTimeImmutable(
+                    $local,
+                    new \DateTimeZone('Asia/Jakarta'),
+                );
+            } catch (\Throwable) {
+                $best ??= $entry;
+
+                continue;
+            }
+
+            $diff = abs($date->getTimestamp() - $now->getTimestamp());
+
+            if ($bestDiff === null || $diff < $bestDiff) {
+                $bestDiff = $diff;
+                $best = $entry;
+            }
+        }
+
+        return $best;
+    }
+
+    /**
+     * Susun payload cuaca kota dari entri prakiraan BMKG terpilih.
+     *
+     * BMKG tidak menyediakan tekanan, hembusan angin, maupun suhu terasa,
+     * jadi field tersebut sengaja tidak diisi (null).
+     *
+     * @param  array<string, mixed>  $adm4
+     * @param  array<string, mixed>  $lokasi
+     * @param  array<string, mixed>  $entry
+     * @return array<string, mixed>
+     */
+    private function buildCityWeather(
+        array $adm4,
+        array $lokasi,
+        array $entry,
+    ): array {
+        $location = collect([
+            $lokasi['desa'] ?? null,
+            $lokasi['kecamatan'] ?? null,
+            $lokasi['kotkab'] ?? null,
+        ])
+            ->filter(fn ($part): bool => is_string($part) && $part !== '')
+            ->values()
+            ->implode(', ');
+
+        return [
+            'source' => 'BMKG',
+            'adm4' => $adm4['kode'] ?? null,
+            'location' => $location === '' ? null : $location,
+            'time' => $entry['local_datetime'] ?? null,
+            'temperature' => isset($entry['t'])
+                ? round((float) $entry['t'], 1)
+                : null,
+            'humidity' => isset($entry['hu'])
+                ? round((float) $entry['hu'], 1)
+                : null,
+            'wind_speed' => isset($entry['ws'])
+                ? round((float) $entry['ws'], 1)
+                : null,
+            'wind_direction_deg' => isset($entry['wd_deg'])
+                ? (float) $entry['wd_deg']
+                : null,
+            'wind_direction_cardinal' => is_string($entry['wd'] ?? null)
+                ? $entry['wd']
+                : null,
+            'visibility' => isset($entry['vs'])
+                ? (float) $entry['vs']
+                : null,
+            'visibility_text' => is_string($entry['vs_text'] ?? null)
+                ? $entry['vs_text']
+                : null,
+            'weather_code' => isset($entry['weather'])
+                ? (int) $entry['weather']
+                : null,
+            'weather_desc' => is_string($entry['weather_desc'] ?? null)
+                ? $entry['weather_desc']
+                : null,
+        ];
     }
 
     /**
