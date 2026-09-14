@@ -139,6 +139,14 @@ def save_weather_forecasts(
                 "weather"
             )
 
+            visibility = forecast.get(
+                "visibility"
+            )
+
+            visibility_text = forecast.get(
+                "visibility_text"
+            )
+
             # =============================================
             # CEK DATABASE
             #
@@ -176,6 +184,8 @@ def save_weather_forecasts(
                             wind_speed = :wind_speed,
                             wind_direction = :wind_direction,
                             weather = :weather,
+                            visibility = :visibility,
+                            visibility_text = :visibility_text,
                             updated_at = NOW()
                         WHERE id = :id
                     """),
@@ -187,6 +197,8 @@ def save_weather_forecasts(
                         "wind_speed": wind_speed,
                         "wind_direction": wind_direction,
                         "weather": weather,
+                        "visibility": visibility,
+                        "visibility_text": visibility_text,
                     },
                 )
 
@@ -217,6 +229,8 @@ def save_weather_forecasts(
                             wind_speed,
                             wind_direction,
                             weather,
+                            visibility,
+                            visibility_text,
                             created_at,
                             updated_at
                         )
@@ -229,6 +243,8 @@ def save_weather_forecasts(
                             :wind_speed,
                             :wind_direction,
                             :weather,
+                            :visibility,
+                            :visibility_text,
                             NOW(),
                             NOW()
                         )
@@ -242,6 +258,8 @@ def save_weather_forecasts(
                         "wind_speed": wind_speed,
                         "wind_direction": wind_direction,
                         "weather": weather,
+                        "visibility": visibility,
+                        "visibility_text": visibility_text,
                     },
                 )
 

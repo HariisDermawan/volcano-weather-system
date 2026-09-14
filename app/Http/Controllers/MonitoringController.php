@@ -8,9 +8,11 @@ use App\Models\Eruption;
 use App\Models\Volcano;
 use App\Models\WeatherCurrent;
 use App\Models\WeatherForecast;
+use App\Services\GdacsService;
 use App\Services\MagmaService;
 use App\Services\VaacDarwinService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\DB;
 
 class MonitoringController extends Controller
 {
@@ -18,6 +20,7 @@ class MonitoringController extends Controller
         Volcano $volcano,
         VaacDarwinService $vaac,
         MagmaService $magma,
+        GdacsService $gdacs,
     ): JsonResponse {
         // =====================================================
         // 1. AKTIVITAS / ERUPSI TERBARU (REAL-TIME)
@@ -130,6 +133,18 @@ class MonitoringController extends Controller
         )
             ->orderBy('forecast_at')
             ->get();
+
+        // =====================================================
+        // 6a. WILAYAH (LOKASI) SUMBER PRAKIRAAN BMKG
+        //
+        // Nama desa/kelurahan lokasi BMKG untuk gunung ini,
+        // dipakai frontend sebagai "Prakiraan Cuaca Wilayah".
+        // =====================================================
+
+        $weatherLocation = DB::table('volcano_weather_sources')
+            ->where('volcano_id', $volcano->id)
+            ->where('source', 'BMKG')
+            ->value('location_name');
 
         // =====================================================
         // 6b. KONDISI CUACA SAAT INI (OPEN-METEO / GFS-ICON)
@@ -311,6 +326,16 @@ class MonitoringController extends Controller
                 ->values(),
 
             // =================================================
+            // STATUS BAHaya (GDACS) — DATA ASLI
+            //
+            // Alert volcano aktif dari GDACS (UN/EU) sesuai feed
+            // resminya. `null` berarti GDACS tidak menerbitkan
+            // alert untuk gunung ini.
+            // =================================================
+
+            'gdacs' => $gdacs->getAlertForVolcano($volcano->id),
+
+            // =================================================
             // WEATHER UTAMA
             // =================================================
 
@@ -322,6 +347,8 @@ class MonitoringController extends Controller
                     'wind_speed' => $weather->wind_speed,
                     'wind_direction' => $weather->wind_direction,
                     'weather' => $weather->weather,
+                    'visibility' => $weather->visibility,
+                    'visibility_text' => $weather->visibility_text,
                 ]
                 : null,
 
@@ -341,9 +368,17 @@ class MonitoringController extends Controller
                         'wind_speed' => $forecast->wind_speed,
                         'wind_direction' => $forecast->wind_direction,
                         'weather' => $forecast->weather,
+                        'visibility' => $forecast->visibility,
+                        'visibility_text' => $forecast->visibility_text,
                     ];
                 })
                 ->values(),
+
+            // =================================================
+            // LOKASI SUMBER PRAKIRAAN BMKG
+            // =================================================
+
+            'weather_location' => $weatherLocation,
 
             // =================================================
             // KONDISI CUACA SAAT INI (OPEN-METEO)
@@ -374,34 +409,34 @@ class MonitoringController extends Controller
 
             'ash_advisory' => $ashAdvisory
                 ? [
-                        'id' => $ashAdvisory->id ?? null,
-                        'source' => $ashAdvisory->source ?? 'VAAC Darwin',
-                        'advisory_nr' => $ashAdvisory->advisory_nr ?? null,
-                        'issued_at' => $this->formatDateTime(
-                            $ashAdvisory->issued_at ?? null
-                        ),
-                        'observed_at' => $this->formatDateTime(
-                            $ashAdvisory->observed_at ?? null
-                        ),
-                        'next_advisory_at' => $this->formatDateTime(
-                            $ashAdvisory->next_advisory_at ?? null
-                        ),
-                        'volcano_code' => $ashAdvisory->volcano_code ?? null,
-                        'volcano_name' => $ashAdvisory->volcano_name ?? null,
-                        'ash_detected' => $ashAdvisory->ash_detected ?? false,
-                        'altitude_ft' => $ashAdvisory->altitude_ft ?? null,
-                        'ash_height_m' => $ashAdvisory->ash_height_m ?? null,
-                        'movement' => $ashAdvisory->movement ?? null,
-                        'speed_kts' => $ashAdvisory->speed_kts ?? null,
-                        'geometry' => $this->decodeJson(
-                            $ashAdvisory->geometry ?? null
-                        ),
-                        'fcst_geometries' => $this->decodeJson(
-                            $ashAdvisory->fcst_geometries ?? []
-                        ) ?? [],
-                        'eruption_detail' => $ashAdvisory->eruption_detail ?? null,
-                        'remarks' => $ashAdvisory->remarks ?? null,
-                    ]
+                    'id' => $ashAdvisory->id ?? null,
+                    'source' => $ashAdvisory->source ?? 'VAAC Darwin',
+                    'advisory_nr' => $ashAdvisory->advisory_nr ?? null,
+                    'issued_at' => $this->formatDateTime(
+                        $ashAdvisory->issued_at ?? null
+                    ),
+                    'observed_at' => $this->formatDateTime(
+                        $ashAdvisory->observed_at ?? null
+                    ),
+                    'next_advisory_at' => $this->formatDateTime(
+                        $ashAdvisory->next_advisory_at ?? null
+                    ),
+                    'volcano_code' => $ashAdvisory->volcano_code ?? null,
+                    'volcano_name' => $ashAdvisory->volcano_name ?? null,
+                    'ash_detected' => $ashAdvisory->ash_detected ?? false,
+                    'altitude_ft' => $ashAdvisory->altitude_ft ?? null,
+                    'ash_height_m' => $ashAdvisory->ash_height_m ?? null,
+                    'movement' => $ashAdvisory->movement ?? null,
+                    'speed_kts' => $ashAdvisory->speed_kts ?? null,
+                    'geometry' => $this->decodeJson(
+                        $ashAdvisory->geometry ?? null
+                    ),
+                    'fcst_geometries' => $this->decodeJson(
+                        $ashAdvisory->fcst_geometries ?? []
+                    ) ?? [],
+                    'eruption_detail' => $ashAdvisory->eruption_detail ?? null,
+                    'remarks' => $ashAdvisory->remarks ?? null,
+                ]
                 : null,
 
             // =================================================
@@ -412,17 +447,17 @@ class MonitoringController extends Controller
 
             'ash_prediction' => $ashPrediction
                 ? [
-                        'id' => $ashPrediction->id,
-                        'generated_at' => $ashPrediction->generated_at,
-                        'forecast_at' => $ashPrediction->forecast_at,
-                        'forecast_hour' => $ashPrediction->forecast_hour,
-                        'direction' => $ashPrediction->direction,
-                        'speed' => $ashPrediction->speed,
-                        'risk_level' => $ashPrediction->risk_level,
-                        'confidence' => $ashPrediction->confidence,
-                        'geometry' => $this->decodeJson(
-                            $ashPrediction->geometry ?? null
-                        ),
+                    'id' => $ashPrediction->id,
+                    'generated_at' => $ashPrediction->generated_at,
+                    'forecast_at' => $ashPrediction->forecast_at,
+                    'forecast_hour' => $ashPrediction->forecast_hour,
+                    'direction' => $ashPrediction->direction,
+                    'speed' => $ashPrediction->speed,
+                    'risk_level' => $ashPrediction->risk_level,
+                    'confidence' => $ashPrediction->confidence,
+                    'geometry' => $this->decodeJson(
+                        $ashPrediction->geometry ?? null
+                    ),
                 ]
                 : null,
 

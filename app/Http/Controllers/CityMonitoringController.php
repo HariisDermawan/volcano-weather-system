@@ -326,7 +326,7 @@ class CityMonitoringController extends Controller
      */
     private function resolveCity(float $latitude, float $longitude): array
     {
-        $key = 'geo:city:v3:'.(int) round($latitude * 1000).':'.(int) round($longitude * 1000);
+        $key = 'geo:city:v4:'.(int) round($latitude * 1000).':'.(int) round($longitude * 1000);
 
         $cached = Cache::get($key);
 
@@ -342,6 +342,7 @@ class CityMonitoringController extends Controller
 
         $result = [
             'name' => $geocoded['name'] ?? null,
+            'district' => $geocoded['district'] ?? null,
             'provinsi' => $geocoded['provinsi'] ?? null,
             'country' => $geocoded['country'] ?? null,
             'latitude' => $latitude,
@@ -356,6 +357,11 @@ class CityMonitoringController extends Controller
 
     /**
      * Reverse geocode via Nominatim/OpenStreetMap.
+     *
+     * DKI Jakarta adalah provinsi sekaligus satuan setingkat kota, sehingga
+     * Nominatim menaruh "Daerah Khusus Ibukota Jakarta" pada kunci `city`.
+     * Dalam kasus ini nama kota diganti ke kota administrasi (mis. "Jakarta
+     * Pusat") dan provinsi diisi "DKI Jakarta" agar label tetap benar.
      *
      * @return array<string, mixed>|null
      */
@@ -382,20 +388,57 @@ class CityMonitoringController extends Controller
 
             $address = is_array($json['address'] ?? null) ? $json['address'] : [];
 
-            $name = $address['city']
+            $rawCity = $address['city'] ?? null;
+            $district = $address['neighbourhood']
+                ?? $address['suburb']
+                ?? $address['city_district']
                 ?? $address['town']
                 ?? $address['village']
-                ?? $address['municipality']
                 ?? null;
-            $provinsi = $address['state']
-                ?? $address['province']
-                ?? null;
-            $country = $address['country'] ?? null;
+
+            $name = is_string($rawCity) ? $rawCity : null;
+            $provinsi = $address['state'] ?? $address['province'] ?? null;
+
+            if (
+                is_string($name)
+                && in_array(
+                    strtolower($name),
+                    ['daerah khusus ibukota jakarta', 'dki jakarta', 'jakarta raya'],
+                    true,
+                )
+            ) {
+                $name = is_string($address['city_district'] ?? null)
+                    ? $address['city_district']
+                    : null;
+                $provinsi = 'DKI Jakarta';
+            } elseif (
+                ! is_string($provinsi)
+                && ($address['ISO3166-2-lvl4'] ?? null) === 'ID-JK'
+            ) {
+                $provinsi = 'DKI Jakarta';
+            }
+
+            if (! is_string($name) || $name === '') {
+                $name = is_string($address['city_district'] ?? null)
+                    ? $address['city_district']
+                    : null;
+            }
+
+            if (! is_string($name) || $name === '') {
+                $name = $address['town'] ?? $address['village'] ?? null;
+            }
+
+            if (! is_string($name) || $name === '') {
+                return null;
+            }
 
             return [
-                'name' => is_string($name) ? $name : null,
+                'name' => $name,
+                'district' => is_string($district) ? $district : null,
                 'provinsi' => is_string($provinsi) ? $provinsi : null,
-                'country' => is_string($country) ? $country : null,
+                'country' => is_string($address['country'] ?? null)
+                    ? $address['country']
+                    : null,
                 'source' => 'nominatim',
             ];
         } catch (\Throwable) {
@@ -405,6 +448,10 @@ class CityMonitoringController extends Controller
 
     /**
      * Reverse geocode fallback via BigDataCloud (gratis, tanpa API key).
+     *
+     * Nama provinsi/kota/kecamatan diambil dari `localityInfo.administrative`
+     * (adminLevel 4/5/6) — bukan `principalSubdivision` yang untuk Indonesia
+     * mengembalikan nama pulau (mis. "Jawa"), bukan provinsi.
      *
      * @return array<string, mixed>|null
      */
@@ -427,22 +474,64 @@ class CityMonitoringController extends Controller
                 return null;
             }
 
-            $name = $json['city'] ?? $json['locality'] ?? null;
-            $provinsi = $json['principalSubdivision'] ?? null;
-            $country = $json['countryName'] ?? null;
+            $provinsi = null;
+            $city = null;
+            $district = null;
 
-            if (! is_string($name) || $name === '') {
-                $name = is_string($provinsi) ? $provinsi : null;
+            $administrative = $json['localityInfo']['administrative'] ?? null;
+
+            if (is_array($administrative)) {
+                foreach ($administrative as $entry) {
+                    if (! is_array($entry)) {
+                        continue;
+                    }
+
+                    $level = $entry['adminLevel'] ?? null;
+                    $entryName = is_string($entry['name'] ?? null)
+                        ? $entry['name']
+                        : null;
+
+                    if (! is_string($entryName) || $entryName === '') {
+                        continue;
+                    }
+
+                    if ($level === 4 && $provinsi === null) {
+                        $provinsi = $entryName;
+                    } elseif ($level === 5 && $city === null) {
+                        $city = $entryName;
+                    } elseif ($level === 6 && $district === null) {
+                        $district = $entryName;
+                    }
+                }
             }
 
-            if (! is_string($name) || $name === '') {
-                $name = is_string($country) ? $country : null;
+            $candidates = [
+                $city,
+                is_string($json['city'] ?? null) ? $json['city'] : null,
+                is_string($json['locality'] ?? null) ? $json['locality'] : null,
+                $provinsi,
+                is_string($json['countryName'] ?? null) ? $json['countryName'] : null,
+            ];
+
+            $name = null;
+
+            foreach ($candidates as $candidate) {
+                if (is_string($candidate) && $candidate !== '') {
+                    $name = $candidate;
+
+                    break;
+                }
+            }
+
+            if ($name === null) {
+                return null;
             }
 
             return [
                 'name' => $name,
+                'district' => $district,
                 'provinsi' => is_string($provinsi) ? $provinsi : null,
-                'country' => is_string($country) ? $country : null,
+                'country' => is_string($json['countryName'] ?? null) ? $json['countryName'] : null,
                 'source' => 'bigdatacloud',
             ];
         } catch (\Throwable) {

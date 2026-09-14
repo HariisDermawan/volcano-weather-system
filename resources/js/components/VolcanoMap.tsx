@@ -768,11 +768,17 @@ export default function VolcanoMap({
             }}
         >
             <MapContainer
-                center={position}
+                center={[position[0] + 0.05, position[1]]}
                 zoom={10}
+                minZoom={5}
                 scrollWheelZoom={true}
                 zoomControl={false}
                 attributionControl={false}
+                maxBounds={[
+                    [-21.41, 73.65],
+                    [14.3069694978258, 153.41],
+                ]}
+                maxBoundsViscosity={1}
                 style={{
                     height: '100%',
                     width: '100%',
@@ -999,8 +1005,15 @@ export default function VolcanoMap({
                             ),
                         );
 
+                        const bounds = L.latLngBounds(latLngs).pad(0.12);
+
+                        const northEast = bounds.getNorthEast();
+
                         mapInstance.fitBounds(
-                            L.latLngBounds(latLngs).pad(0.12),
+                            L.latLngBounds(bounds.getSouthWest(), [
+                                northEast.lat + 0.2,
+                                northEast.lng,
+                            ]),
                             {
                                 duration: 0.9,
                             },

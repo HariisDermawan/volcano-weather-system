@@ -112,6 +112,10 @@ def extract_forecasts(data: dict):
                     "weather": forecast.get(
                         "weather_desc"
                     ),
+                    "visibility": forecast.get("vs"),
+                    "visibility_text": forecast.get(
+                        "vs_text"
+                    ),
                 })
 
     return results

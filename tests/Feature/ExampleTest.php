@@ -1,7 +1,12 @@
 <?php
 
-test('returns a successful response', function () {
-    $response = $this->get(route('home'));
+test('root redirects to monitoring', function () {
+    $this->get('/')
+        ->assertRedirect(route('monitoring'))
+        ->assertStatus(301);
+});
 
-    $response->assertOk();
+test('monitoring page renders', function () {
+    $this->get(route('monitoring'))
+        ->assertOk();
 });

@@ -21,6 +21,8 @@ class WeatherForecast extends Model
         'wind_speed',
         'wind_direction',
         'weather',
+        'visibility',
+        'visibility_text',
     ];
 
     protected $casts = [
@@ -28,6 +30,7 @@ class WeatherForecast extends Model
         'temperature' => 'float',
         'humidity' => 'float',
         'wind_speed' => 'float',
+        'visibility' => 'integer',
     ];
 
     /**

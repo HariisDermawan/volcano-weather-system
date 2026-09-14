@@ -1,13 +1,27 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+    lazy,
+    Suspense,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
+    type ReactNode,
+} from 'react';
+
+import { Head } from '@inertiajs/react';
 
 import {
     Activity,
     AlertTriangle,
     ArrowLeft,
     ChevronDown,
-    CircleCheck,
+    Cloud,
+    CloudDrizzle,
+    CloudFog,
+    CloudLightning,
+    CloudRain,
+    CloudSnow,
     CloudSun,
-    Droplets,
     ExternalLink,
     Flame,
     Gauge,
@@ -22,12 +36,13 @@ import {
     RefreshCw,
     ShieldCheck,
     Siren,
-    Thermometer,
+    Sun,
     TriangleAlert,
     Wind,
+    type LucideIcon,
 } from 'lucide-react';
 
-import VolcanoMap from '@/components/VolcanoMap';
+const VolcanoMap = lazy(() => import('@/components/VolcanoMap'));
 
 interface Volcano {
     id: number;
@@ -59,6 +74,8 @@ interface WeatherForecast {
     wind_speed: number | null;
     wind_direction: string | null;
     weather: string | null;
+    visibility: number | null;
+    visibility_text: string | null;
 }
 
 interface Activity {
@@ -113,17 +130,42 @@ interface CurrentWeather {
     wind_gust_kmh: number | null;
 }
 
+interface UserCityWeather {
+    time: string;
+    temperature: number | null;
+    apparent_temperature: number | null;
+    humidity: number | null;
+    wind_speed: number | null;
+    wind_direction_deg: number | null;
+    wind_gust: number | null;
+    pressure_msl: number | null;
+    visibility: number | null;
+    weather_code: number | null;
+}
+
 interface MonitoringData {
     volcano: Volcano;
     activity: Activity | null;
     eruptions?: EruptionEvent[];
     weather: Weather | null;
     weather_forecasts: WeatherForecast[];
+    weather_location: string | null;
     current_weather: CurrentWeather | null;
     ash_prediction: AshPrediction | null;
     ash_predictions: AshPrediction[];
     ash_active: boolean;
     ash_advisory: AshAdvisory | null;
+    gdacs: GdacsAlert | null;
+}
+
+interface GdacsAlert {
+    alert_level: 'red' | 'orange' | 'green';
+    is_current: boolean;
+    event_id: string;
+    episode_id: string;
+    volcano_name: string | null;
+    link: string;
+    occurred_at: string | null;
 }
 
 interface AshAdvisory {
@@ -144,13 +186,6 @@ interface AshAdvisory {
     fcst_geometries: Record<string, AshGeometry> | null;
     eruption_detail: string | null;
     remarks: string | null;
-}
-
-interface MonitoringAlert {
-    id: string;
-    level: 'critical' | 'warning' | 'info';
-    title: string;
-    message: string;
 }
 
 interface GempaItem {
@@ -192,6 +227,7 @@ interface GerakanTanahData {
 interface CityData {
     city: {
         name: string | null;
+        district: string | null;
         provinsi: string | null;
         country: string | null;
         latitude: number;
@@ -461,237 +497,307 @@ function LegendPanel({
     );
 }
 
-interface WavePoint {
-    label: string;
-    temperature: number | null;
-    wind_speed: number | null;
-    humidity: number | null;
+function bmkgConditionIcon(weather: string | null) {
+    const text = (weather ?? '').toLowerCase();
+
+    if (text.includes('petir') || text.includes('badai')) {
+        return { Icon: CloudLightning, className: 'text-yellow-400' };
+    }
+
+    if (text.includes('hujan')) {
+        return {
+            Icon: text.includes('ringan') ? CloudDrizzle : CloudRain,
+            className: 'text-sky-400',
+        };
+    }
+
+    if (text.includes('kabut') || text.includes('kabur')) {
+        return { Icon: CloudFog, className: 'text-slate-400' };
+    }
+
+    if (text.includes('berawan')) {
+        return {
+            Icon: text.includes('tebal') ? Cloud : CloudSun,
+            className: 'text-slate-300',
+        };
+    }
+
+    if (text.includes('cerah')) {
+        return { Icon: Sun, className: 'text-amber-300' };
+    }
+
+    return { Icon: CloudSun, className: 'text-slate-400' };
 }
 
-function WeatherWaveChart({
-    points,
-    activeKey,
-    waveColor,
-}: {
-    points: WavePoint[];
-    activeKey: string;
-    waveColor: string;
-}) {
-    const series = useMemo(() => {
-        const prevTime = Date.now() - 6 * 60 * 60 * 1000;
-        const step = 6 * 60 * 60 * 1000;
+const WIND_DIRECTION_LABELS: Record<string, string> = {
+    N: 'Utara',
+    NNE: 'Utara Timur Laut',
+    NE: 'Timur Laut',
+    ENE: 'Timur Timur Laut',
+    E: 'Timur',
+    ESE: 'Timur Tenggara',
+    SE: 'Tenggara',
+    SSE: 'Selatan Tenggara',
+    S: 'Selatan',
+    SSW: 'Selatan Barat Daya',
+    SW: 'Barat Daya',
+    WSW: 'Barat Barat Daya',
+    W: 'Barat',
+    WNW: 'Barat Barat Laut',
+    NW: 'Barat Laut',
+    NNW: 'Utara Barat Laut',
+};
 
-        return points.map((point, idx) => ({
-            idx,
-            label: point.label,
-            t: prevTime + idx * step,
-            v: point.temperature,
-        }));
-    }, [points]);
-
-    const activeIndex = Math.max(
-        0,
-        LAYER_ORDER.indexOf(activeKey as (typeof LAYER_ORDER)[number]),
-    );
-
-    const activeEntry = series[activeIndex] ?? null;
-
-    const values = series.map((entry) => entry.v);
-
-    const validCount = values.filter((value) => value != null).length;
-
-    if (validCount < 2) {
-        return (
-            <div className="mt-2 rounded-xl border border-white/10 bg-white/5 p-2.5">
-                <p className="text-center text-[10px] text-slate-500">
-                    Belum cukup data prakiraan untuk grafik.
-                </p>
-            </div>
-        );
+function bmkgWindDirectionLabel(windDirection: string | null) {
+    if (!windDirection) {
+        return '-';
     }
 
-    const W = 292;
-    const H = 76;
-    const PADX = 6;
-    const PADT = 10;
-    const PADB = 14;
+    const key = windDirection.trim().toUpperCase();
 
-    const minT = series[0].t;
-    const maxT = series[series.length - 1].t;
-    const spanT = Math.max(1, maxT - minT);
+    return WIND_DIRECTION_LABELS[key] ?? windDirection;
+}
 
-    const presentValues = values.filter(
-        (value): value is number => value != null,
-    );
-    const minV = Math.min(...presentValues);
-    const maxV = Math.max(...presentValues);
-    const pad = (maxV - minV) * 0.2 || 1;
-    const lo = minV - pad;
-    const hi = maxV + pad;
-
-    const x = (t: number) => PADX + ((t - minT) / spanT) * (W - PADX * 2);
-    const y = (v: number) => PADT + ((hi - v) / (hi - lo)) * (H - PADT - PADB);
-
-    const coords = series
-        .filter((entry) => entry.v != null)
-        .map((entry) => ({
-            idx: entry.idx,
-            x: x(entry.t),
-            y: y(entry.v as number),
-        }));
-
-    let lineD = `M ${coords[0].x.toFixed(1)},${coords[0].y.toFixed(1)}`;
-
-    for (let i = 1; i < coords.length; i++) {
-        const prev = coords[i - 1];
-        const curr = coords[i];
-        const midX = (prev.x + curr.x) / 2;
-        lineD += ` Q ${midX.toFixed(1)},${prev.y.toFixed(1)} ${curr.x.toFixed(1)},${curr.y.toFixed(1)}`;
+function bmkgNumber(value: number | null | undefined) {
+    if (value === null || value === undefined || Number.isNaN(value)) {
+        return '-';
     }
 
-    const lastCoord = coords[coords.length - 1];
-    const areaD = `${lineD} L ${lastCoord.x.toFixed(1)},${H - PADB} L ${coords[0].x.toFixed(1)},${H - PADB} Z`;
+    return new Intl.NumberFormat('id-ID', {
+        maximumFractionDigits: 1,
+    }).format(value);
+}
 
-    return (
-        <div className="mt-2 rounded-xl border border-white/10 bg-white/5 p-2.5">
-            <div className="relative overflow-hidden rounded-lg">
-                <svg
-                    viewBox={`0 0 ${W} ${H}`}
-                    className="block h-[74px] w-full"
-                    role="img"
-                    aria-label="Grafik suhu per jam observasi & prakiraan"
-                >
-                    <defs>
-                        <linearGradient
-                            id="weatherWaveAreaFill"
-                            x1="0"
-                            y1="0"
-                            x2="0"
-                            y2="1"
-                        >
-                            <stop
-                                offset="0%"
-                                stop-color={waveColor}
-                                stop-opacity="0.3"
-                            />
-                            <stop
-                                offset="100%"
-                                stop-color={waveColor}
-                                stop-opacity="0"
-                            />
-                        </linearGradient>
-                    </defs>
+function formatNaiveTime(iso: string) {
+    const match = iso.match(/T(\d{2}):(\d{2})/);
 
-                    {[lo, (lo + hi) / 2, hi].map((gridValue, idx) => (
-                        <line
-                            key={idx}
-                            x1={PADX}
-                            x2={W - PADX}
-                            y1={y(gridValue)}
-                            y2={y(gridValue)}
-                            stroke="rgba(255,255,255,0.06)"
-                            stroke-dasharray="3 4"
-                            stroke-width="1"
-                        />
-                    ))}
+    return match !== null ? `${match[1]}.${match[2]}` : '-';
+}
 
-                    <path d={areaD} fill="url(#weatherWaveAreaFill)" />
+function formatNaiveDate(iso: string) {
+    const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
 
-                    <path
-                        d={lineD}
-                        fill="none"
-                        stroke={waveColor}
-                        stroke-width="1.6"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                    />
+    if (match === null) {
+        return '-';
+    }
 
-                    {coords.map(({ x: cx, y: cy, idx }) => {
-                        const isActive = idx === activeIndex;
+    const months = [
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'Mei',
+        'Jun',
+        'Jul',
+        'Agu',
+        'Sep',
+        'Okt',
+        'Nov',
+        'Des',
+    ];
 
-                        return (
-                            <g key={idx}>
-                                {isActive && (
-                                    <>
-                                        <line
-                                            x1={cx}
-                                            x2={cx}
-                                            y1={cy}
-                                            y2={H - PADB}
-                                            stroke={waveColor}
-                                            stroke-opacity={0.35}
-                                            stroke-dasharray="2 3"
-                                            stroke-width="1"
-                                        />
+    return `${Number(match[3])} ${months[Number(match[2]) - 1]} ${match[1]}`;
+}
 
-                                        <circle
-                                            cx={cx}
-                                            cy={cy}
-                                            r={7}
-                                            fill={waveColor}
-                                            opacity={0.16}
-                                        />
-                                    </>
-                                )}
+async function fetchUserCityWeather(lat: number, lon: number) {
+    const params = new URLSearchParams({
+        latitude: String(lat),
+        longitude: String(lon),
+        current: [
+            'temperature_2m',
+            'relative_humidity_2m',
+            'apparent_temperature',
+            'pressure_msl',
+            'wind_speed_10m',
+            'wind_direction_10m',
+            'wind_gusts_10m',
+            'visibility',
+            'weather_code',
+        ].join(','),
+        timezone: 'Asia/Jakarta',
+        timeformat: 'iso8601',
+    });
 
-                                <circle
-                                    cx={cx}
-                                    cy={cy}
-                                    r={isActive ? 3.4 : 1.6}
-                                    fill="#0a0f1c"
-                                    stroke={waveColor}
-                                    stroke-width={isActive ? 2 : 1.4}
-                                />
-                            </g>
-                        );
-                    })}
-
-                    <rect
-                        className="wave-scan"
-                        x="-1"
-                        y={PADT}
-                        width="1.5"
-                        height={H - PADT - PADB}
-                        style={{ fill: waveColor, fillOpacity: 0.35 }}
-                    />
-
-                    {series.map((entry, idx) => (
-                        <text
-                            key={idx}
-                            x={x(entry.t)}
-                            y={H - 3}
-                            text-anchor={
-                                idx === series.length - 1
-                                    ? 'end'
-                                    : idx === 0
-                                      ? 'start'
-                                      : 'middle'
-                            }
-                            fill="#64748b"
-                            fontSize="7"
-                        >
-                            {entry.label}
-                        </text>
-                    ))}
-                </svg>
-            </div>
-
-            <div className="mt-1 flex items-center justify-between text-[8.5px] text-slate-600">
-                <span>min {minV}°C</span>
-
-                <span className="flex items-center gap-1 font-semibold text-slate-300">
-                    <span
-                        className="h-1 w-1 animate-pulse rounded-full"
-                        style={{ background: waveColor }}
-                    />
-                    {activeEntry?.label}{' '}
-                    {activeEntry?.v != null ? `${activeEntry.v}°C` : '—'}
-                </span>
-
-                <span>maks {maxV}°C</span>
-            </div>
-        </div>
+    const response = await fetch(
+        `https://api.open-meteo.com/v1/forecast?${params.toString()}`,
     );
+
+    if (!response.ok) {
+        throw new Error('open-meteo gagal');
+    }
+
+    const json = await response.json();
+    const current = json.current ?? {};
+
+    return {
+        time: current.time ?? '',
+        temperature: current.temperature_2m ?? null,
+        apparent_temperature: current.apparent_temperature ?? null,
+        humidity: current.relative_humidity_2m ?? null,
+        wind_speed: current.wind_speed_10m ?? null,
+        wind_direction_deg: current.wind_direction_10m ?? null,
+        wind_gust: current.wind_gusts_10m ?? null,
+        pressure_msl: current.pressure_msl ?? null,
+        visibility: current.visibility ?? null,
+        weather_code: current.weather_code ?? null,
+    } as UserCityWeather;
+}
+
+function openMeteoCondition(code: number | null): {
+    Icon: LucideIcon;
+    className: string;
+    label: string;
+} {
+    switch (code) {
+        case 0:
+            return { Icon: Sun, className: 'text-amber-300', label: 'Cerah' };
+        case 1:
+            return {
+                Icon: Sun,
+                className: 'text-amber-300',
+                label: 'Cerah Berawan',
+            };
+        case 2:
+            return {
+                Icon: CloudSun,
+                className: 'text-slate-300',
+                label: 'Berawan',
+            };
+        case 3:
+            return {
+                Icon: Cloud,
+                className: 'text-slate-300',
+                label: 'Mendung',
+            };
+        case 45:
+        case 48:
+            return {
+                Icon: CloudFog,
+                className: 'text-slate-400',
+                label: 'Kabut',
+            };
+        case 51:
+        case 53:
+        case 55:
+            return {
+                Icon: CloudDrizzle,
+                className: 'text-sky-400',
+                label: 'Gerimis',
+            };
+        case 56:
+        case 57:
+            return {
+                Icon: CloudDrizzle,
+                className: 'text-sky-400',
+                label: 'Gerimis Dingin',
+            };
+        case 61:
+        case 63:
+        case 65:
+            return {
+                Icon: CloudRain,
+                className: 'text-sky-400',
+                label: 'Hujan',
+            };
+        case 66:
+        case 67:
+            return {
+                Icon: CloudRain,
+                className: 'text-sky-400',
+                label: 'Hujan Es',
+            };
+        case 71:
+        case 73:
+        case 75:
+            return {
+                Icon: CloudSnow,
+                className: 'text-cyan-300',
+                label: 'Salju',
+            };
+        case 77:
+            return {
+                Icon: CloudSnow,
+                className: 'text-cyan-300',
+                label: 'Butiran Salju',
+            };
+        case 80:
+        case 81:
+        case 82:
+            return {
+                Icon: CloudRain,
+                className: 'text-sky-400',
+                label: 'Hujan Deras',
+            };
+        case 85:
+        case 86:
+            return {
+                Icon: CloudSnow,
+                className: 'text-cyan-300',
+                label: 'Hujan Salju',
+            };
+        case 95:
+            return {
+                Icon: CloudLightning,
+                className: 'text-yellow-400',
+                label: 'Badai Petir',
+            };
+        case 96:
+        case 99:
+            return {
+                Icon: CloudLightning,
+                className: 'text-yellow-400',
+                label: 'Badai Petir & Hujan Es',
+            };
+        default:
+            return {
+                Icon: CloudSun,
+                className: 'text-slate-400',
+                label: 'Cuaca Beragam',
+            };
+    }
+}
+
+function degreesToWindDirection(degrees: number | null) {
+    if (degrees === null || Number.isNaN(degrees)) {
+        return null;
+    }
+
+    const directions = [
+        'N',
+        'NNE',
+        'NE',
+        'ENE',
+        'E',
+        'ESE',
+        'SE',
+        'SSE',
+        'S',
+        'SSW',
+        'SW',
+        'WSW',
+        'W',
+        'WNW',
+        'NW',
+        'NNW',
+    ];
+
+    const index = Math.round((degrees % 360) / 22.5) % 16;
+
+    return bmkgWindDirectionLabel(directions[index]);
+}
+
+function formatVisibility(visibility: number | null) {
+    if (visibility === null || Number.isNaN(visibility)) {
+        return '-';
+    }
+
+    if (visibility >= 10000) {
+        return '> 10 km';
+    }
+
+    return `${new Intl.NumberFormat('id-ID', {
+        maximumFractionDigits: 1,
+    }).format(visibility / 1000)} km`;
 }
 
 export default function Monitoring() {
@@ -1217,7 +1323,59 @@ export default function Monitoring() {
         };
     }, [cityCoords, refreshKey]);
 
-    const cityLocationLabel = [cityData?.city.name, cityData?.city.provinsi]
+    // ==========================================
+    // CUACA KOTA SAYA — REAL-TIME (OPEN-METEO)
+    // ==========================================
+
+    const [userWeather, setUserWeather] = useState<UserCityWeather | null>(
+        null,
+    );
+
+    const [userWeatherLoading, setUserWeatherLoading] = useState(false);
+
+    const [userWeatherError, setUserWeatherError] = useState<string | null>(
+        null,
+    );
+
+    const [userWeatherKey, setUserWeatherKey] = useState(0);
+
+    useEffect(() => {
+        if (cityCoords === null) {
+            return;
+        }
+
+        let cancelled = false;
+
+        setUserWeatherLoading(true);
+        setUserWeatherError(null);
+
+        fetchUserCityWeather(cityCoords.lat, cityCoords.lon)
+            .then((weather) => {
+                if (!cancelled) {
+                    setUserWeather(weather);
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setUserWeatherError('Gagal memuat cuaca real-time.');
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setUserWeatherLoading(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [cityCoords, refreshKey, userWeatherKey]);
+
+    const cityLocationLabel = [
+        cityData?.city.district,
+        cityData?.city.name,
+        cityData?.city.provinsi,
+    ]
         .filter(
             (part): part is string =>
                 typeof part === 'string' && part.trim() !== '',
@@ -1338,6 +1496,46 @@ export default function Monitoring() {
         return `${pick('day')} ${pick('month')} ${pick(
             'year',
         )} • ${pick('hour')}.${pick('minute')}.${pick('second')} WIB`;
+    };
+
+    const formatWIBTimeHM = (date: string) => {
+        const parsed = new Date(date);
+
+        if (Number.isNaN(parsed.getTime())) {
+            return '-';
+        }
+
+        const parts = new Intl.DateTimeFormat('id-ID', {
+            timeZone: 'Asia/Jakarta',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+        }).formatToParts(parsed);
+
+        const pick = (type: string) =>
+            parts.find((part) => part.type === type)?.value ?? '';
+
+        return `${pick('hour')}.${pick('minute')}`;
+    };
+
+    const formatWIBShortDate = (date: string) => {
+        const parsed = new Date(date);
+
+        if (Number.isNaN(parsed.getTime())) {
+            return '-';
+        }
+
+        const parts = new Intl.DateTimeFormat('id-ID', {
+            timeZone: 'Asia/Jakarta',
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+        }).formatToParts(parsed);
+
+        const pick = (type: string) =>
+            parts.find((part) => part.type === type)?.value ?? '';
+
+        return `${pick('day')} ${pick('month')} ${pick('year')}`;
     };
 
     const formatWIBStamp = (date: string) => {
@@ -1481,6 +1679,64 @@ export default function Monitoring() {
         Object.values(volcanoQuakes).filter(Boolean).length;
 
     // ==========================================
+    // PRAKIRAAN BMKG PER 3 JAM (GADGET CUACA)
+    // ==========================================
+
+    const bmkgForecasts = useMemo(() => {
+        const wibHourOf = (iso: string) => {
+            const parsed = new Date(iso);
+
+            if (Number.isNaN(parsed.getTime())) {
+                return -1;
+            }
+
+            const parts = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'Asia/Jakarta',
+                hour: 'numeric',
+                hourCycle: 'h23',
+            }).formatToParts(parsed);
+
+            return Number(
+                parts.find((part) => part.type === 'hour')?.value ?? -1,
+            );
+        };
+
+        const sorted = (data?.weather_forecasts ?? [])
+            .filter((forecast) => {
+                const parsed = new Date(forecast.forecast_at);
+
+                return (
+                    !Number.isNaN(parsed.getTime()) &&
+                    parsed.getTime() >= Date.now() - 60 * 60 * 1000 &&
+                    wibHourOf(forecast.forecast_at) % 3 === 0
+                );
+            })
+            .sort(
+                (a, b) =>
+                    new Date(a.forecast_at).getTime() -
+                    new Date(b.forecast_at).getTime(),
+            );
+
+        const daysMap = new Map<string, typeof sorted>();
+
+        for (const forecast of sorted) {
+            const key = formatWIBLongDate(forecast.forecast_at);
+            const day = daysMap.get(key) ?? [];
+
+            day.push(forecast);
+
+            daysMap.set(key, day);
+        }
+
+        return [...daysMap.entries()].map(([label, slots]) => ({
+            label,
+            slots,
+        }));
+    }, [data, formatWIBLongDate]);
+
+    const bmkgCurrent = bmkgForecasts[0]?.slots[0] ?? null;
+
+    // ==========================================
     // TIMELINE PLAY (PUTAR OTOMATIS)
     // ==========================================
 
@@ -1537,8 +1793,10 @@ export default function Monitoring() {
             <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
                 <div className="text-center">
                     <img
-                        src="/logo/logoSi.png"
+                        src="/logo/logoSi-thumb.webp"
                         alt="Volcano Watch"
+                        width={120}
+                        height={129}
                         className="mx-auto mb-4 h-14 w-14 animate-pulse object-contain drop-shadow-[0_0_20px_rgba(14,165,233,0.6)]"
                     />
 
@@ -1582,8 +1840,10 @@ export default function Monitoring() {
             <div className="relative flex h-screen w-screen items-center justify-center overflow-hidden bg-[#05070a] text-[#eef1f5]">
                 <div className="text-center">
                     <img
-                        src="/logo/logoSi.png"
+                        src="/logo/logoSi-thumb.webp"
                         alt="Volcano Watch"
+                        width={120}
+                        height={129}
                         className="mx-auto mb-4 h-16 w-16 animate-pulse object-contain drop-shadow-[0_0_20px_rgba(14,165,233,0.6)]"
                     />
 
@@ -1653,8 +1913,6 @@ export default function Monitoring() {
     // ==========================================
     // STATUS GUNUNG
     // ==========================================
-
-    const status = data.volcano.status.toLowerCase();
 
     const pvmbgLevelText = (() => {
         const parts = data.volcano.status.split(/[–—-]/);
@@ -1765,50 +2023,6 @@ export default function Monitoring() {
         ) ??
         effectivePredictions?.[0] ??
         data.ash_prediction;
-
-    // ==========================================
-    // WEATHER SESUAI FORECAST
-    // ==========================================
-
-    const selectedWeather = (() => {
-        if (!selectedForecast?.forecast_at) {
-            const now = Date.now();
-
-            let bestWeather = data.weather ?? null;
-            let bestDiff = Infinity;
-
-            for (const forecast of data.weather_forecasts ?? []) {
-                const diff = Math.abs(
-                    new Date(forecast.forecast_at).getTime() - now,
-                );
-
-                if (diff < bestDiff) {
-                    bestDiff = diff;
-                    bestWeather = forecast;
-                }
-            }
-
-            return bestWeather;
-        }
-
-        const targetTime = new Date(selectedForecast.forecast_at).getTime();
-
-        let bestWeather = data.weather ?? null;
-        let bestDiff = Infinity;
-
-        for (const forecast of data.weather_forecasts ?? []) {
-            const diff = Math.abs(
-                new Date(forecast.forecast_at).getTime() - targetTime,
-            );
-
-            if (diff < bestDiff) {
-                bestDiff = diff;
-                bestWeather = forecast;
-            }
-        }
-
-        return bestWeather;
-    })();
 
     // ==========================================
     // LEGENDA & LAYER
@@ -1967,95 +2181,8 @@ export default function Monitoring() {
                 : 'text-emerald-400';
 
     // ==========================================
-    // ALERT / NOTIFICATION
-    // ==========================================
-
-    const alerts: MonitoringAlert[] = [];
-
-    const advisoryHeightM = data.ash_advisory?.ash_height_m ?? null;
-
-    const ashCritical =
-        ashActive && advisoryHeightM !== null && advisoryHeightM >= 8000;
-
-    // =====================================================
-    // ALERT BERDASARKAN KONDISI MONITORING REAL-TIME
-    //
-    // Level & judul alert mengikuti kondisi aktual:
-    // - Bererupsi (status erupsi MAGMA)    -> alert status + info abu.
-    // - Abu VAAC tanpa status erupsi MAGMA -> info abu vulkanik terdeteksi.
-    // - Tidak bererupsi                    -> Status Gunung NORMAL,
-    //   apa pun level resmi PVMBG di database.
-    // =====================================================
-
-    if (erupting && status.includes('awas')) {
-        alerts.push({
-            id: 'volcano-awas',
-            level: 'critical',
-            title: 'Status Gunung AWAS',
-            message: `${data.volcano.name} berada pada status AWAS.`,
-        });
-    } else if (erupting && status.includes('siaga')) {
-        alerts.push({
-            id: 'volcano-siaga',
-            level: ashCritical ? 'critical' : 'warning',
-            title: 'Status Gunung SIAGA',
-            message: `${data.volcano.name} saat ini berada pada status SIAGA.`,
-        });
-    } else if (erupting && status.includes('waspada')) {
-        alerts.push({
-            id: 'volcano-waspada',
-            level: ashCritical ? 'critical' : 'warning',
-            title: 'Status Gunung WASPADA',
-            message: `${data.volcano.name} saat ini berada pada status WASPADA.`,
-        });
-    } else if (erupting) {
-        alerts.push({
-            id: 'volcano-eruption',
-            level: ashCritical ? 'critical' : 'warning',
-            title: ashCritical
-                ? 'Kolom Abu Sangat Tinggi'
-                : 'Gunung Sedang Bererupsi',
-            message: 'MAGMA melaporkan gunung ini sedang erupsi.',
-        });
-    } else if (ashActive) {
-        alerts.push({
-            id: 'vaac-ash-active',
-            level: ashCritical ? 'critical' : 'warning',
-            title: ashCritical
-                ? 'Kolom Abu Sangat Tinggi'
-                : 'Abu Vulkanik Terdeteksi',
-            message: 'VAAC mendeteksi emisi abu aktif.',
-        });
-    } else {
-        alerts.push({
-            id: 'volcano-quiet',
-            level: 'info',
-            title: 'Status Gunung NORMAL',
-            message: `${data.volcano.name} tidak terdeteksi erupsi/sebaran abu saat ini (kondisi monitoring real-time).`,
-        });
-    }
-
-    // ==========================================
     // RENDER
     // ==========================================
-
-    const gdacsLevel = (() => {
-        const official = data.volcano.status?.toLowerCase() ?? '';
-
-        if (official.includes('awas')) {
-            return { color: '#ef4444', label: 'Awas' };
-        }
-
-        if (official.includes('siaga')) {
-            return { color: '#f97316', label: 'Waspada' };
-        }
-
-        if (official.includes('waspada')) {
-            return { color: '#eab308', label: 'Siaga' };
-        }
-
-        return { color: '#22c55e', label: 'Normal' };
-    })();
 
     // Status utama memakai laporan erupsi MAGMA (PVMBG). Bila MAGMA
     // belum menandai erupsi tetapi VAAC mendeteksi abu, jangan
@@ -2088,15 +2215,6 @@ export default function Monitoring() {
                 ? 'bg-orange-400 shadow-[0_0_8px_rgba(251,146,60,1)]'
                 : 'bg-emerald-400 shadow-[0_0_8px_rgba(61,220,132,1)]';
 
-    const gdacsBadgeClass =
-        gdacsLevel.color === '#ef4444'
-            ? 'border-red-500/30 bg-red-500/10 text-red-300'
-            : gdacsLevel.color === '#f97316'
-              ? 'border-orange-500/30 bg-orange-500/10 text-orange-300'
-              : gdacsLevel.color === '#eab308'
-                ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-200'
-                : 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
-
     const pvmbgClass = (() => {
         const official = data.volcano.status?.toLowerCase() ?? '';
 
@@ -2115,95 +2233,99 @@ export default function Monitoring() {
         return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
     })();
 
-    // BMKG primary; fallback Open-Meteo untuk yang belum ada
-    // mapping/forecast BMKG (Angin di Kawah & Kondisi Cuaca).
-    const bmkgWeather = selectedWeather;
+    // ==========================================
+    // STATUS ERUPSI REAL-TIME (TAB STATUS)
+    // ==========================================
 
-    const displayWeather: Weather | null = bmkgWeather
-        ? bmkgWeather
-        : data.current_weather
-          ? {
-                forecast_at: data.current_weather.observed_at ?? '',
-                temperature: data.current_weather.temperature_c ?? null,
-                humidity: data.current_weather.humidity ?? null,
-                wind_speed: data.current_weather.wind_speed_kmh ?? null,
-                wind_direction:
-                    data.current_weather.wind_direction_deg != null
-                        ? `${data.current_weather.wind_direction_deg}°${
-                              data.current_weather.wind_direction_cardinal
-                                  ? ` ${data.current_weather.wind_direction_cardinal}`
-                                  : ''
-                          }`
-                        : data.current_weather.wind_direction_cardinal,
-                weather: null,
+    const ashHeightM = data.ash_advisory?.ash_height_m ?? null;
+
+    const ashDirectionLabel = realTimeAsh?.movement
+        ? (WIND_DIRECTION_LABELS[realTimeAsh.movement.toUpperCase()] ??
+          realTimeAsh.movement)
+        : null;
+
+    const statusEruptionText = (() => {
+        if (ashActive) {
+            if (ashHeightM !== null && ashDirectionLabel) {
+                return `Terdeteksi abu di ketinggian ~${bmkgNumber(ashHeightM / 1000)} km bergerak ke arah ${ashDirectionLabel}.`;
             }
-          : null;
 
-    const usingBmkgWeather = bmkgWeather !== null;
-
-    const windDeg = bmkgWeather?.wind_direction
-        ? (COMPASS_DEGREES[bmkgWeather.wind_direction.toUpperCase()] ?? 0)
-        : (data.current_weather?.wind_direction_deg ?? 0);
-
-    // Warna grafik mengikuti level resmi PVMBG
-    const pvmbgWaveColor = (() => {
-        const official = data.volcano.status?.toLowerCase() ?? '';
-
-        if (official.includes('awas')) return '#ef4444';
-
-        if (official.includes('siaga')) return '#f97316';
-
-        if (official.includes('waspada')) return '#eab308';
-
-        return '#22c55e';
-    })();
-
-    // Waktu dasar: issued_at advisory/prediction, fallback ke now.
-    // Tiap titik wave = targetTime + jam forecast (0, 6, 12, 18)
-    // supaya sesuai "penyebaran abu" dari waktu erupsi/advisory.
-    const waveBaseTime = (() => {
-        const raw =
-            data.ash_advisory?.issued_at ??
-            data.ash_prediction?.generated_at ??
-            null;
-
-        if (!raw) return Date.now();
-
-        const parsed = new Date(raw).getTime();
-
-        return Number.isNaN(parsed) ? Date.now() : parsed;
-    })();
-
-    // Data gelombang: Observasi (+6/+12/+18 jam dari issued_at advisory).
-    // Tiap titik diambil dari weather_forecast terdekat di waktu target.
-    const waveDataPoints: WavePoint[] = LAYER_ORDER.map((key) => {
-        const hour = bucketHourOf(key);
-        const targetTime = waveBaseTime + hour * 60 * 60 * 1000;
-
-        let bestForecast: WeatherForecast | Weather | null =
-            data.weather ?? null;
-        let bestDiff = Infinity;
-
-        for (const forecast of data.weather_forecasts ?? []) {
-            const diff = Math.abs(
-                new Date(forecast.forecast_at).getTime() - targetTime,
-            );
-
-            if (diff < bestDiff) {
-                bestDiff = diff;
-                bestForecast = forecast;
-            }
+            return 'Terdeteksi sebaran abu vulkanik aktif (VAAC).';
         }
 
-        const label = key === 'observasi' ? 'Observasi' : `+${hour} jam`;
+        if (erupting) {
+            return (
+                data.activity?.description ?? 'Gunung sedang bererupsi (MAGMA).'
+            );
+        }
+
+        return 'Tidak terdeteksi erupsi maupun sebaran abu aktif saat ini.';
+    })();
+
+    const statusDataTimeLabel = (() => {
+        if (ashActive && data.ash_advisory?.issued_at) {
+            return `Data diambil ${formatWIBStamp(data.ash_advisory.issued_at)} WIB`;
+        }
+
+        if (data.activity?.occurred_at) {
+            return `Data diambil ${formatWIBStamp(data.activity.occurred_at)} WIB`;
+        }
+
+        return 'Data diambil -';
+    })();
+
+    const GDACS_LEVEL_LABEL: Record<GdacsAlert['alert_level'], string> = {
+        red: 'Merah - Bahaya Tinggi',
+        orange: 'Oranye - Waspada',
+        green: 'Hijau - Normal',
+    };
+
+    const GDACS_LEVEL_COLOR: Record<GdacsAlert['alert_level'], string> = {
+        red: '#ef4444',
+        orange: '#f97316',
+        green: '#22c55e',
+    };
+
+    const gdacsState = (() => {
+        const alert = data.gdacs;
+
+        if (alert === null) {
+            return { color: '#64748b', label: 'Tidak Ada', activity: null };
+        }
+
+        const label = GDACS_LEVEL_LABEL[alert.alert_level];
+
+        if (alert.is_current) {
+            return {
+                color: GDACS_LEVEL_COLOR[alert.alert_level],
+                label,
+                activity: null,
+            };
+        }
 
         return {
-            label,
-            temperature: bestForecast?.temperature ?? null,
-            wind_speed: bestForecast?.wind_speed ?? null,
-            humidity: bestForecast?.humidity ?? null,
+            color: '#64748b',
+            label: `${label} (berakhir)`,
+            activity: `episode terakhir GDACS • ${formatWIBShortDate(alert.occurred_at ?? '')}`,
         };
-    });
+    })();
+
+    const gdacsBadgeClass =
+        gdacsState.color === '#ef4444'
+            ? 'border-red-500/30 bg-red-500/10 text-red-300'
+            : gdacsState.color === '#f97316'
+              ? 'border-orange-500/30 bg-orange-500/10 text-orange-300'
+              : gdacsState.color === '#22c55e'
+                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                : 'border-slate-500/30 bg-slate-500/10 text-slate-300';
+
+    // ==========================================
+    // PRAKIRAAN BMKG PER 3 JAM
+    //
+    // Data BMKG per jam; ditampilkan ala situs
+    // prakiraan-cuaca BMKG: slot tiap 3 jam,
+    // dikelompokkan per tanggal (WIB).
+    // ==========================================
 
     const availPanels = PANEL_ITEMS;
 
@@ -2213,72 +2335,87 @@ export default function Monitoring() {
 
     return (
         <div className="relative h-screen w-screen overflow-hidden bg-[#05070a] text-[#eef1f5]">
+            <Head title="Monitoring Gunung Berapi & Cuaca Indonesia">
+                <meta
+                    name="description"
+                    content="Monitor real-time status aktivitas gunung berapi Indonesia, prakiraan cuaca, arah angin, sebaran abu vulkanik, laporan erupsi dan gempa vulkanik."
+                />
+                <meta name="robots" content="index, follow" />
+            </Head>
+
             {/* =====================================
             PETA LAYAR PENUH (LATAR BELAKANG)
         ====================================== */}
 
             <div className="absolute inset-0 z-0">
-                <VolcanoMap
-                    latitude={data.volcano.latitude}
-                    longitude={data.volcano.longitude}
-                    ashLayers={ashLayers}
-                    windDirection={ashActive ? mapWindDirection : null}
-                    windSpeed={ashActive ? mapWindSpeed : null}
-                    riskLevel={
-                        ashActive
-                            ? (selectedForecast?.risk_level ?? null)
-                            : null
+                <Suspense
+                    fallback={
+                        <div className="h-full w-full bg-[#12263e] [background-image:linear-gradient(135deg,rgba(14,165,233,0.08)_25%,transparent_25%),linear-gradient(315deg,rgba(14,165,233,0.08)_25%,transparent_25%),linear-gradient(45deg,rgba(14,165,233,0.08)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,rgba(14,165,233,0.08)_75%)] [background-size:40px_40px]" />
                     }
-                    height="100%"
-                    className="h-full w-full"
-                    volcanoName={data.volcano.name}
-                    volcanoStatus={data.volcano.status}
-                    volcanoElevation={data.volcano.elevation}
-                    volcanoes={volcanoes}
-                    selectedVolcanoId={selectedVolcanoId}
-                    activeVolcanoIds={eruptingVolcanoIds}
-                    onSelectVolcano={selectVolcanoById}
-                    earthquakes={showGempaMarkers ? gempaMarkers : []}
-                    selectedQuakeId={selectedQuakeId}
-                    onSelectEarthquake={(quake) => {
-                        const matched =
-                            gempa?.list.find(
-                                (g) =>
-                                    g.eventid != null && g.eventid === quake.id,
-                            ) ?? null;
-
-                        if (matched) {
-                            setSelectedGempa(matched);
-
-                            return;
+                >
+                    <VolcanoMap
+                        latitude={data.volcano.latitude}
+                        longitude={data.volcano.longitude}
+                        ashLayers={ashLayers}
+                        windDirection={ashActive ? mapWindDirection : null}
+                        windSpeed={ashActive ? mapWindSpeed : null}
+                        riskLevel={
+                            ashActive
+                                ? (selectedForecast?.risk_level ?? null)
+                                : null
                         }
+                        height="100%"
+                        className="h-full w-full"
+                        volcanoName={data.volcano.name}
+                        volcanoStatus={data.volcano.status}
+                        volcanoElevation={data.volcano.elevation}
+                        volcanoes={volcanoes}
+                        selectedVolcanoId={selectedVolcanoId}
+                        activeVolcanoIds={eruptingVolcanoIds}
+                        onSelectVolcano={selectVolcanoById}
+                        earthquakes={showGempaMarkers ? gempaMarkers : []}
+                        selectedQuakeId={selectedQuakeId}
+                        onSelectEarthquake={(quake) => {
+                            const matched =
+                                gempa?.list.find(
+                                    (g) =>
+                                        g.eventid != null &&
+                                        g.eventid === quake.id,
+                                ) ?? null;
 
-                        setSelectedGempa({
-                            eventid: quake.id,
-                            status: null,
-                            datetime: quake.datetime,
-                            tanggal: quake.datetime
-                                ? quake.datetime.slice(0, 10)
-                                : null,
-                            jam: null,
-                            latitude: quake.latitude,
-                            longitude: quake.longitude,
-                            lintang: null,
-                            bujur: null,
-                            magnitude:
-                                quake.magnitude != null
-                                    ? String(quake.magnitude)
+                            if (matched) {
+                                setSelectedGempa(matched);
+
+                                return;
+                            }
+
+                            setSelectedGempa({
+                                eventid: quake.id,
+                                status: null,
+                                datetime: quake.datetime,
+                                tanggal: quake.datetime
+                                    ? quake.datetime.slice(0, 10)
                                     : null,
-                            depth: quake.depth,
-                            region: quake.region,
-                            potential: null,
-                            felt: quake.felt,
-                            shakemap: null,
-                        });
-                    }}
-                    volcanoQuakes={volcanoQuakes}
-                    dark={false}
-                />
+                                jam: null,
+                                latitude: quake.latitude,
+                                longitude: quake.longitude,
+                                lintang: null,
+                                bujur: null,
+                                magnitude:
+                                    quake.magnitude != null
+                                        ? String(quake.magnitude)
+                                        : null,
+                                depth: quake.depth,
+                                region: quake.region,
+                                potential: null,
+                                felt: quake.felt,
+                                shakemap: null,
+                            });
+                        }}
+                        volcanoQuakes={volcanoQuakes}
+                        dark={false}
+                    />
+                </Suspense>
             </div>
 
             {/* =====================================
@@ -2296,8 +2433,11 @@ export default function Monitoring() {
                     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                         <div className="flex min-w-0 items-center gap-2.5">
                             <img
-                                src="/logo/logoSi.png"
+                                src="/logo/logoSi-nav.webp"
                                 alt="Volcano Watch"
+                                width={72}
+                                height={77}
+                                fetchPriority="high"
                                 className="h-8 w-auto shrink-0 object-contain drop-shadow-[0_0_14px_rgba(14,165,233,0.5)] sm:h-10"
                             />
 
@@ -2725,6 +2865,226 @@ export default function Monitoring() {
                                         </div>
                                     </>
                                 )}
+
+                                {/* CUACA KOTA SAYA (REAL-TIME) */}
+
+                                <section>
+                                    <PanelTitle
+                                        icon={
+                                            <MapPin
+                                                size={11}
+                                                strokeWidth={2.5}
+                                            />
+                                        }
+                                    >
+                                        Cuaca Kota Saya
+                                    </PanelTitle>
+
+                                    {geoState === 'requesting' ||
+                                    geoState === 'idle' ? (
+                                        <p className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-500">
+                                            Mengakses lokasi Anda untuk
+                                            menampilkan cuaca real-time…
+                                        </p>
+                                    ) : geoState === 'denied' ||
+                                      geoState === 'error' ? (
+                                        <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                            <p className="text-[11px] leading-relaxed text-slate-500">
+                                                {geoError ?? 'Lokasi tidak tersedia.'}
+                                            </p>
+
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    requestCityLocation()
+                                                }
+                                                className="mt-2 flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-400/10 px-2.5 py-1 text-[10px] font-bold text-sky-300"
+                                            >
+                                                <MapPin
+                                                    size={10}
+                                                    strokeWidth={2.5}
+                                                />
+                                                Coba lagi
+                                            </button>
+                                        </div>
+                                    ) : !userWeather ? (
+                                        <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                            <p className="text-[11px] leading-relaxed text-slate-500">
+                                                {userWeatherLoading
+                                                    ? 'Memuat cuaca real-time…'
+                                                    : (userWeatherError ??
+                                                      'Menunggu data cuaca kota.')}
+                                            </p>
+
+                                            {userWeatherError && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() =>
+                                                        setUserWeatherKey(
+                                                            (key) => key + 1,
+                                                        )
+                                                    }
+                                                    className="mt-2 flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-400/10 px-2.5 py-1 text-[10px] font-bold text-sky-300"
+                                                >
+                                                    <RefreshCw
+                                                        size={10}
+                                                        strokeWidth={2.5}
+                                                    />
+                                                    Muat ulang
+                                                </button>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        (() => {
+                                            const { Icon, className, label } =
+                                                openMeteoCondition(
+                                                    userWeather.weather_code,
+                                                );
+
+                                            return (
+                                                <div className="rounded-xl border border-emerald-400/20 bg-gradient-to-b from-emerald-400/10 to-white/[0.03] p-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-wider text-emerald-300 uppercase">
+                                                            <span className="relative flex h-1.5 w-1.5">
+                                                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                                                                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                                                            </span>
+                                                            Real-time
+                                                        </span>
+
+                                                        <span className="text-[8.5px] text-slate-500">
+                                                            Pemutakhiran:{' '}
+                                                            {formatNaiveDate(
+                                                                userWeather.time,
+                                                            )}{' '}
+                                                            •{' '}
+                                                            {formatNaiveTime(
+                                                                userWeather.time,
+                                                            )}{' '}
+                                                            WIB
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="mt-2 flex items-center gap-3">
+                                                        <Icon
+                                                            size={38}
+                                                            strokeWidth={2}
+                                                            className={`shrink-0 ${className}`}
+                                                        />
+
+                                                        <div>
+                                                            <p className="text-[30px] leading-none font-extrabold text-white">
+                                                                {bmkgNumber(
+                                                                    userWeather.temperature,
+                                                                )}
+                                                                °
+                                                            </p>
+
+                                                            <p className="mt-1 text-[11px] font-semibold text-slate-300">
+                                                                {label}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <p className="mt-1.5 text-[9.5px] text-slate-500">
+                                                        di{' '}
+                                                        {cityLocationLabel ||
+                                                            'Lokasi Anda'}
+                                                    </p>
+
+                                                    <div className="mt-2.5 grid grid-cols-2 gap-1.5">
+                                                        <div className="rounded-lg bg-white/5 p-2">
+                                                            <p className="text-[8px] tracking-wide text-slate-500 uppercase">
+                                                                Kelembapan
+                                                            </p>
+
+                                                            <p className="mt-0.5 text-[12px] font-bold text-white">
+                                                                {bmkgNumber(
+                                                                    userWeather.humidity,
+                                                                )}
+                                                                %
+                                                            </p>
+                                                        </div>
+
+                                                        <div className="rounded-lg bg-white/5 p-2">
+                                                            <p className="text-[8px] tracking-wide text-slate-500 uppercase">
+                                                                Kecepatan Angin
+                                                            </p>
+
+                                                            <p className="mt-0.5 text-[12px] font-bold text-white">
+                                                                {bmkgNumber(
+                                                                    userWeather.wind_speed,
+                                                                )}{' '}
+                                                                km/jam
+                                                            </p>
+                                                        </div>
+
+                                                        <div className="rounded-lg bg-white/5 p-2">
+                                                            <p className="text-[8px] tracking-wide text-slate-500 uppercase">
+                                                                Arah Angin dari
+                                                            </p>
+
+                                                            <p className="mt-0.5 text-[12px] font-bold text-white">
+                                                                {degreesToWindDirection(
+                                                                    userWeather.wind_direction_deg,
+                                                                ) ?? '-'}
+                                                            </p>
+                                                        </div>
+
+                                                        <div className="rounded-lg bg-white/5 p-2">
+                                                            <p className="text-[8px] tracking-wide text-slate-500 uppercase">
+                                                                Jarak Pandang
+                                                            </p>
+
+                                                            <p className="mt-0.5 text-[12px] font-bold text-white">
+                                                                {formatVisibility(
+                                                                    userWeather.visibility,
+                                                                )}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="mt-2 flex items-center justify-between border-t border-white/5 pt-1.5 text-[9px] text-slate-500">
+                                                        <span>
+                                                            {userWeather.pressure_msl !==
+                                                            null
+                                                                ? `tekanan ${bmkgNumber(
+                                                                      userWeather.pressure_msl,
+                                                                  )} hPa`
+                                                                : ''}
+                                                        </span>
+
+                                                        <span>
+                                                            {userWeather.wind_gust !==
+                                                            null
+                                                                ? `hembusan ${bmkgNumber(
+                                                                      userWeather.wind_gust,
+                                                                  )} km/jam`
+                                                                : ''}
+                                                        </span>
+
+                                                        <span>
+                                                            {userWeather.apparent_temperature !==
+                                                            null
+                                                                ? `terasa ${bmkgNumber(
+                                                                      userWeather.apparent_temperature,
+                                                                  )}°C`
+                                                                : ''}
+                                                        </span>
+                                                    </div>
+
+                                                    <p className="mt-1.5 text-[8.5px] leading-relaxed text-slate-600">
+                                                        Sumber: Open-Meteo (data
+                                                        meteorologi
+                                                        internasional, bukan
+                                                        data resmi BMKG) • Lokasi
+                                                        dari GPS perangkat
+                                                    </p>
+                                                </div>
+                                            );
+                                        })()
+                                    )}
+                                </section>
                             </section>
                         )}
 
@@ -2893,152 +3253,50 @@ export default function Monitoring() {
                                     Status Erupsi
                                 </PanelTitle>
 
-                                {data.activity?.description && (
-                                    <div className="mb-2 rounded-xl border border-sky-400/25 border-l-sky-400/80 bg-sky-400/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                                        <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-sky-300 uppercase">
-                                            <Radio
-                                                size={10}
-                                                strokeWidth={2.5}
-                                            />
-                                            Informasi Letusan · MAGMA
-                                        </p>
+                                <div className="rounded-xl border border-sky-400/25 border-l-sky-400/80 bg-sky-400/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                                    <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-sky-300 uppercase">
+                                        <Radio size={10} strokeWidth={2.5} />
+                                        Status Erupsi Real-time
+                                    </p>
 
-                                        <p className="mt-1.5 text-[13px] font-black text-white">
-                                            {data.volcano.name}
-                                        </p>
+                                    <p className="mt-1.5 text-[13px] font-black text-white">
+                                        {statusEruptionText}
+                                    </p>
 
-                                        <p className="mt-0.5 text-[10.5px] font-semibold text-sky-200">
-                                            {data.activity.occurred_at
-                                                ? formatWIBStamp(
-                                                      data.activity.occurred_at,
-                                                  )
-                                                : '-'}
-                                            {data.activity.ash_height != null &&
-                                                ` · tinggi kolom abu ±${data.activity.ash_height} m`}
-                                        </p>
+                                    <p className="mt-1 text-[9.5px] text-slate-500">
+                                        {statusDataTimeLabel}
+                                    </p>
+                                </div>
 
-                                        {data.activity.author && (
-                                            <p className="mt-1.5 text-[9.5px] text-slate-400">
-                                                Dibuat oleh{' '}
-                                                <span className="font-semibold text-slate-300">
-                                                    {data.activity.author}
-                                                </span>
-                                            </p>
-                                        )}
-
-                                        <p className="mt-2.5 border-t border-white/10 pt-2 text-[11.5px] leading-relaxed text-slate-200">
-                                            {data.activity.description}
-                                        </p>
-                                    </div>
-                                )}
-
-                                {alerts.map((alert) => {
-                                    const alertClass =
-                                        alert.level === 'critical'
-                                            ? 'border-red-500/25 border-l-red-500/70 bg-red-500/10 text-red-200 shadow-[0_0_20px_rgba(255,59,59,0.15)]'
-                                            : alert.level === 'warning'
-                                              ? 'border-orange-500/25 border-l-orange-500/70 bg-orange-500/10 text-orange-200 shadow-[0_0_20px_rgba(251,146,60,0.12)]'
-                                              : 'border-emerald-500/25 border-l-emerald-500/70 bg-emerald-500/10 text-emerald-200';
-
-                                    const IconComponent =
-                                        alert.level === 'critical'
-                                            ? TriangleAlert
-                                            : alert.level === 'warning'
-                                              ? AlertTriangle
-                                              : CircleCheck;
-
-                                    return (
-                                        <div
-                                            key={alert.id}
-                                            className={`mt-2 flex items-start gap-2 rounded-xl border-l-[3px] px-3 py-2.5 text-[12.5px] leading-relaxed ${alertClass}`}
-                                        >
-                                            <span className="mt-0.5 shrink-0">
-                                                <IconComponent
-                                                    size={15}
-                                                    strokeWidth={2.5}
-                                                    className="text-current"
-                                                />
-                                            </span>
-
-                                            <div>
-                                                <p className="font-bold">
-                                                    {alert.title}
-                                                </p>
-
-                                                <p className="mt-0.5 font-medium text-slate-300">
-                                                    {alert.message}
-                                                </p>
-
-                                                {data.ash_advisory && (
-                                                    <p className="mt-2 border-t border-white/10 pt-2 text-[9.5px] leading-relaxed text-slate-400">
-                                                        Data diambil{' '}
-                                                        <span className="font-semibold text-slate-300">
-                                                            {data.ash_advisory
-                                                                .issued_at
-                                                                ? formatWIBStamp(
-                                                                      data
-                                                                          .ash_advisory
-                                                                          .issued_at,
-                                                                  )
-                                                                : '-'}
-                                                        </span>{' '}
-                                                        · update berikutnya
-                                                        paling lambat{' '}
-                                                        <span className="font-semibold text-sky-300">
-                                                            {data.ash_advisory
-                                                                .next_advisory_at
-                                                                ? formatWIBStamp(
-                                                                      data
-                                                                          .ash_advisory
-                                                                          .next_advisory_at,
-                                                                  )
-                                                                : 'segera'}
-                                                        </span>
-                                                    </p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-
-                                {/* BADGE GDACS */}
+                                <p className="mt-3 text-[9px] font-extrabold tracking-widest text-slate-400 uppercase">
+                                    Status Bahaya (GDACS)
+                                </p>
 
                                 <div
-                                    className={`mt-2 flex items-center gap-2 rounded-xl border px-3 py-2 text-[11.5px] font-bold shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${gdacsBadgeClass}`}
+                                    className={`mt-1 flex items-center gap-2 rounded-xl border px-3 py-2 text-[12.5px] font-extrabold shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${gdacsBadgeClass}`}
                                 >
                                     <span
                                         className="h-2.5 w-2.5 shrink-0 rounded-full shadow-[0_0_10px_currentColor]"
-                                        style={{ background: gdacsLevel.color }}
+                                        style={{ background: gdacsState.color }}
                                     />
 
                                     <span>
-                                        <span className="block text-[9px] font-extrabold tracking-widest uppercase opacity-70">
-                                            Status Bahaya (GDACS)
-                                        </span>
+                                        {gdacsState.label}
 
-                                        {gdacsLevel.label.toUpperCase()}
+                                        {gdacsState.activity && (
+                                            <span className="block text-[9px] font-semibold text-slate-500 normal-case">
+                                                {gdacsState.activity}
+                                            </span>
+                                        )}
                                     </span>
                                 </div>
-                            </section>
-                        )}
 
-                        {/* STATUS RESMI PVMBG */}
-
-                        {active === 'status' && (
-                            <section>
-                                <PanelTitle
-                                    icon={
-                                        <ShieldCheck
-                                            size={11}
-                                            strokeWidth={2.5}
-                                        />
-                                    }
-                                >
+                                <p className="mt-3 text-[9px] font-extrabold tracking-widest text-slate-400 uppercase">
                                     Status Resmi PVMBG
-                                </PanelTitle>
+                                </p>
 
                                 <div
-                                    className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-[12.5px] font-extrabold shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${pvmbgClass}`}
+                                    className={`mt-1 flex items-center gap-2 rounded-xl border px-3 py-2.5 text-[12.5px] font-extrabold shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${pvmbgClass}`}
                                 >
                                     <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/10">
                                         <ShieldCheck
@@ -3049,45 +3307,17 @@ export default function Monitoring() {
 
                                     <span>
                                         <span className="block text-[9px] font-extrabold tracking-widest uppercase opacity-70">
-                                            Level Resmi
+                                            Level Resmi PVMBG
                                         </span>
                                         {pvmbgLevelText}
                                     </span>
                                 </div>
 
-                                <p className="mt-1.5 flex items-center gap-1.5 text-[10px] text-slate-500">
-                                    <span
-                                        className={
-                                            data.volcano.status_source ===
-                                            'live'
-                                                ? 'inline-block size-1.5 rounded-full bg-emerald-400'
-                                                : 'inline-block size-1.5 rounded-full bg-slate-500'
-                                        }
-                                    />
+                                <p className="mt-1 text-[9px] text-slate-500">
                                     {data.volcano.status_source === 'live'
-                                        ? 'Status Resmi MAGMA'
+                                        ? 'Sumber: PVMBG (MAGMA) real-time'
                                         : 'status tersimpan (fallback)'}
                                 </p>
-
-                                <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[10.5px] text-slate-400">
-                                    <span className="font-semibold text-slate-300">
-                                        {data.volcano.code}
-                                    </span>
-
-                                    <span>•</span>
-
-                                    <span>
-                                        Elevasi {data.volcano.elevation ?? '-'}{' '}
-                                        mdpl
-                                    </span>
-
-                                    <span>•</span>
-
-                                    <span>
-                                        {data.volcano.latitude},{' '}
-                                        {data.volcano.longitude}
-                                    </span>
-                                </div>
                             </section>
                         )}
 
@@ -3169,75 +3399,7 @@ export default function Monitoring() {
                             </section>
                         )}
 
-                        {/* ANGIN DI KAWAH */}
-
-                        {active === 'cuaca' && (
-                            <section>
-                                <PanelTitle
-                                    icon={<Wind size={11} strokeWidth={2.5} />}
-                                >
-                                    Angin di Kawah
-                                </PanelTitle>
-
-                                <div className="flex items-center gap-3">
-                                    <div className="relative h-[66px] w-[66px] shrink-0 rounded-full border border-white/10 bg-[radial-gradient(circle,rgba(255,255,255,0.04),transparent_70%)]">
-                                        <span className="absolute top-0.5 left-1/2 -translate-x-1/2 text-[8px] font-extrabold text-slate-600">
-                                            U
-                                        </span>
-
-                                        <span className="absolute top-1/2 right-1 -translate-y-1/2 text-[8px] font-extrabold text-slate-600">
-                                            T
-                                        </span>
-
-                                        <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 text-[8px] font-extrabold text-slate-600">
-                                            S
-                                        </span>
-
-                                        <span className="absolute top-1/2 left-1 -translate-y-1/2 text-[8px] font-extrabold text-slate-600">
-                                            B
-                                        </span>
-
-                                        <span
-                                            className="absolute rounded-sm bg-gradient-to-b from-blue-500 to-transparent"
-                                            style={{
-                                                left: '50%',
-                                                top: '50%',
-                                                width: '3px',
-                                                height: '24px',
-                                                marginLeft: '-1.5px',
-                                                marginTop: '-24px',
-                                                transformOrigin: '50% 24px',
-                                                transform: `rotate(${windDeg}deg)`,
-                                            }}
-                                        />
-                                    </div>
-
-                                    <div className="text-xs leading-relaxed text-slate-400">
-                                        <div>
-                                            <b className="text-[15px] text-white">
-                                                {displayWeather?.wind_speed ??
-                                                    '-'}
-                                            </b>{' '}
-                                            km/j
-                                        </div>
-
-                                        <div>
-                                            arah{' '}
-                                            {displayWeather?.wind_direction ??
-                                                '-'}
-                                        </div>
-
-                                        <div>
-                                            suhu{' '}
-                                            {displayWeather?.temperature ?? '-'}
-                                            °C
-                                        </div>
-                                    </div>
-                                </div>
-                            </section>
-                        )}
-
-                        {/* KONDISI CUACA */}
+                        {/* PRAKIRAAN CUACA BMKG (PER 3 JAM) */}
 
                         {active === 'cuaca' && (
                             <section>
@@ -3246,206 +3408,243 @@ export default function Monitoring() {
                                         <CloudSun size={11} strokeWidth={2.5} />
                                     }
                                 >
-                                    Kondisi Cuaca
+                                    Prakiraan Cuaca BMKG
                                 </PanelTitle>
 
-                                <div className="grid grid-cols-2 gap-1.5">
-                                    <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                        <div className="flex items-center gap-1.5 text-slate-500">
-                                            <Thermometer
-                                                size={11}
-                                                strokeWidth={2.5}
-                                            />
-                                            <p className="text-[10px]">Suhu</p>
-                                        </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="flex h-5 w-5 items-center justify-center rounded-full border border-sky-500/30 bg-sky-500/10">
+                                        <MapPin
+                                            size={10}
+                                            strokeWidth={2.5}
+                                            className="text-sky-400"
+                                        />
+                                    </span>
 
-                                        <p className="mt-0.5 text-[15px] font-bold text-white">
-                                            {displayWeather?.temperature ?? '-'}
-                                            °
-                                        </p>
-                                    </div>
-
-                                    <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                        <div className="flex items-center gap-1.5 text-slate-500">
-                                            <Droplets
-                                                size={11}
-                                                strokeWidth={2.5}
-                                            />
-                                            <p className="text-[10px]">
-                                                Kelembapan
-                                            </p>
-                                        </div>
-
-                                        <p className="mt-0.5 text-[15px] font-bold text-white">
-                                            {displayWeather?.humidity ?? '-'}%
-                                        </p>
-                                    </div>
-
-                                    <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                        <div className="flex items-center gap-1.5 text-slate-500">
-                                            <Wind size={11} strokeWidth={2.5} />
-                                            <p className="text-[10px]">Angin</p>
-                                        </div>
-
-                                        <p className="mt-0.5 text-[15px] font-bold text-white">
-                                            {displayWeather?.wind_speed ?? '-'}{' '}
-                                            km/j
-                                        </p>
-                                    </div>
-
-                                    <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                        <div className="flex items-center gap-1.5 text-slate-500">
-                                            <Navigation
-                                                size={11}
-                                                strokeWidth={2.5}
-                                            />
-                                            <p className="text-[10px]">Arah</p>
-                                        </div>
-
-                                        <p className="mt-0.5 text-[15px] font-bold text-white">
-                                            {displayWeather?.wind_direction ??
-                                                '-'}
-                                        </p>
-                                    </div>
+                                    <p className="truncate text-[11px] font-bold text-white">
+                                        {data.weather_location ??
+                                            data.volcano.name}
+                                    </p>
                                 </div>
 
-                                {usingBmkgWeather &&
-                                selectedWeather?.forecast_at ? (
-                                    <p className="mt-1.5 text-[9.5px] text-slate-500">
-                                        Prakiraan cuaca BMKG •{' '}
-                                        {formatWIBStamp(
-                                            selectedWeather.forecast_at,
-                                        )}
-                                    </p>
-                                ) : null}
+                                <p className="mt-0.5 text-[9.5px] text-slate-500">
+                                    Sumber: BMKG • Prakiraan setiap 3 jam di
+                                    sekitar gunung
+                                </p>
 
-                                <WeatherWaveChart
-                                    points={waveDataPoints}
-                                    activeKey={timelineBucketKey}
-                                    waveColor={pvmbgWaveColor}
-                                />
-                            </section>
-                        )}
-
-                        {/* KONDISI SAAT INI (OPEN-METEO / REAL-TIME) */}
-
-                        {active === 'cuaca' && (
-                            <section>
-                                <PanelTitle
-                                    icon={<Gauge size={11} strokeWidth={2.5} />}
-                                >
-                                    Kondisi Saat Ini
-                                </PanelTitle>
-
-                                {data.current_weather ? (
+                                {bmkgCurrent ? (
                                     <>
-                                        <div className="grid grid-cols-2 gap-1.5">
-                                            <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                                <div className="flex items-center gap-1.5 text-slate-500">
-                                                    <Thermometer
-                                                        size={11}
-                                                        strokeWidth={2.5}
-                                                    />
-                                                    <p className="text-[10px]">
-                                                        Suhu
+                                        {(() => {
+                                            const { Icon, className } =
+                                                bmkgConditionIcon(
+                                                    bmkgCurrent.weather,
+                                                );
+
+                                            return (
+                                                <div className="mt-2.5 rounded-xl border border-sky-400/20 bg-gradient-to-b from-sky-400/10 to-white/[0.03] p-3">
+                                                    <div className="flex items-center justify-between">
+                                                        <p className="text-[10px] font-extrabold tracking-wide text-sky-300 uppercase">
+                                                            Saat ini
+                                                        </p>
+
+                                                        <span className="text-[8.5px] text-slate-500">
+                                                            Pemutakhiran:{' '}
+                                                            {formatWIBShortDate(
+                                                                bmkgCurrent.forecast_at,
+                                                            )}{' '}
+                                                            •{' '}
+                                                            {formatWIBTimeHM(
+                                                                bmkgCurrent.forecast_at,
+                                                            )}{' '}
+                                                            WIB
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="mt-2 flex items-center gap-3">
+                                                        <Icon
+                                                            size={38}
+                                                            strokeWidth={2}
+                                                            className={`shrink-0 ${className}`}
+                                                        />
+
+                                                        <div>
+                                                            <p className="text-[30px] leading-none font-extrabold text-white">
+                                                                {bmkgNumber(
+                                                                    bmkgCurrent.temperature,
+                                                                )}
+                                                                °
+                                                            </p>
+
+                                                            <p className="mt-1 text-[11px] font-semibold text-slate-300">
+                                                                {bmkgCurrent.weather ??
+                                                                    '-'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <p className="mt-1.5 text-[9.5px] text-slate-500">
+                                                        di{' '}
+                                                        {data.weather_location ??
+                                                            data.volcano.name}
                                                     </p>
+
+                                                    <div className="mt-2.5 grid grid-cols-2 gap-1.5">
+                                                        <div className="rounded-lg bg-white/5 p-2">
+                                                            <p className="text-[8px] tracking-wide text-slate-500 uppercase">
+                                                                Kelembapan
+                                                            </p>
+
+                                                            <p className="mt-0.5 text-[12px] font-bold text-white">
+                                                                {bmkgNumber(
+                                                                    bmkgCurrent.humidity,
+                                                                )}
+                                                                %
+                                                            </p>
+                                                        </div>
+
+                                                        <div className="rounded-lg bg-white/5 p-2">
+                                                            <p className="text-[8px] tracking-wide text-slate-500 uppercase">
+                                                                Kecepatan Angin
+                                                            </p>
+
+                                                            <p className="mt-0.5 text-[12px] font-bold text-white">
+                                                                {bmkgNumber(
+                                                                    bmkgCurrent.wind_speed,
+                                                                )}{' '}
+                                                                km/jam
+                                                            </p>
+                                                        </div>
+
+                                                        <div className="rounded-lg bg-white/5 p-2">
+                                                            <p className="text-[8px] tracking-wide text-slate-500 uppercase">
+                                                                Arah Angin dari
+                                                            </p>
+
+                                                            <p className="mt-0.5 text-[12px] font-bold text-white">
+                                                                {bmkgWindDirectionLabel(
+                                                                    bmkgCurrent.wind_direction,
+                                                                )}
+                                                            </p>
+                                                        </div>
+
+                                                        <div className="rounded-lg bg-white/5 p-2">
+                                                            <p className="text-[8px] tracking-wide text-slate-500 uppercase">
+                                                                Jarak Pandang
+                                                            </p>
+
+                                                            <p className="mt-0.5 text-[12px] font-bold text-white">
+                                                                {bmkgCurrent.visibility_text ??
+                                                                    '-'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
                                                 </div>
-
-                                                <p className="mt-0.5 text-[15px] font-bold text-white">
-                                                    {data.current_weather
-                                                        .temperature_c ?? '-'}
-                                                    °
-                                                </p>
-                                            </div>
-
-                                            <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                                <div className="flex items-center gap-1.5 text-slate-500">
-                                                    <Droplets
-                                                        size={11}
-                                                        strokeWidth={2.5}
-                                                    />
-                                                    <p className="text-[10px]">
-                                                        Kelembapan
-                                                    </p>
-                                                </div>
-
-                                                <p className="mt-0.5 text-[15px] font-bold text-white">
-                                                    {data.current_weather
-                                                        .humidity ?? '-'}
-                                                    %
-                                                </p>
-                                            </div>
-
-                                            <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                                <div className="flex items-center gap-1.5 text-slate-500">
-                                                    <Wind
-                                                        size={11}
-                                                        strokeWidth={2.5}
-                                                    />
-                                                    <p className="text-[10px]">
-                                                        Tekanan
-                                                    </p>
-                                                </div>
-
-                                                <p className="mt-0.5 text-[15px] font-bold text-white">
-                                                    {data.current_weather
-                                                        .pressure_msl ??
-                                                        '-'}{' '}
-                                                    hPa
-                                                </p>
-                                            </div>
-
-                                            <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                                <div className="flex items-center gap-1.5 text-slate-500">
-                                                    <Navigation
-                                                        size={11}
-                                                        strokeWidth={2.5}
-                                                    />
-                                                    <p className="text-[10px]">
-                                                        Angin
-                                                    </p>
-                                                </div>
-
-                                                <p className="mt-0.5 text-[15px] font-bold text-white">
-                                                    {data.current_weather
-                                                        .wind_speed_kmh ??
-                                                        '-'}{' '}
-                                                    km/j
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="mt-1.5 rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-400">
-                                            <p>
-                                                arah{' '}
-                                                {data.current_weather
-                                                    .wind_direction_deg != null
-                                                    ? `${data.current_weather.wind_direction_deg}°${
-                                                          data.current_weather
-                                                              .wind_direction_cardinal
-                                                              ? ` (${data.current_weather.wind_direction_cardinal})`
-                                                              : ''
-                                                      }`
-                                                    : '-'}
-                                                {data.current_weather
-                                                    .wind_gust_kmh != null
-                                                    ? ` • hembusan ${data.current_weather.wind_gust_kmh} km/j`
-                                                    : ''}
-                                                {data.current_weather
-                                                    .apparent_temperature_c !=
-                                                null
-                                                    ? ` • terasa ${data.current_weather.apparent_temperature_c}°C`
-                                                    : ''}
-                                            </p>
-                                        </div>
+                                            );
+                                        })()}
                                     </>
                                 ) : (
-                                    <p className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-500">
-                                        Belum ada data kondisi saat ini.
-                                        Sinkronisasi berjalan berkala (±8–10
-                                        menit) oleh sistem pemantauan.
+                                    <p className="mt-2.5 rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-500">
+                                        Belum ada kondisi cuaca saat ini untuk
+                                        wilayah ini.
                                     </p>
                                 )}
+
+                                <div className="mt-2.5 flex flex-col gap-3">
+                                    {bmkgForecasts.length === 0 ? (
+                                        <p className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-500">
+                                            Belum ada prakiraan cuaca BMKG untuk
+                                            wilayah ini.
+                                        </p>
+                                    ) : (
+                                        bmkgForecasts.map((day) => (
+                                            <div key={day.label}>
+                                                <p className="mb-1 flex items-center gap-1.5 text-[9.5px] font-extrabold tracking-wide text-slate-400 uppercase">
+                                                    <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+                                                    {day.label}
+                                                </p>
+
+                                                <div className="flex flex-col gap-1">
+                                                    {day.slots.map((slot) => {
+                                                        const {
+                                                            Icon,
+                                                            className,
+                                                        } = bmkgConditionIcon(
+                                                            slot.weather,
+                                                        );
+
+                                                        return (
+                                                            <div
+                                                                key={slot.id}
+                                                                className="grid grid-cols-[34px_1fr_auto] items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-2 py-1.5"
+                                                            >
+                                                                <span className="text-[11px] font-extrabold text-white">
+                                                                    {formatWIBTimeHM(
+                                                                        slot.forecast_at,
+                                                                    )}
+                                                                </span>
+
+                                                                <span className="flex min-w-0 items-center gap-1.5">
+                                                                    <Icon
+                                                                        size={
+                                                                            13
+                                                                        }
+                                                                        strokeWidth={
+                                                                            2.5
+                                                                        }
+                                                                        className={`shrink-0 ${className}`}
+                                                                    />
+
+                                                                    <span
+                                                                        className="truncate text-[10px] text-slate-400"
+                                                                        title={
+                                                                            slot.weather ??
+                                                                            '-'
+                                                                        }
+                                                                    >
+                                                                        {slot.weather ??
+                                                                            '-'}
+                                                                    </span>
+                                                                </span>
+
+                                                                <span className="flex items-center gap-2 text-right">
+                                                                    <span className="text-[12px] font-bold text-white">
+                                                                        {slot.temperature ??
+                                                                            '-'}
+                                                                        °
+                                                                    </span>
+
+                                                                    <span className="text-[9px] text-sky-400">
+                                                                        {slot.humidity ??
+                                                                            '-'}
+                                                                        %
+                                                                    </span>
+                                                                </span>
+
+                                                                <span className="col-span-3 flex items-center justify-between border-t border-white/5 pt-1 text-[9px] text-slate-500">
+                                                                    <span>
+                                                                        angin{' '}
+                                                                        <b className="text-slate-400">
+                                                                            {slot.wind_speed ??
+                                                                                '-'}{' '}
+                                                                            km/j
+                                                                        </b>
+                                                                    </span>
+
+                                                                    <span>
+                                                                        arah{' '}
+                                                                        <b className="text-slate-400">
+                                                                            {slot.wind_direction ??
+                                                                                '-'}
+                                                                        </b>
+                                                                    </span>
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
                             </section>
                         )}
 
