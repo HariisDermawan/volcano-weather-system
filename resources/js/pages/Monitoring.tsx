@@ -3558,6 +3558,29 @@ export default function Monitoring() {
                                                     bmkgCurrent.weather,
                                                 );
 
+                                            const extras = data.current_weather;
+
+                                            const pressure =
+                                                extras?.pressure_msl ?? null;
+
+                                            const gust =
+                                                extras?.wind_gust_kmh ?? null;
+
+                                            const feels =
+                                                extras?.apparent_temperature_c ??
+                                                null;
+
+                                            const hasExtras =
+                                                pressure !== null ||
+                                                gust !== null ||
+                                                feels !== null;
+
+                                            const visibilityValue =
+                                                bmkgCurrent.visibility_text ??
+                                                (bmkgCurrent.visibility !== null
+                                                    ? `${bmkgCurrent.visibility} km`
+                                                    : null);
+
                                             return (
                                                 <div className="mt-2.5 rounded-xl border border-sky-400/20 bg-gradient-to-b from-sky-400/10 to-white/[0.03] p-3">
                                                     <div className="flex items-center justify-between">
@@ -3645,20 +3668,51 @@ export default function Monitoring() {
                                                             </p>
                                                         </div>
 
-                                                        <div className="rounded-lg bg-white/5 p-2">
-                                                            <p className="text-[8px] tracking-wide text-slate-500 uppercase">
-                                                                Jarak Pandang
-                                                            </p>
+                                                        {visibilityValue && (
+                                                            <div className="rounded-lg bg-white/5 p-2">
+                                                                <p className="text-[8px] tracking-wide text-slate-500 uppercase">
+                                                                    Jarak
+                                                                    Pandang
+                                                                </p>
 
-                                                            <p className="mt-0.5 text-[12px] font-bold text-white">
-                                                                {bmkgCurrent.visibility_text ??
-                                                                    (bmkgCurrent.visibility !=
-                                                                    null
-                                                                        ? `${bmkgCurrent.visibility} km`
-                                                                        : '—')}
-                                                            </p>
-                                                        </div>
+                                                                <p className="mt-0.5 text-[12px] font-bold text-white">
+                                                                    {
+                                                                        visibilityValue
+                                                                    }
+                                                                </p>
+                                                            </div>
+                                                        )}
                                                     </div>
+
+                                                    {hasExtras && (
+                                                        <div className="mt-2 flex items-center justify-between border-t border-white/5 pt-1.5 text-[9px] text-slate-500">
+                                                            <span>
+                                                                {pressure !==
+                                                                null
+                                                                    ? `tekanan ${Math.round(pressure)} hPa`
+                                                                    : ''}
+                                                            </span>
+
+                                                            <span>
+                                                                {gust !== null
+                                                                    ? `hembusan ${Math.round(gust)} km/jam`
+                                                                    : ''}
+                                                            </span>
+
+                                                            <span>
+                                                                {feels !== null
+                                                                    ? `terasa ${Math.round(feels)}°C`
+                                                                    : ''}
+                                                            </span>
+                                                        </div>
+                                                    )}
+
+                                                    <p className="mt-1.5 text-[8.5px] leading-relaxed text-slate-600">
+                                                        Sumber: BMKG (prakiraan
+                                                        resmi) • Prakiraan{' '}
+                                                        {data.weather_location ??
+                                                            data.volcano.name}
+                                                    </p>
                                                 </div>
                                             );
                                         })()}
