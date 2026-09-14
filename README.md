@@ -1,11 +1,9 @@
-<<<<<<< HEAD
+
 ![Volcano Watch](https://github.com/HariisDermawan/volcano-weather-system/blob/main/public/gambar/gam.png)
 
 Volcano Watch
 =======
 # Volcano Watch
->>>>>>> a56385f (feat: add new image asset for volcano monitoring)
-
 Sistem pemantauan **gunung api & cuaca** interaktif untuk Indonesia. Menampilkan status aktivitas gunung api (PVMBG/MAGMA), informasi letusan, advisory abu vulkanik VAAC Darwin (BOM), prakiraan & prediksi sebaran abu, gempa bumi terkini (BMKG), gerakan tanah, serta prakiraan cuaca (BMKG & Open-Meteo) — semuanya divisualisasikan di atas peta Leaflet secara real-time.
 
 ## Fitur Utama
