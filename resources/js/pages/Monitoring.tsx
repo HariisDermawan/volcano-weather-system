@@ -1707,7 +1707,9 @@ export default function Monitoring() {
     };
 
     const magnitudeLabel = (magnitude: string | null) =>
-        magnitude ? magnitude.replace('.', ',') : '-';
+        magnitude && !Number.isNaN(Number(magnitude))
+            ? Number(magnitude).toFixed(1).replace('.', ',')
+            : '-';
 
     const kedalamanLabel = (depth: string | null) =>
         depth ? depth.replace('.', ',').toLowerCase() : '-';
@@ -1733,6 +1735,79 @@ export default function Monitoring() {
 
         return '-';
     };
+
+    const renderGempaCard = (item: GempaItem) => (
+        <>
+            <div className="flex items-start justify-between gap-2">
+                <p className="text-[11px] font-semibold text-slate-300">
+                    {item.datetime
+                        ? formatWIBShort(item.datetime)
+                        : `${item.tanggal ?? '-'}${
+                              item.jam ? ` • ${item.jam}` : ''
+                          }`}
+                </p>
+
+                {item.status && (
+                    <span className="shrink-0 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                        {item.status === 'confirmed'
+                            ? 'Terkonfirmasi'
+                            : item.status}
+                    </span>
+                )}
+            </div>
+
+            <p className="mt-0.5 text-[13px] leading-snug font-bold text-white">
+                {item.region}
+            </p>
+
+            {item.potential && (
+                <p
+                    className={`mt-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                        item.potential.toLowerCase().includes('tidak')
+                            ? 'bg-emerald-500/10 text-emerald-300'
+                            : 'bg-red-500/10 text-red-300'
+                    }`}
+                >
+                    {item.potential}
+                </p>
+            )}
+
+            <dl className="mt-2.5 space-y-1.5 text-[11px]">
+                <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                    <dt className="font-semibold text-slate-500">Magnitudo</dt>
+
+                    <dd
+                        className="font-black"
+                        style={{
+                            color: gempaMagColor(
+                                item.magnitude != null
+                                    ? Number(item.magnitude)
+                                    : null,
+                            ),
+                        }}
+                    >
+                        {magnitudeLabel(item.magnitude)}
+                    </dd>
+                </div>
+
+                <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                    <dt className="font-semibold text-slate-500">Kedalaman</dt>
+
+                    <dd className="font-semibold text-slate-300">
+                        {kedalamanLabel(item.depth)}
+                    </dd>
+                </div>
+
+                <div className="flex items-center justify-between">
+                    <dt className="font-semibold text-slate-500">Lokasi</dt>
+
+                    <dd className="text-right font-semibold text-slate-300">
+                        {locationLabel(item)}
+                    </dd>
+                </div>
+            </dl>
+        </>
+    );
 
     // ==========================================
     // STATUS GEMPA REAL-TIME PER GUNUNG
@@ -3983,78 +4058,178 @@ export default function Monitoring() {
                                     Advisory Abu Vulkanik
                                 </PanelTitle>
 
-                                {data.ash_advisory ? (
-                                    <div className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11.5px]">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <p className="font-bold text-white">
-                                                {data.ash_advisory
-                                                    .volcano_name ??
-                                                    data.volcano.name}
-                                            </p>
+                                {(() => {
+                                    const ash = data.ash_advisory;
 
-                                            <span
-                                                className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase ${
-                                                    data.ash_advisory
-                                                        .ash_detected
-                                                        ? 'bg-red-500/15 text-red-300'
-                                                        : 'bg-emerald-500/10 text-emerald-300'
+                                    if (!ash) {
+                                        return (
+                                            <p className="rounded-xl border border-dashed border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-500">
+                                                Belum ada advisory VAAC Darwin
+                                                untuk gunung ini dalam 24 jam
+                                                terakhir.
+                                            </p>
+                                        );
+                                    }
+
+                                    const detected = ash.ash_detected;
+
+                                    const heightKm =
+                                        ash.ash_height_m != null
+                                            ? `~${(
+                                                  ash.ash_height_m / 1000
+                                              ).toFixed(1)} km`
+                                            : '-';
+
+                                    const flightLevel =
+                                        ash.altitude_ft != null
+                                            ? `FL${Math.round(
+                                                  ash.altitude_ft / 100,
+                                              )}`
+                                            : null;
+
+                                    const direction = ash.movement
+                                        ? bmkgWindDirectionLabel(ash.movement)
+                                        : '-';
+
+                                    const speed =
+                                        ash.speed_kts != null
+                                            ? `${ash.speed_kts} kt`
+                                            : null;
+
+                                    const observed = ash.observed_at
+                                        ? formatWIBStamp(ash.observed_at)
+                                        : '-';
+
+                                    const nextAdvisory = ash.next_advisory_at
+                                        ? formatWIBStamp(ash.next_advisory_at)
+                                        : '-';
+
+                                    return (
+                                        <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
+                                            <div
+                                                className={`flex items-start justify-between gap-2 border-b px-3 py-2.5 ${
+                                                    detected
+                                                        ? 'border-red-500/25 bg-red-500/10'
+                                                        : 'border-emerald-500/25 bg-emerald-500/10'
                                                 }`}
                                             >
-                                                {data.ash_advisory.ash_detected
-                                                    ? 'Abu terdeteksi'
-                                                    : 'Tidak ada abu'}
-                                            </span>
+                                                <div>
+                                                    <p className="text-[13px] font-black text-white">
+                                                        {ash.volcano_name ??
+                                                            data.volcano.name}
+                                                    </p>
+
+                                                    <p className="mt-0.5 text-[9.5px] tracking-wider text-slate-400 uppercase">
+                                                        {ash.source ??
+                                                            'VAAC Darwin (BOM)'}{' '}
+                                                        — Advisory #
+                                                        {ash.advisory_nr ?? '-'}
+                                                    </p>
+                                                </div>
+
+                                                <span
+                                                    className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-extrabold uppercase ring-1 ${
+                                                        detected
+                                                            ? 'bg-red-500/15 text-red-300 ring-red-400/30'
+                                                            : 'bg-emerald-500/10 text-emerald-300 ring-emerald-400/20'
+                                                    }`}
+                                                >
+                                                    {detected
+                                                        ? 'Abu terdeteksi'
+                                                        : 'Tidak ada abu'}
+                                                </span>
+                                            </div>
+
+                                            <div className="mt-2 grid grid-cols-2 gap-1.5 px-3">
+                                                {[
+                                                    {
+                                                        label: 'Tinggi abu',
+                                                        value: heightKm,
+                                                        sub: flightLevel,
+                                                    },
+                                                    {
+                                                        label: 'Arah & kecepatan',
+                                                        value: direction,
+                                                        sub: speed,
+                                                    },
+                                                    {
+                                                        label: 'Waktu pengamatan',
+                                                        value: observed,
+                                                    },
+                                                    {
+                                                        label: 'Advisory berikutnya',
+                                                        value: nextAdvisory,
+                                                    },
+                                                ].map((stat) => (
+                                                    <div
+                                                        key={stat.label}
+                                                        className="rounded-lg border border-white/5 bg-white/[0.03] px-2.5 py-2"
+                                                    >
+                                                        <p className="text-[8.5px] font-bold tracking-wider text-slate-500 uppercase">
+                                                            {stat.label}
+                                                        </p>
+
+                                                        <p className="mt-0.5 text-[11.5px] font-black text-slate-200">
+                                                            {stat.value}
+                                                        </p>
+
+                                                        {stat.sub && (
+                                                            <p className="mt-0.5 text-[9px] text-slate-500">
+                                                                {stat.sub}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <div className="mt-2 flex items-center justify-between gap-2 px-3 pb-1 text-[10px] text-slate-500">
+                                                <span>
+                                                    Diterbitkan{' '}
+                                                    <b className="text-slate-300">
+                                                        {formatWIB(
+                                                            ash.issued_at,
+                                                        )}{' '}
+                                                        WIB
+                                                    </b>
+                                                </span>
+                                            </div>
+
+                                            {ash.eruption_detail && (
+                                                <div className="mt-1 border-t border-white/5 px-3 py-2">
+                                                    <p className="text-[8.5px] font-bold tracking-wider text-slate-500 uppercase">
+                                                        Detil erupsi
+                                                    </p>
+
+                                                    <p className="mt-0.5 text-[10.5px] leading-relaxed text-slate-300">
+                                                        {ash.eruption_detail}
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            {ash.remarks && (
+                                                <div className="border-t border-white/5 px-3 py-2">
+                                                    <p className="text-[8.5px] font-bold tracking-wider text-slate-500 uppercase">
+                                                        Catatan (RMK)
+                                                    </p>
+
+                                                    <p className="mt-0.5 text-[10.5px] leading-relaxed text-slate-400">
+                                                        {ash.remarks}
+                                                    </p>
+                                                </div>
+                                            )}
+
+                                            <div className="border-t border-white/10 bg-white/[0.02] px-3 py-2">
+                                                <p className="text-[9px] leading-relaxed text-slate-600 italic">
+                                                    Sumber:{' '}
+                                                    {ash.source ??
+                                                        'VAAC Darwin (BOM)'}
+                                                    . Gunakan bersama info resmi
+                                                    PVMBG / BPBD.
+                                                </p>
+                                            </div>
                                         </div>
-
-                                        <div className="mt-2 space-y-0.5 leading-relaxed text-slate-400">
-                                            <p>
-                                                Tinggi abu ~
-                                                {data.ash_advisory
-                                                    .ash_height_m != null
-                                                    ? `${(
-                                                          data.ash_advisory
-                                                              .ash_height_m /
-                                                          1000
-                                                      ).toFixed(1)} km`
-                                                    : '-'}
-                                                {data.ash_advisory.movement
-                                                    ? ` • arah ${
-                                                          data.ash_advisory
-                                                              .movement
-                                                      }${
-                                                          data.ash_advisory
-                                                              .speed_kts
-                                                              ? ` (${data.ash_advisory.speed_kts} kt)`
-                                                              : ''
-                                                      }`
-                                                    : ''}
-                                            </p>
-
-                                            <p>
-                                                Advisory #
-                                                {data.ash_advisory
-                                                    .advisory_nr ?? '-'}{' '}
-                                                •{' '}
-                                                {formatWIB(
-                                                    data.ash_advisory.issued_at,
-                                                )}{' '}
-                                                WIB
-                                            </p>
-
-                                            {/* DISCLAIMER KEAMANAN PUBLIK */}
-                                            <p className="mt-1 text-[9px] text-slate-600 italic">
-                                                Sumber: VAAC Darwin (BOM).
-                                                Gunakan bersama info resmi PVMBG
-                                                / BPBD.
-                                            </p>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <p className="rounded-xl border border-dashed border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-500">
-                                        Belum ada advisory VAAC Darwin untuk
-                                        gunung ini dalam 24 jam terakhir.
-                                    </p>
-                                )}
+                                    );
+                                })()}
                             </section>
                         )}
 
@@ -4189,98 +4364,49 @@ export default function Monitoring() {
                                         Memuat data gempa…
                                     </p>
                                 ) : displayGempa?.region ? (
-                                    <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
-                                        <div className="flex items-start justify-between gap-2">
-                                            <p className="text-[11px] font-semibold text-slate-300">
-                                                {displayGempa.datetime
-                                                    ? formatWIBShort(
-                                                          displayGempa.datetime,
-                                                      )
-                                                    : `${displayGempa.tanggal ?? '-'}${
-                                                          displayGempa.jam
-                                                              ? ` • ${displayGempa.jam}`
-                                                              : ''
-                                                      }`}
-                                            </p>
-
-                                            {displayGempa.status && (
-                                                <span className="shrink-0 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300">
-                                                    {displayGempa.status ===
-                                                    'confirmed'
-                                                        ? 'Terkonfirmasi'
-                                                        : displayGempa.status}
-                                                </span>
-                                            )}
+                                    <>
+                                        <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+                                            {renderGempaCard(displayGempa)}
                                         </div>
 
-                                        <p className="mt-0.5 text-[13px] leading-snug font-bold text-white">
-                                            {displayGempa.region}
-                                        </p>
+                                        {!selectedGempa &&
+                                            (gempa?.list.length ?? 0) > 1 && (
+                                                <div className="mt-2.5">
+                                                    <p className="mb-1 flex items-center gap-1.5 text-[9.5px] font-extrabold tracking-wide text-slate-400 uppercase">
+                                                        <Siren
+                                                            size={9}
+                                                            strokeWidth={2.5}
+                                                            className="text-slate-500"
+                                                        />
+                                                        Gempa terbaru lainnya
+                                                    </p>
 
-                                        {displayGempa.potential && (
-                                            <p
-                                                className={`mt-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
-                                                    displayGempa.potential
-                                                        .toLowerCase()
-                                                        .includes('tidak')
-                                                        ? 'bg-emerald-500/10 text-emerald-300'
-                                                        : 'bg-red-500/10 text-red-300'
-                                                }`}
-                                            >
-                                                {displayGempa.potential}
-                                            </p>
-                                        )}
-
-                                        <dl className="mt-2.5 space-y-1.5 text-[11px]">
-                                            <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
-                                                <dt className="font-semibold text-slate-500">
-                                                    Magnitudo
-                                                </dt>
-
-                                                <dd
-                                                    className="font-black"
-                                                    style={{
-                                                        color: gempaMagColor(
-                                                            displayGempa.magnitude !=
-                                                                null
-                                                                ? Number(
-                                                                      displayGempa.magnitude,
-                                                                  )
-                                                                : null,
-                                                        ),
-                                                    }}
-                                                >
-                                                    {magnitudeLabel(
-                                                        displayGempa.magnitude,
-                                                    )}
-                                                </dd>
-                                            </div>
-
-                                            <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
-                                                <dt className="font-semibold text-slate-500">
-                                                    Kedalaman
-                                                </dt>
-
-                                                <dd className="font-semibold text-slate-300">
-                                                    {kedalamanLabel(
-                                                        displayGempa.depth,
-                                                    )}
-                                                </dd>
-                                            </div>
-
-                                            <div className="flex items-center justify-between">
-                                                <dt className="font-semibold text-slate-500">
-                                                    Lokasi
-                                                </dt>
-
-                                                <dd className="text-right font-semibold text-slate-300">
-                                                    {locationLabel(
-                                                        displayGempa,
-                                                    )}
-                                                </dd>
-                                            </div>
-                                        </dl>
-                                    </div>
+                                                    <ul className="flex flex-col gap-1">
+                                                        {gempa!.list
+                                                            .slice(1)
+                                                            .map(
+                                                                (
+                                                                    item,
+                                                                    index,
+                                                                ) => (
+                                                                    <li
+                                                                        key={
+                                                                            item.eventid ??
+                                                                            `gempa-${index}`
+                                                                        }
+                                                                    >
+                                                                        <div className="w-full rounded-lg border border-white/5 bg-white/[0.04] p-2.5 text-left text-[11px]">
+                                                                            {renderGempaCard(
+                                                                                item,
+                                                                            )}
+                                                                        </div>
+                                                                    </li>
+                                                                ),
+                                                            )}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                    </>
                                 ) : (
                                     <p className="rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-[11px] text-slate-500">
                                         {gempa.error ??
@@ -4360,7 +4486,7 @@ export default function Monitoring() {
 
                         {/* META */}
 
-                        {active !== null && (
+                        {active !== null && active !== 'advisory' && (
                             <div className="border-t border-white/10 pt-2.5 text-[10px] leading-relaxed text-slate-600">
                                 <p>
                                     <b className="text-slate-500">Sumber:</b>{' '}

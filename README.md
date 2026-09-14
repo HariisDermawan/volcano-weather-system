@@ -1,8 +1,8 @@
-
 <<<<<<< HEAD
 ![Volcano Watch](https://github.com/HariisDermawan/volcano-weather-system/blob/main/public/gambar/gam.png)
 
 # Volcano Watch
+
 =======
 Volcano Watch
 =======
@@ -11,8 +11,8 @@ Volcano Watch
 
 > > > > > > > a56385f (feat: add new image asset for volcano monitoring)
 
->>>>>>> eb20ca3 (Add CO2 and Volcano SVG icons, implement VolcanoIcon component, and update Monitoring page to display weather data)
-Sistem pemantauan **gunung api & cuaca** interaktif untuk Indonesia. Menampilkan status aktivitas gunung api (PVMBG/MAGMA), informasi letusan, advisory abu vulkanik VAAC Darwin (BOM), prakiraan & prediksi sebaran abu, gempa bumi terkini (BMKG), gerakan tanah, serta prakiraan cuaca (BMKG & Open-Meteo) — semuanya divisualisasikan di atas peta Leaflet secara real-time.
+> > > > > > > eb20ca3 (Add CO2 and Volcano SVG icons, implement VolcanoIcon component, and update Monitoring page to display weather data)
+> > > > > > > Sistem pemantauan **gunung api & cuaca** interaktif untuk Indonesia. Menampilkan status aktivitas gunung api (PVMBG/MAGMA), informasi letusan, advisory abu vulkanik VAAC Darwin (BOM), prakiraan & prediksi sebaran abu, gempa bumi terkini (BMKG), gerakan tanah, serta prakiraan cuaca (BMKG & Open-Meteo) — semuanya divisualisasikan di atas peta Leaflet secara real-time.
 
 ## Fitur Utama
 
@@ -252,4 +252,4 @@ Instal dependensi yang belum tercantum: `pip install beautifulsoup4` lalu tambah
 MIT
 
 > > > > > > > a56385f (feat: add new image asset for volcano monitoring)
->>>>>>> eb20ca3 (Add CO2 and Volcano SVG icons, implement VolcanoIcon component, and update Monitoring page to display weather data)
+> > > > > > > eb20ca3 (Add CO2 and Volcano SVG icons, implement VolcanoIcon component, and update Monitoring page to display weather data)

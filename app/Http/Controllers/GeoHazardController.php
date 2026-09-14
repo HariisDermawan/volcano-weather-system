@@ -36,30 +36,58 @@ class GeoHazardController extends Controller
                 $list = $this->fetchRealtimeGempa();
 
                 if (! empty($list)) {
-                    $latest = $list[0];
-
                     // Cocokkan potensi tsunami dari gempaterkini.json
-                    // berdasarkan waktu kejadian.
-                    $dateTime = (string) ($latest['datetime'] ?? '');
+                    // untuk SEMUA item berdasarkan waktu kejadian.
+                    try {
+                        $gempaterkini = Http::timeout(20)
+                            ->get('https://data.bmkg.go.id/DataMKG/TEWS/gempaterkini.json')
+                            ->json('Infogempa.gempa');
 
-                    if ($dateTime !== '') {
-                        try {
-                            $gempaterkini = Http::timeout(20)
-                                ->get('https://data.bmkg.go.id/DataMKG/TEWS/gempaterkini.json')
-                                ->json('Infogempa.gempa');
+                        if (is_array($gempaterkini)) {
+                            foreach ($list as &$item) {
+                                $dt = (string) ($item['datetime'] ?? '');
 
-                            $latest['potential'] = $this->tsunamiPotential(
-                                $dateTime,
-                                is_array($gempaterkini)
-                                    ? $gempaterkini
-                                    : [],
-                            );
+                                if ($dt !== '') {
+                                    $coords = isset($item['latitude'], $item['longitude'])
+                                        ? sprintf('%.2f,%.2f', $item['latitude'], $item['longitude'])
+                                        : '';
 
-                            $list[0] = $latest;
-                        } catch (\Throwable $e) {
-                            // potential tetap null — tidak kritis
+                                    $item['potential'] = $this->tsunamiPotential(
+                                        $dt,
+                                        $coords,
+                                        $gempaterkini,
+                                    );
+                                }
+                            }
+
+                            unset($item);
                         }
+                    } catch (\Throwable $e) {
+                        // potential tetap null — tidak kritis
                     }
+
+                    // Urutkan terbaru di atas (BMKG tidak menjamin
+                    // urutan payload Nuxt selalu descending).
+                    usort($list, static function (array $a, array $b): int {
+                        $da = (string) ($a['datetime'] ?? '');
+                        $db = (string) ($b['datetime'] ?? '');
+
+                        if ($da === '' && $db === '') {
+                            return 0;
+                        }
+
+                        if ($da === '') {
+                            return 1;
+                        }
+
+                        if ($db === '') {
+                            return -1;
+                        }
+
+                        return strcmp($db, $da);
+                    });
+
+                    $latest = $list[0];
 
                     return ['latest' => $latest, 'list' => $list];
                 }
@@ -92,12 +120,17 @@ class GeoHazardController extends Controller
             }
         });
 
-        // Tampilkan hanya gempa PALING TERBARU; gempa lama dihidden.
-        // Saat ada gempa baru, list + latest otomatis berganti saat
-        // polling berikutnya (cache 90 detik).
-        $latest = $data['latest'] ?? ($data['list'][0] ?? null);
+        // Ambil gempa terbaru & batasi list maks 2 item paling anyar —
+        // hanya yang benar-benar baru; gempa lama dibuang.
+        $latest = $data['latest'] ?? null;
 
-        $data['list'] = $latest ? [$latest] : [];
+        $list = $data['list'];
+
+        if ($latest === null && count($list) > 0) {
+            $latest = $list[0];
+        }
+
+        $data['list'] = array_slice($list, 0, 2);
         $data['latest'] = $latest;
 
         return response()->json($data);
@@ -134,6 +167,7 @@ class GeoHazardController extends Controller
 
             $gempa['potential'] = $this->tsunamiPotential(
                 $dateTime,
+                (string) ($row['Coordinates'] ?? ''),
                 is_array($gempaterkini) ? $gempaterkini : [],
             );
         }
@@ -144,19 +178,45 @@ class GeoHazardController extends Controller
     /**
      * Penilaian tsunami yang akurat untuk satu kejadian gempa.
      *
-     * @param  string  $dateTime  Waktu kejadian (DateTime autogempa).
+     * Mencocokkan waktu kejadian DAN koordinat, sehingga jika ada
+     * dua gempa pada jam yang sama tetapi lokasi berbeda, masing-masing
+     * mendapat potensi tsunami yang benar (tidak saling tertukar).
+     *
+     * @param  string  $dateTime  Waktu kejadian (ISO dengan timezone).
+     * @param  string  $coordinates  Koordinat "lat,lon" (2 desimal), boleh kosong.
      * @param  array<int, array<string, mixed>>  $gempaterkini  Baris mentah gempaterkini.json.
      */
-    private function tsunamiPotential(string $dateTime, array $gempaterkini): ?string
+    private function tsunamiPotential(string $dateTime, string $coordinates, array $gempaterkini): ?string
     {
+        $normalize = function (string $value): string {
+            return trim(preg_replace('/\s+/', '', $value) ?? '');
+        };
+
+        $wantTime = strtotime($dateTime);
+        $wantCoords = $normalize($coordinates);
+
         foreach ($gempaterkini as $row) {
             $candidate = $row['DateTime'] ?? null;
 
-            if (is_string($candidate) && $candidate !== '' && strtotime($candidate) === strtotime($dateTime)) {
-                $potensi = $row['Potensi'] ?? null;
-
-                return is_string($potensi) && $potensi !== '' ? $potensi : null;
+            if (! is_string($candidate) || $candidate === '') {
+                continue;
             }
+
+            if (strtotime($candidate) !== $wantTime) {
+                continue;
+            }
+
+            if ($wantCoords !== '') {
+                $candidateCoords = $normalize((string) ($row['Coordinates'] ?? ''));
+
+                if ($candidateCoords !== '' && $candidateCoords !== $wantCoords) {
+                    continue;
+                }
+            }
+
+            $potensi = $row['Potensi'] ?? null;
+
+            return is_string($potensi) && $potensi !== '' ? $potensi : null;
         }
 
         return null;
@@ -211,9 +271,21 @@ class GeoHazardController extends Controller
                 $parts,
             )) {
                 [, $y, $mo, $d, $h, $mi, $s] = $parts;
-                $dateTime = sprintf('%s-%s-%sT%s:%s:%s+07:00', $y, $mo, $d, $h, $mi, $s);
-                $tanggal = sprintf('%s-%s-%s', $y, $mo, $d);
-                $jam = sprintf('%s:%s:%s WIB', $h, $mi, $s);
+
+                // Field `waktu` BMKG real-time adalah UTC, bukan WIB.
+                // Disimpan UTC supaya frontend menampilkan WIB dengan benar.
+                $dateTime = sprintf('%s-%s-%sT%s:%s:%s+00:00', $y, $mo, $d, $h, $mi, $s);
+
+                try {
+                    $wib = (new \DateTimeImmutable($dateTime))
+                        ->setTimezone(new \DateTimeZone('Asia/Jakarta'));
+
+                    $tanggal = $wib->format('Y-m-d');
+                    $jam = $wib->format('H:i:s').' WIB';
+                } catch (\Exception $e) {
+                    $tanggal = sprintf('%s-%s-%s', $y, $mo, $d);
+                    $jam = sprintf('%s:%s:%s WIB', $h, $mi, $s);
+                }
             }
 
             $list[] = [
@@ -340,6 +412,7 @@ class GeoHazardController extends Controller
             if ($dateTime !== '') {
                 $latest['potential'] = $this->tsunamiPotential(
                     $dateTime,
+                    (string) ($autogempa['Coordinates'] ?? ''),
                     is_array($gempaterkini) ? $gempaterkini : [],
                 );
             }

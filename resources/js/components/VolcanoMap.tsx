@@ -440,10 +440,23 @@ function MapBridge({ onMap }: { onMap: (map: L.Map) => void }) {
  * ==========================================
  */
 
-function MapFly({ target, zoom }: { target: [number, number]; zoom: number }) {
+function MapFly({
+    target,
+    zoom,
+    fit,
+    fitKey,
+}: {
+    target: [number, number];
+    zoom: number;
+    fit?: Array<[number, number]>;
+    fitKey?: string;
+}) {
     const map = useMap();
 
     const first = useRef(true);
+
+    const fitRef = useRef(fit);
+    fitRef.current = fit;
 
     const [lat, lng] = target;
 
@@ -453,8 +466,20 @@ function MapFly({ target, zoom }: { target: [number, number]; zoom: number }) {
             return;
         }
 
+        const currentFit = fitRef.current;
+
+        if (currentFit && currentFit.length > 0) {
+            map.flyToBounds(L.latLngBounds([[lat, lng], ...currentFit]), {
+                padding: [60, 60],
+                maxZoom: 10,
+                duration: 0.9,
+            });
+
+            return;
+        }
+
         map.flyTo([lat, lng], zoom, { duration: 0.9 });
-    }, [map, lat, lng, zoom]);
+    }, [map, lat, lng, zoom, fitKey]);
 
     return null;
 }
@@ -641,6 +666,34 @@ export default function VolcanoMap({
 
     /*
      * ==========================================
+     * KAMERA: SESUAIKAN DENGAN SEMUA TITIK GEMPA
+     *
+     * Jika ada gempa pada peta, kamera menyesuaikan
+     * agar gunung terpilih DAN semua episenter
+     * terlihat — bukan hanya yang di dekat gunung.
+     * ==========================================
+     */
+
+    const fitQuakes = useMemo(
+        () =>
+            (earthquakes ?? [])
+                .map(
+                    (quake) =>
+                        [Number(quake.latitude), Number(quake.longitude)] as [
+                            number,
+                            number,
+                        ],
+                )
+                .filter(
+                    ([lat, lng]) => !Number.isNaN(lat) && !Number.isNaN(lng),
+                ),
+        [earthquakes],
+    );
+
+    const fitKey = fitQuakes.map((point) => point.join(',')).join('|');
+
+    /*
+     * ==========================================
      * WARNA PLUME
      * ==========================================
      */
@@ -776,7 +829,7 @@ export default function VolcanoMap({
                 attributionControl={false}
                 maxBounds={[
                     [-21.41, 73.65],
-                    [14.3069694978258, 153.41],
+                    [14.3069694978258, 170],
                 ]}
                 maxBoundsViscosity={1}
                 style={{
@@ -825,7 +878,12 @@ export default function VolcanoMap({
                     />
                 ))}
 
-                <MapFly target={position} zoom={10} />
+                <MapFly
+                    target={position}
+                    zoom={10}
+                    fit={fitQuakes}
+                    fitKey={fitKey}
+                />
 
                 {/* ==================================
                     LIVE WAVE
