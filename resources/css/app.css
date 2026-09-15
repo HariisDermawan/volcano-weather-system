@@ -155,6 +155,31 @@
     animation: vg-bell-shake 1s ease-in-out infinite;
 }
 
+/* =========================================
+    Toast notifikasi gempa baru (muncul + getaran halus)
+========================================= */
+
+.vg-quake-toast {
+    animation: vg-quake-pop 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes vg-quake-pop {
+    0% {
+        transform: translateY(-14px) scale(0.96);
+        opacity: 0;
+    }
+
+    60% {
+        transform: translateY(2px) scale(1.01);
+        opacity: 1;
+    }
+
+    100% {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+    }
+}
+
 @keyframes vg-bell-shake {
     0%,
     100% {
@@ -199,4 +224,80 @@
         transform: translateX(292px);
         opacity: 0;
     }
+}
+
+/* =========================================
+    MARKER LOKASI SAYA (GEOLOKASI)
+   ========================================= */
+
+.vg-user-loc-wrap {
+    position: relative;
+    width: 34px;
+    height: 38px;
+}
+
+.vg-user-loc-pin {
+    position: absolute;
+    left: 50%;
+    top: 3px;
+    width: 28px;
+    height: 28px;
+    transform: translateX(-50%);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45))
+        drop-shadow(0 0 8px rgba(56, 189, 248, 0.8));
+    z-index: 2;
+}
+
+.vg-user-loc-ring {
+    position: absolute;
+    left: 50%;
+    top: 7px;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border-radius: 50%;
+    border: 2.5px solid rgba(56, 189, 248, 0.9);
+    box-shadow:
+        0 0 12px rgba(56, 189, 248, 0.4),
+        inset 0 0 8px rgba(56, 189, 248, 0.2);
+    animation: vg-user-loc-pulse 1.8s ease-out infinite;
+    z-index: 1;
+}
+
+.vg-user-loc-ring.vg-user-loc-ring-2 {
+    animation-delay: 0.9s;
+}
+
+@keyframes vg-user-loc-pulse {
+    0% {
+        transform: scale(0.4);
+        opacity: 1;
+    }
+    75% {
+        transform: scale(3);
+        opacity: 0;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+/* Tooltip "Lokasi Saya" */
+.leaflet-tooltip.vg-user-loc-tooltip {
+    background: linear-gradient(to bottom, #111b2e, #0a0f1c) !important;
+    color: #38bdf8 !important;
+    border: 1px solid rgba(56, 189, 248, 0.4) !important;
+    border-radius: 6px !important;
+    padding: 2px 8px !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.3px !important;
+    white-space: nowrap !important;
+    box-shadow:
+        0 4px 14px rgba(0, 0, 0, 0.5),
+        0 0 10px rgba(56, 189, 248, 0.25) !important;
+}
+
+.leaflet-tooltip.vg-user-loc-tooltip::before {
+    border-top-color: rgba(56, 189, 248, 0.4) !important;
 }

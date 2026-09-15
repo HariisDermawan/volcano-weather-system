@@ -59,13 +59,6 @@ interface EarthquakeMarkerInfo {
     felt: string | null;
 }
 
-interface VolcanoQuakeInfo {
-    magnitude: string | null;
-    region: string | null;
-    datetime: string | null;
-    distanceKm: number;
-}
-
 interface VolcanoMapProps {
     latitude?: number;
     longitude?: number;
@@ -90,10 +83,10 @@ interface VolcanoMapProps {
     selectedQuakeId?: string | null;
     focusKey?: number;
     onSelectEarthquake?: (quake: EarthquakeMarkerInfo) => void;
-    volcanoQuakes?: Record<number, VolcanoQuakeInfo | null>;
     volcanoImage?: string | null;
     volcanoImageLoading?: boolean;
     volcanoImageSource?: 'photo' | 'cctv' | 'ven' | null;
+    userLocation?: { lat: number; lon: number } | null;
 }
 
 /*
@@ -133,39 +126,6 @@ function renderVolcanoSvg(color: string): string {
             <path d="M15 10 L24 34 L6 34 Z" fill="rgba(255,255,255,0.16)"/>
             <circle cx="15" cy="12" r="3" fill="rgba(0,0,0,0.35)"/>
         </svg>
-    `;
-}
-
-/*
- * ==========================================
- * PENANDA GEMPA DEKAT GUNUNG
- *
- * Gunung tetap tampil sebagai segitiga seperti
- * biasa; bila berada dekat gempa terkini (BMKG)
- * ditambah cincin merah berdenyut di belakangnya.
- * ==========================================
- */
-
-function renderQuakeHtml(inner: string): string {
-    return `
-        <div style="width:44px;height:50px;position:relative;">
-            <style>
-                .vg-quake-ring{
-                    position:absolute;left:5px;top:8px;width:34px;height:34px;
-                    border-radius:9999px;
-                    border:2px solid rgba(239,68,68,0.9);
-                    box-shadow:0 0 14px rgba(239,68,68,0.7);
-                    animation:vg-quake-pulse 1.6s ease-out infinite;
-                }
-                @keyframes vg-quake-pulse{
-                    0%{transform:scale(0.55);opacity:1;}
-                    70%{transform:scale(1.25);opacity:0;}
-                    100%{opacity:0;}
-                }
-            </style>
-            <span class="vg-quake-ring"></span>
-            <div style="position:absolute;bottom:0;left:7px;">${inner}</div>
-        </div>
     `;
 }
 
@@ -243,6 +203,32 @@ function earthquakeHtml(
     `;
 }
 
+function UserLocationMarker({ position }: { position: [number, number] }) {
+    const icon = useMemo(
+        () =>
+            L.divIcon({
+                className: '',
+                html: `<div class="vg-user-loc-wrap"><span class="vg-user-loc-ring"></span><span class="vg-user-loc-ring vg-user-loc-ring-2"></span><svg class="vg-user-loc-pin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" fill="#38bdf8" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="10" r="3" fill="#0b1220"/></svg></div>`,
+                iconSize: [34, 38],
+                iconAnchor: [17, 31],
+            }),
+        [],
+    );
+
+    return (
+        <Marker position={position} icon={icon} zIndexOffset={2000}>
+            <Tooltip
+                permanent
+                direction="top"
+                offset={[0, -18]}
+                className="vg-user-loc-tooltip"
+            >
+                Lokasi Saya
+            </Tooltip>
+        </Marker>
+    );
+}
+
 function EarthquakeMarker({
     quake,
     selected,
@@ -266,6 +252,42 @@ function EarthquakeMarker({
         [color, quake.magnitude, selected],
     );
 
+    const formatWIBDate = (dateStr: string) => {
+        const date = new Date(dateStr.replace(' ', 'T'));
+
+        if (Number.isNaN(date.getTime())) {
+            return '-';
+        }
+
+        const parts = new Intl.DateTimeFormat('id-ID', {
+            timeZone: 'Asia/Jakarta',
+            day: 'numeric',
+            month: 'short',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false,
+        }).formatToParts(date);
+
+        const pick = (type: string) =>
+            parts.find((part) => part.type === type)?.value ?? '';
+
+        return `${pick('day')} ${pick('month')} ${pick('year')} • ${pick('hour')}.${pick('minute')}.${pick('second')} WIB`;
+    };
+
+    const formatMagnitude = (mag: number | null) => {
+        if (mag === null) return '-';
+
+        return Number(mag).toFixed(1).replace('.', ',');
+    };
+
+    const formatDepth = (depth: string | null) => {
+        if (!depth) return '-';
+
+        return depth.replace('.', ',').trim();
+    };
+
     return (
         <Marker
             position={[Number(quake.latitude), Number(quake.longitude)]}
@@ -273,25 +295,54 @@ function EarthquakeMarker({
             eventHandlers={{ click: () => onSelect?.() }}
         >
             <Popup>
-                <strong>Gempa M{quake.magnitude ?? '-'}</strong>
-                <br />
-                {quake.depth || '-'}
-                <br />
-                {quake.region ?? '-'}
-                {quake.datetime && (
-                    <>
-                        <br />
-                        {new Date(quake.datetime).toLocaleString('id-ID')}
-                    </>
-                )}
-                {quake.felt && (
-                    <>
-                        <br />
-                        <span style={{ color: '#f59e0b' }}>
+                <div className="p-1">
+                    {quake.datetime && (
+                        <p className="mb-2 text-[11px] font-semibold text-slate-300">
+                            {formatWIBDate(quake.datetime)}
+                        </p>
+                    )}
+
+                    <p className="mb-3 text-[12px] font-bold text-white">
+                        {quake.region ?? '-'}
+                    </p>
+
+                    <dl className="space-y-1.5 text-[11px]">
+                        <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                            <dt className="font-semibold text-slate-500">
+                                Magnitudo
+                            </dt>
+                            <dd className="font-black" style={{ color }}>
+                                {formatMagnitude(quake.magnitude)}
+                            </dd>
+                        </div>
+
+                        <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                            <dt className="font-semibold text-slate-500">
+                                Kedalaman
+                            </dt>
+                            <dd className="font-semibold text-slate-300">
+                                {formatDepth(quake.depth)}
+                            </dd>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                            <dt className="font-semibold text-slate-500">
+                                Lokasi
+                            </dt>
+                            <dd className="text-right font-semibold text-slate-300">
+                                {quake.latitude && quake.longitude
+                                    ? `${Math.abs(quake.latitude).toFixed(2)}° ${quake.latitude >= 0 ? 'LS' : 'LU'} - ${Math.abs(quake.longitude).toFixed(2)}° ${quake.longitude >= 0 ? 'BT' : 'BB'}`
+                                    : '-'}
+                            </dd>
+                        </div>
+                    </dl>
+
+                    {quake.felt && (
+                        <p className="mt-2 rounded-md bg-amber-500/10 px-2 py-1 text-[10px] font-semibold text-amber-300">
                             Dirasakan: {quake.felt}
-                        </span>
-                    </>
-                )}
+                        </p>
+                    )}
+                </div>
             </Popup>
         </Marker>
     );
@@ -301,7 +352,6 @@ function VolcanoMarker({
     volcano,
     isSelected,
     active,
-    quake,
     image,
     imageLoading,
     imageSource,
@@ -310,20 +360,17 @@ function VolcanoMarker({
     volcano: VolcanoMarkerInfo;
     isSelected: boolean;
     active: boolean;
-    quake?: VolcanoQuakeInfo | null;
     image?: string | null;
     imageLoading?: boolean;
     imageSource?: 'photo' | 'cctv' | 'ven' | null;
     onSelect?: (id: number) => void;
 }) {
     const icon = useMemo(() => {
-        const size = active || quake ? [44, 50] : [30, 38];
+        const size = active ? [44, 50] : [30, 38];
 
         const eventIcon = active
             ? renderEruptingHtml(eruptingImage(volcano.status))
-            : quake
-              ? renderQuakeHtml(renderVolcanoSvg(statusColor(volcano.status)))
-              : renderVolcanoSvg(statusColor(volcano.status));
+            : renderVolcanoSvg(statusColor(volcano.status));
 
         return L.divIcon({
             html: eventIcon,
@@ -332,7 +379,7 @@ function VolcanoMarker({
             iconAnchor: [size[0] / 2, size[1] - 2],
             popupAnchor: [0, -(size[1] - 4)],
         });
-    }, [volcano.status, isSelected, active, quake]);
+    }, [volcano.status, isSelected, active]);
 
     return (
         <Marker
@@ -434,7 +481,7 @@ function VolcanoMarker({
                             }}
                         >
                             {imageSource === 'cctv'
-                                ? 'Kamera PVMBG • real-time'
+                                ? 'Kamera PVMBG'
                                 : imageSource === 'ven' ||
                                     imageSource === 'photo'
                                   ? 'Foto visual PVMBG'
@@ -443,33 +490,40 @@ function VolcanoMarker({
                     )}
                     <div
                         style={{
-                            textAlign: 'center',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 10,
                             borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
                             paddingBottom: 8,
                             marginBottom: 8,
                         }}
                     >
                         <strong
-                            style={{ fontSize: '1.05em', letterSpacing: 0.2 }}
+                            style={{
+                                fontSize: '1.05em',
+                                letterSpacing: 0.2,
+                                flex: 1,
+                            }}
                         >
                             {volcano.name}
                         </strong>
                         {volcano.status && (
-                            <div style={{ marginTop: 3 }}>
-                                <span
-                                    style={{
-                                        display: 'inline-block',
-                                        padding: '1px 9px',
-                                        borderRadius: 999,
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                        color: '#0b1220',
-                                        background: statusColor(volcano.status),
-                                    }}
-                                >
-                                    {volcano.status}
-                                </span>
-                            </div>
+                            <span
+                                style={{
+                                    display: 'inline-block',
+                                    padding: '1px 9px',
+                                    borderRadius: 999,
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    color: '#0b1220',
+                                    background: statusColor(volcano.status),
+                                    whiteSpace: 'nowrap',
+                                    textAlign: 'right',
+                                }}
+                            >
+                                {volcano.status}
+                            </span>
                         )}
                     </div>
                     {(volcano.kabupaten || volcano.province) && (
@@ -530,29 +584,9 @@ function VolcanoMarker({
                         }}
                     >
                         {volcano.periode_text ? (
-                            <>
-                                {volcano.periode_text}{' '}
-                                <a
-                                    href="https://magma.esdm.go.id/v1"
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    style={{ color: '#38bdf8' }}
-                                >
-                                    magma.esdm.go.id/v1
-                                </a>
-                            </>
+                            <>{volcano.periode_text}</>
                         ) : (
-                            <>
-                                Tidak ada laporan pengamatan terbaru.{' '}
-                                <a
-                                    href="https://magma.esdm.go.id/v1"
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    style={{ color: '#38bdf8' }}
-                                >
-                                    magma.esdm.go.id/v1
-                                </a>
-                            </>
+                            'Tidak ada laporan pengamatan terbaru.'
                         )}
                     </p>
                     {(volcano.visual || volcano.visual_lainnya) && (
@@ -590,28 +624,6 @@ function VolcanoMarker({
                                     )}
                             </p>
                         </>
-                    )}
-                    {quake && (
-                        <div
-                            style={{
-                                marginBottom: 8,
-                                padding: '6px 8px',
-                                borderRadius: 8,
-                                background: 'rgba(239, 68, 68, 0.12)',
-                                border: '1px solid rgba(239, 68, 68, 0.35)',
-                            }}
-                        >
-                            <div style={{ color: '#f87171', fontWeight: 600 }}>
-                                Gempa terdekat M{quake.magnitude ?? '-'}
-                                {quake.distanceKm != null &&
-                                    ` • ${quake.distanceKm.toFixed(0)} km`}
-                            </div>
-                            {quake.region && (
-                                <div style={{ color: '#e2e8f0', fontSize: 12 }}>
-                                    {quake.region}
-                                </div>
-                            )}
-                        </div>
                     )}
                     <div
                         style={{
@@ -961,10 +973,10 @@ export default function VolcanoMap({
     earthquakes = [],
     selectedQuakeId = null,
     focusKey = 0,
-    volcanoQuakes = {},
     volcanoImage = null,
     volcanoImageLoading = false,
     volcanoImageSource = null,
+    userLocation = null,
     onSelectVolcano,
     onSelectEarthquake,
 }: VolcanoMapProps) {
@@ -1192,7 +1204,6 @@ export default function VolcanoMap({
                         volcano={volcano}
                         isSelected={volcano.id === selectedVolcanoId}
                         active={activeVolcanoIds.includes(volcano.id)}
-                        quake={volcanoQuakes[volcano.id] ?? null}
                         image={
                             volcano.id === selectedVolcanoId
                                 ? volcanoImage
@@ -1210,6 +1221,19 @@ export default function VolcanoMap({
                         onSelect={onSelectVolcano}
                     />
                 ))}
+
+                {/* ==================================
+                    LOKASI SAYA (GEOLOKASI)
+                ================================== */}
+
+                {userLocation && (
+                    <UserLocationMarker
+                        position={[
+                            Number(userLocation.lat),
+                            Number(userLocation.lon),
+                        ]}
+                    />
+                )}
 
                 {/* ==================================
                     GEMPA TERKINI (BMKG)
@@ -1322,7 +1346,7 @@ export default function VolcanoMap({
                                       Kecepatan angin: {layerSpeedText}
                                       <br />
                                       {layer.label.includes('VAAC')
-                                          ? 'Deteksi satelit real-time'
+                                          ? 'Deteksi satelit'
                                           : `Risiko: ${riskLevel ?? '-'}`}
                                   </Popup>
                               </Polygon>

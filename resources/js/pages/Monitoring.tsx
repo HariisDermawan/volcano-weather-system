@@ -310,40 +310,6 @@ interface EarthquakeMarkerInfo {
     felt: string | null;
 }
 
-interface VolcanoQuakeInfo {
-    magnitude: string | null;
-    region: string | null;
-    datetime: string | null;
-    distanceKm: number;
-}
-
-/*
- * ==========================================
- * JARAK AMBANG GEMPA "DEKAT GUNUNG" (KM)
- * ==========================================
- */
-
-const QUIKE_NEAR_KM = 150;
-
-function haversineKm(
-    lat1: number,
-    lng1: number,
-    lat2: number,
-    lng2: number,
-): number {
-    const toRad = (deg: number) => (deg * Math.PI) / 180;
-
-    const earthRadiusKm = 6371;
-    const dLat = toRad(lat2 - lat1);
-    const dLng = toRad(lng2 - lng1);
-
-    const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-
-    return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 /*
  * ==========================================
  * JUDUL SEKSI (PANEL DECK / SIDE)
@@ -450,14 +416,12 @@ const LAYER_STYLE: Record<
 function LegendPanel({
     showGempaMarkers,
     onToggleGempa,
-    volcanoQuakesCount,
     checkedLayers,
     onToggleLayer,
     ashActive,
 }: {
     showGempaMarkers: boolean;
     onToggleGempa: () => void;
-    volcanoQuakesCount: number;
     checkedLayers: string[];
     onToggleLayer: (key: string) => void;
     ashActive: boolean;
@@ -508,13 +472,6 @@ function LegendPanel({
                     </span>
                 ))}
             </div>
-
-            {volcanoQuakesCount > 0 && (
-                <p className="mb-1.5 flex items-center gap-1.5 rounded-lg border border-red-500/15 bg-red-500/5 px-2 py-1.5 text-[9.5px] font-semibold text-red-300">
-                    <Siren size={10} strokeWidth={2.5} />
-                    {volcanoQuakesCount} gunung sedang dekat gempa
-                </p>
-            )}
 
             <div className="mb-1 flex items-center gap-1.5 border-b border-white/10 pb-2 text-[9.5px] font-semibold tracking-widest text-slate-500 uppercase">
                 <span className="h-2 w-2 rounded-full bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,1)]" />
@@ -1010,6 +967,97 @@ export default function Monitoring() {
 
     const firstQuakeFetchRef = useRef(true);
 
+    const [quakeAlert, setQuakeAlert] = useState<GempaItem | null>(null);
+
+    const [quakeAlertSeq, setQuakeAlertSeq] = useState(0);
+
+    const quakeToastTimerRef = useRef<number | null>(null);
+
+    const quakeNotifPromptedRef = useRef(false);
+
+    // ==========================================
+    // IZIN NOTIFIKASI BROWSER (saat interaksi pertama)
+    // ==========================================
+
+    useEffect(() => {
+        if (!('Notification' in window) || quakeNotifPromptedRef.current) {
+            return;
+        }
+
+        const onFirstGesture = () => {
+            if (Notification.permission === 'default') {
+                void Notification.requestPermission();
+            }
+
+            quakeNotifPromptedRef.current = true;
+            window.removeEventListener('pointerdown', onFirstGesture);
+        };
+
+        window.addEventListener('pointerdown', onFirstGesture);
+
+        return () => window.removeEventListener('pointerdown', onFirstGesture);
+    }, []);
+
+    // ==========================================
+    // NOTIFIKASI GEMPA BARU (browser + auto-dismiss toast)
+    // ==========================================
+
+    const notifyQuakeBrowser = (item: GempaItem) => {
+        if (
+            !('Notification' in window) ||
+            Notification.permission !== 'granted'
+        ) {
+            return;
+        }
+
+        try {
+            const magnitude =
+                item.magnitude && !Number.isNaN(Number(item.magnitude))
+                    ? Number(item.magnitude).toFixed(1)
+                    : '-';
+
+            const notification = new Notification('Gempa Baru Terdeteksi', {
+                body: `${item.region ?? 'Lokasi tidak diketahui'} — Magnitudo ${magnitude}${
+                    item.depth ? ` • Kedalaman ${item.depth.toLowerCase()}` : ''
+                }`,
+                tag: `vg-quake-${item.eventid ?? ''}`,
+            });
+
+            notification.onclick = () => {
+                window.focus();
+                notification.close();
+                setHasNewQuake(false);
+                setQuakeAlert(null);
+                setOpenPanel('gempa');
+            };
+        } catch {
+            // Notifikasi diblokir browser — diabaikan.
+        }
+    };
+
+    useEffect(() => {
+        if (!quakeAlert) {
+            return;
+        }
+
+        if (quakeToastTimerRef.current !== null) {
+            window.clearTimeout(quakeToastTimerRef.current);
+        }
+
+        quakeToastTimerRef.current = window.setTimeout(() => {
+            setQuakeAlert(null);
+            setHasNewQuake(false);
+            quakeToastTimerRef.current = null;
+        }, 15_000);
+
+        return () => {
+            if (quakeToastTimerRef.current !== null) {
+                window.clearTimeout(quakeToastTimerRef.current);
+                quakeToastTimerRef.current = null;
+            }
+        };
+    }, [quakeAlert, quakeAlertSeq]);
+
     const [hasNewEruption, setHasNewEruption] = useState(false);
 
     const lastEruptionKeysRef = useRef<Set<string>>(new Set());
@@ -1358,6 +1406,30 @@ export default function Monitoring() {
                     firstQuakeFetchRef.current = false;
                 } else if (freshOnes.length > 0) {
                     setHasNewQuake(true);
+
+                    const byKey = new Map<string, GempaItem>();
+
+                    (gempaData.list ?? []).forEach((item) => {
+                        byKey.set(
+                            item.eventid ??
+                                `${item.datetime}|${item.latitude}|${item.longitude}`
+                                    .replace(/null/g, '?')
+                                    .trim(),
+                            item,
+                        );
+                    });
+
+                    const freshItem =
+                        [...freshOnes]
+                            .map((key) => byKey.get(key))
+                            .find((item): item is GempaItem => Boolean(item)) ??
+                        null;
+
+                    if (freshItem) {
+                        setQuakeAlert(freshItem);
+                        setQuakeAlertSeq((seq) => seq + 1);
+                        notifyQuakeBrowser(freshItem);
+                    }
                 }
 
                 lastQuakeKeysRef.current = quakeKeys;
@@ -1682,6 +1754,12 @@ export default function Monitoring() {
         .filter((volcano) => volcano.erupting)
         .map((volcano) => volcano.id);
 
+    const eruptingCount = eruptingVolcanoIds.length;
+
+    const ashDetectedCount = volcanoes.filter(
+        (volcano) => volcano.ash_active,
+    ).length;
+
     // ==========================================
     // GEMPA → MARKER PETA
     // ==========================================
@@ -1958,57 +2036,6 @@ export default function Monitoring() {
             </dl>
         </>
     );
-
-    // ==========================================
-    // STATUS GEMPA REAL-TIME PER GUNUNG
-    //
-    // Setiap gunung = titik pemantau. Bila gempa
-    // BMKG terbaru berada dalam ambang jarak,
-    // gunung itu dianggap "sedang dekat gempa"
-    // dan ikonnya berubah menjadi ikon seismik.
-    // ==========================================
-
-    const volcanoQuakes = useMemo(() => {
-        const quakes = gempa?.list ?? [];
-        const result: Record<number, VolcanoQuakeInfo | null> = {};
-
-        for (const volcano of volcanoes) {
-            let nearest: VolcanoQuakeInfo | null = null;
-
-            for (const quake of quakes) {
-                if (quake.latitude === null || quake.longitude === null) {
-                    continue;
-                }
-
-                const distanceKm = haversineKm(
-                    Number(volcano.latitude),
-                    Number(volcano.longitude),
-                    quake.latitude,
-                    quake.longitude,
-                );
-
-                if (distanceKm > QUIKE_NEAR_KM) {
-                    continue;
-                }
-
-                if (nearest === null || distanceKm < nearest.distanceKm) {
-                    nearest = {
-                        magnitude: quake.magnitude,
-                        region: quake.region,
-                        datetime: quake.datetime,
-                        distanceKm,
-                    };
-                }
-            }
-
-            result[volcano.id] = nearest;
-        }
-
-        return result;
-    }, [volcanoes, gempa]);
-
-    const volcanoQuakesCount =
-        Object.values(volcanoQuakes).filter(Boolean).length;
 
     // ==========================================
     // PRAKIRAAN BMKG PER 3 JAM (GADGET CUACA)
@@ -2688,6 +2715,14 @@ export default function Monitoring() {
                         focusKey={volcanoFocusKey}
                         volcanoImage={volcanoPhoto.image}
                         volcanoImageLoading={volcanoPhotoLoading}
+                        userLocation={
+                            cityCoords
+                                ? {
+                                      lat: cityCoords.lat,
+                                      lon: cityCoords.lon,
+                                  }
+                                : null
+                        }
                         onSelectEarthquake={(quake) => {
                             const matched =
                                 gempa?.list.find(
@@ -2725,7 +2760,6 @@ export default function Monitoring() {
                                 shakemap: null,
                             });
                         }}
-                        volcanoQuakes={volcanoQuakes}
                         dark={false}
                     />
                 </Suspense>
@@ -2741,17 +2775,17 @@ export default function Monitoring() {
             TOPBAR (GLASS)
         ====================================== */}
 
-            <header className="pointer-events-none absolute inset-x-0 top-0 z-[1200] px-3 pt-3">
-                <div className="pointer-events-auto rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-4 py-3 shadow-2xl shadow-black/50 backdrop-blur-xl">
-                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-                        <div className="flex min-w-0 items-center gap-2.5">
+            <header className="pointer-events-none absolute inset-x-0 top-0 z-[1200] px-2.5 pt-2.5 sm:px-3 sm:pt-3">
+                <div className="pointer-events-auto relative rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-3 py-2.5 shadow-2xl shadow-black/50 backdrop-blur-xl before:pointer-events-none before:absolute before:inset-x-8 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-sky-400/70 before:to-transparent sm:px-4 sm:py-3">
+                    <div className="flex items-center justify-between gap-x-2.5 sm:gap-x-3">
+                        <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
                             <img
                                 src="/logo/logoSi-nav.webp"
                                 alt="Volcano Watch"
                                 width={72}
                                 height={77}
                                 fetchPriority="high"
-                                className="h-8 w-auto shrink-0 object-contain drop-shadow-[0_0_14px_rgba(14,165,233,0.5)] sm:h-10"
+                                className="h-7 w-auto shrink-0 object-contain drop-shadow-[0_0_14px_rgba(14,165,233,0.5)] sm:h-10"
                             />
 
                             <div className="min-w-0">
@@ -2772,11 +2806,11 @@ export default function Monitoring() {
                             </div>
                         </div>
 
-                        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                        <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-2 lg:pl-3">
                             {/* STATUS PILL */}
 
                             <span
-                                className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-extrabold tracking-wide uppercase ${statusPillClass}`}
+                                className={`hidden items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-extrabold tracking-wide uppercase sm:flex ${statusPillClass}`}
                             >
                                 <span
                                     className={`h-2 w-2 rounded-full ${statusDotClass}`}
@@ -2798,7 +2832,7 @@ export default function Monitoring() {
                                         : 'Deteksi kota saya (minta izin lokasi)'
                                 }
                                 aria-label="Deteksi kota saya"
-                                className={`flex h-8 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[11px] font-bold transition ${
+                                className={`flex h-8 min-w-0 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-2.5 text-[11px] font-bold transition sm:px-3 ${
                                     geoState === 'denied'
                                         ? 'border-red-500/40 bg-red-500/10 text-red-300'
                                         : geoState === 'requesting'
@@ -2817,7 +2851,7 @@ export default function Monitoring() {
                                     <MapPin size={12} strokeWidth={2.5} />
                                 )}
 
-                                <span className="max-w-[38vw] truncate sm:max-w-[160px]">
+                                <span className="max-w-[20vw] truncate sm:max-w-[160px]">
                                     {cityData?.city.name ?? 'Kota Saya'}
                                 </span>
                             </button>
@@ -2851,9 +2885,35 @@ export default function Monitoring() {
                         </div>
                     </div>
 
+                    {/* ERUPSI STATUS (MOBILE — di atas dropdown gunung) */}
+
+                    {(eruptingCount > 0 || ashDetectedCount > 0) && (
+                        <div className="mt-2 flex shrink-0 items-center gap-1.5 lg:hidden">
+                            {eruptingCount > 0 ? (
+                                <span className="flex w-full items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[9.5px] font-black tracking-widest text-red-300 uppercase">
+                                    <span className="h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-red-500 shadow-[0_0_8px_rgba(239,68,68,1)]" />
+
+                                    <span className="min-w-0 truncate">
+                                        Erupsi Aktif (MAGMA) · {eruptingCount}{' '}
+                                        gunung
+                                    </span>
+                                </span>
+                            ) : (
+                                <span className="flex w-full items-center gap-1.5 rounded-lg border border-orange-500/30 bg-orange-500/10 px-2.5 py-1 text-[9.5px] font-black tracking-widest text-orange-300 uppercase">
+                                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400" />
+
+                                    <span className="min-w-0 truncate">
+                                        Abu Terdeteksi (VAAC) ·{' '}
+                                        {ashDetectedCount} gunung
+                                    </span>
+                                </span>
+                            )}
+                        </div>
+                    )}
+
                     {/* SEARCH SELECT GUNUNG */}
 
-                    <div className="relative mt-2.5">
+                    <div className="relative mt-2 sm:mt-2.5">
                         <div
                             className={`flex items-center gap-2 rounded-xl border px-3 py-2 transition ${
                                 volcanoOpen
@@ -2953,6 +3013,59 @@ export default function Monitoring() {
             </header>
 
             {/* =====================================
+            BANNER GEMPA BARU (REAL-TIME)
+        ====================================== */}
+
+            {quakeAlert && hasNewQuake && (
+                <div className="pointer-events-none absolute inset-x-0 top-[150px] z-[1260] flex justify-center px-4">
+                    <div
+                        key={quakeAlertSeq}
+                        className="vg-quake-toast pointer-events-auto flex w-[min(560px,92vw)] cursor-pointer items-center gap-3 rounded-2xl border border-red-500/50 bg-gradient-to-r from-red-600/25 via-red-500/15 to-red-600/25 px-4 py-3 shadow-[0_0_28px_rgba(239,68,68,0.5)] backdrop-blur-xl"
+                        role="alert"
+                        onClick={() => {
+                            setHasNewQuake(false);
+                            setQuakeAlert(null);
+                            setOpenPanel('gempa');
+                        }}
+                    >
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500/20 text-red-300">
+                            <Siren size={18} />
+                        </span>
+
+                        <div className="min-w-0 flex-1">
+                            <p className="text-[10px] font-black tracking-widest text-red-300 uppercase">
+                                Gempa Baru Terdeteksi
+                            </p>
+
+                            <p className="truncate text-[13px] leading-snug font-bold text-white">
+                                M{magnitudeLabel(quakeAlert.magnitude)} —{' '}
+                                {quakeAlert.region}
+                            </p>
+
+                            <p className="text-[11px] text-slate-300">
+                                Kedalaman {kedalamanLabel(quakeAlert.depth)}
+                                {quakeAlert.tanggal &&
+                                    quakeAlert.jam &&
+                                    ` • ${quakeAlert.tanggal} ${quakeAlert.jam} WIB`}
+                            </p>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                setQuakeAlert(null);
+                                setHasNewQuake(false);
+                            }}
+                            className="shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-red-200 hover:bg-red-500/20"
+                        >
+                            Tutup
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* =====================================
             BANNER ANCAMAN ABU KE KOTA (REAL-TIME)
         ====================================== */}
 
@@ -2998,6 +3111,7 @@ export default function Monitoring() {
 
                                     if (key === 'gempa') {
                                         setHasNewQuake(false);
+                                        setQuakeAlert(null);
                                     }
 
                                     if (key === 'letusan') {
@@ -3067,7 +3181,7 @@ export default function Monitoring() {
                                         di bar atas untuk mendeteksi lokasi
                                         Anda. Browser akan meminta izin
                                         (Allow/Izinkan), lalu kota Anda dipantau
-                                        sebaran abu vulkanik secara real-time.
+                                        sebaran abu vulkanik dari sumber resmi.
                                     </p>
                                 )}
 
@@ -3197,7 +3311,7 @@ export default function Monitoring() {
                                     geoState === 'idle' ? (
                                         <p className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-500">
                                             Mengakses lokasi Anda untuk
-                                            menampilkan cuaca real-time…
+                                            menampilkan cuaca…
                                         </p>
                                     ) : geoState === 'denied' ||
                                       geoState === 'error' ? (
@@ -3228,7 +3342,7 @@ export default function Monitoring() {
                                         <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
                                             <p className="text-[11px] leading-relaxed text-slate-500">
                                                 {userWeatherLoading
-                                                    ? 'Memuat cuaca real-time…'
+                                                    ? 'Memuat data cuaca…'
                                                     : (userWeatherError ??
                                                       'Menunggu data cuaca kota.')}
                                             </p>
@@ -3289,7 +3403,7 @@ export default function Monitoring() {
                                                                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
                                                                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
                                                             </span>
-                                                            Real-time
+                                                            Terkini
                                                         </span>
 
                                                         <span className="text-[8.5px] text-slate-500">
@@ -3603,7 +3717,7 @@ export default function Monitoring() {
                                 <div className="rounded-xl border border-sky-400/25 border-l-sky-400/80 bg-sky-400/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
                                     <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-sky-300 uppercase">
                                         <Radio size={10} strokeWidth={2.5} />
-                                        Status Erupsi Real-time
+                                        Status Erupsi
                                     </p>
 
                                     <p className="mt-1.5 text-[13px] font-black text-white">
@@ -3662,7 +3776,7 @@ export default function Monitoring() {
 
                                 <p className="mt-1 text-[9px] text-slate-500">
                                     {data.volcano.status_source === 'live'
-                                        ? 'Sumber: PVMBG (MAGMA) real-time'
+                                        ? 'Sumber: PVMBG (MAGMA)'
                                         : 'status tersimpan (fallback)'}
                                 </p>
                             </section>
@@ -4520,13 +4634,6 @@ export default function Monitoring() {
                                     </div>
                                 </div>
 
-                                <p className="mb-2 text-[9.5px] text-slate-500">
-                                    Sumber: CAMS Total Column Sulphur Dioxide
-                                    (Copernicus/ECMWF) via Windy • Perkiraan
-                                    konsentrasi SO2 kolom atmosfer, bukan
-                                    pengukuran di kawah
-                                </p>
-
                                 <Suspense
                                     fallback={
                                         <div className="h-[420px] w-full animate-pulse rounded-2xl bg-slate-900" />
@@ -4858,7 +4965,6 @@ export default function Monitoring() {
                 <LegendPanel
                     showGempaMarkers={showGempaMarkers}
                     onToggleGempa={() => setShowGempaMarkers((value) => !value)}
-                    volcanoQuakesCount={volcanoQuakesCount}
                     checkedLayers={checkedLayers}
                     onToggleLayer={toggleLayer}
                     ashActive={ashActive}
@@ -4884,7 +4990,6 @@ export default function Monitoring() {
                             onToggleGempa={() =>
                                 setShowGempaMarkers((value) => !value)
                             }
-                            volcanoQuakesCount={volcanoQuakesCount}
                             checkedLayers={checkedLayers}
                             onToggleLayer={toggleLayer}
                             ashActive={ashActive}
