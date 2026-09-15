@@ -43,6 +43,9 @@ interface VolcanoMarkerInfo {
     elevation?: number | string | null;
     periode_periode?: string | null;
     periode_report_date?: string | null;
+    periode_text?: string | null;
+    lokasi?: string | null;
+    klimatologi?: string | null;
 }
 
 interface EarthquakeMarkerInfo {
@@ -90,7 +93,7 @@ interface VolcanoMapProps {
     volcanoQuakes?: Record<number, VolcanoQuakeInfo | null>;
     volcanoImage?: string | null;
     volcanoImageLoading?: boolean;
-    volcanoImageSource?: 'cctv' | 'ven' | null;
+    volcanoImageSource?: 'photo' | 'cctv' | 'ven' | null;
 }
 
 /*
@@ -310,7 +313,7 @@ function VolcanoMarker({
     quake?: VolcanoQuakeInfo | null;
     image?: string | null;
     imageLoading?: boolean;
-    imageSource?: 'cctv' | 'ven' | null;
+    imageSource?: 'photo' | 'cctv' | 'ven' | null;
     onSelect?: (id: number) => void;
 }) {
     const icon = useMemo(() => {
@@ -417,7 +420,8 @@ function VolcanoMarker({
                         >
                             {imageSource === 'cctv'
                                 ? 'Kamera PVMBG • real-time'
-                                : imageSource === 'ven'
+                                : imageSource === 'ven' ||
+                                    imageSource === 'photo'
                                   ? 'Foto visual PVMBG'
                                   : null}
                         </div>
@@ -475,15 +479,18 @@ function VolcanoMarker({
                                     color: '#cfd7e5',
                                 }}
                             >
-                                Terletak di Kab\Kota {volcano.kabupaten ?? '-'},{' '}
-                                {volcano.province ?? '-'} dengan posisi
-                                geografis di Latitude {Number(volcano.latitude)}
-                                °LU, Longitude {Number(volcano.longitude)}°BT
-                                dan memiliki ketinggian{' '}
-                                {volcano.elevation != null
-                                    ? volcano.elevation
-                                    : '-'}{' '}
-                                mdpl
+                                {volcano.lokasi ??
+                                    `Terletak di Kab\\Kota ${volcano.kabupaten ?? '-'}, ${
+                                        volcano.province ?? '-'
+                                    } dengan posisi geografis di Latitude ${Number(
+                                        volcano.latitude,
+                                    )}°LU, Longitude ${Number(
+                                        volcano.longitude,
+                                    )}°BT dan memiliki ketinggian ${
+                                        volcano.elevation != null
+                                            ? volcano.elevation
+                                            : '-'
+                                    } mdpl`}
                             </p>
                         </>
                     )}
@@ -507,14 +514,14 @@ function VolcanoMarker({
                             color: '#cfd7e5',
                         }}
                     >
-                        {volcano.periode_periode ? (
+                        {volcano.periode_periode || volcano.periode_text ? (
                             <>
-                                Laporan per 6 jam, tanggal{' '}
-                                {volcano.periode_report_date ?? '-'} pukul{' '}
-                                {(volcano.periode_periode ?? '').replace(
-                                    /^Periode\s+/,
-                                    '',
-                                )}{' '}
+                                {volcano.periode_text ??
+                                    `Laporan per 6 jam, tanggal ${
+                                        volcano.periode_report_date ?? '-'
+                                    } pukul ${(
+                                        volcano.periode_periode ?? ''
+                                    ).replace(/^Periode\s+/, '')}`}{' '}
                                 <a
                                     href="https://magma.esdm.go.id/v1"
                                     target="_blank"
@@ -538,6 +545,32 @@ function VolcanoMarker({
                             </>
                         )}
                     </p>
+                    {volcano.klimatologi && (
+                        <>
+                            <div
+                                style={{
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: 0.6,
+                                    color: '#94a3b8',
+                                    marginBottom: 2,
+                                }}
+                            >
+                                Klimatologi
+                            </div>
+                            <p
+                                style={{
+                                    margin: '2px 0 9px',
+                                    fontSize: 12.5,
+                                    lineHeight: 1.55,
+                                    color: '#cfd7e5',
+                                }}
+                            >
+                                {volcano.klimatologi}
+                            </p>
+                        </>
+                    )}
                     {quake && (
                         <div
                             style={{

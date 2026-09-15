@@ -24,6 +24,13 @@ class MagmaService
 
     private const MAP_URL = 'https://magma.esdm.go.id/v1';
 
+    /**
+     * Endpoints
+     */
+    private const VAR_URL = 'https://magma.esdm.go.id/v1/json/var';
+
+    private const VAR_SIGNATURE = '22bb021f910ca5d2cb91120509029340e9367d214d8d1f382aa4f5ce4faf11b6';
+
     private const REPORTS_URL = 'https://magma.esdm.go.id/v1/gunung-api/laporan';
 
     private const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36';
@@ -182,19 +189,84 @@ class MagmaService
     }
 
     /**
-     * Periode pengamatan laporan per gunung, dari halaman `gunung-api/laporan`.
+     * Entri laporan pengamatan terbaru per gunung dari `gunung-api/laporan`.
      *
-     * @return array<string, array<string, string>>
+     * Berisi id + signature link detail (untuk menarik foto & konten
+     * laporan) sekaligus periode + tanggal. Halaman terurut terbaru dulu,
+     * sehingga entri PERTAMA per gunung yang disimpan.
+     *
+     * @return array<string, array{id: string, signature: string, period: string, report_date: string}>
      */
-    public function getReportPeriods(): array
+    public function getReportEntries(): array
     {
         return Cache::remember(
             self::REPORT_PERIODS_CACHE_KEY,
             self::CACHE_TTL * 2,
             function (): array {
-                return $this->fetchReportPeriods();
+                return $this->fetchReportEntries();
             },
         );
+    }
+
+    /**
+     * Periode pengamatan laporan per gunung, dari entri laporan.
+     *
+     * @return array<string, array<string, string>>
+     */
+    public function getReportPeriods(): array
+    {
+        $result = [];
+
+        foreach ($this->getReportEntries() as $key => $entry) {
+            $result[$key] = [
+                'period' => $entry['period'],
+                'report_date' => $entry['report_date'],
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Data laporan pengamatan terbaru sebuah gunung, atau null.
+     *
+     * Menarik halaman detail `gunung-api/laporan/{id}?signature=...`
+     * — sumber publik yang sama dengan popup magma.esdm.go.id/v1 — lalu
+     * mengekstrak kalimat lokasi, foto resmi, visual, klimatologi, dan
+     * seismik. Di-cache 10 menit per gunung.
+     *
+     * @return array<string, string|null>|null
+     */
+    public function getReportData(string $volcanoName): ?array
+    {
+        $key = $this->normalizeName($volcanoName);
+
+        if ($key === '') {
+            return null;
+        }
+
+        return Cache::remember(
+            'magma:report-data:'.mb_strtolower(str_replace(' ', '-', $key)),
+            600,
+            function () use ($volcanoName, $key): ?array {
+                return $this->fetchReportData($volcanoName, $key);
+            },
+        );
+    }
+
+    /**
+     * Foto resmi periode pengamatan terbaru sebuah gunung, atau null.
+     *
+     * Diambil dari halaman detail laporan MAGMA (`img/ga/...`) — foto
+     * yang sama persis dengan yang tampil di popup /v1.
+     */
+    public function getReportPhoto(string $volcanoName): ?string
+    {
+        $data = $this->getReportData($volcanoName);
+
+        $image = $data['image'] ?? null;
+
+        return is_string($image) && $image !== '' ? $image : null;
     }
 
     /**
@@ -340,11 +412,11 @@ class MagmaService
 
     /**
      * Parse halaman laporan pengamatan (`gunung-api/laporan`) menjadi
-     * periode + tanggal laporan terakhir per gunung.
+     * entri per gunung: id + signature link detail, periode, dan tanggal.
      *
-     * @return array<string, array<string, string>>
+     * @return array<string, array{id: string, signature: string, period: string, report_date: string}>
      */
-    private function fetchReportPeriods(): array
+    private function fetchReportEntries(): array
     {
         try {
             $response = Http::withHeaders([
@@ -377,13 +449,28 @@ class MagmaService
                     continue;
                 }
 
+                if (! preg_match('/laporan\/(\d+)\?signature=([0-9a-f]{64})/', $chunk, $link)) {
+                    continue;
+                }
+
                 $reportDate = $this->parseReportDate($date[2], $date[3], $date[4]);
 
                 if ($reportDate === null) {
                     continue;
                 }
 
-                $result[$this->normalizeName(trim($name[1]))] = [
+                $key = $this->normalizeName(trim($name[1]));
+
+                // Halaman terurut laporan terbaru dulu — pertahankan entri
+                // PERTAMA per gunung agar periode (dan fotonya) selalu yang
+                // paling baru, bukan terakhir yang kebetulan muncul.
+                if (isset($result[$key])) {
+                    continue;
+                }
+
+                $result[$key] = [
+                    'id' => $link[1],
+                    'signature' => $link[2],
                     'period' => trim(html_entity_decode(
                         $period[1],
                         ENT_QUOTES | ENT_HTML5,
@@ -399,6 +486,147 @@ class MagmaService
 
             return [];
         }
+    }
+
+    /**
+     * Fetch halaman detail laporan sebuah gunung dan ekstrak isinya.
+     *
+     * Halaman ini adalah sumber publik resmi yang juga dipakai popup /v1:
+     * kalimat lokasi geografis, foto resmi `img/ga/...`, visual, keterangan
+     * lainnya, klimatologi, kegempaan, dan rekomendasi.
+     *
+     * @return array<string, string|null>|null
+     */
+    private function fetchReportData(
+        string $volcanoName,
+        string $normalizedName,
+    ): ?array {
+        $entry = $this->getReportEntries()[$normalizedName] ?? null;
+
+        if ($entry === null) {
+            return null;
+        }
+
+        try {
+            $response = Http::withHeaders([
+                'User-Agent' => self::USER_AGENT,
+                'Accept' => 'text/html,application/xhtml+xml',
+            ])
+                ->timeout(25)
+                ->get(self::REPORTS_URL.'/'.$entry['id'].'?signature='.$entry['signature']);
+
+            if ($response->failed()) {
+                return null;
+            }
+
+            $html = $response->body();
+
+            $result = [
+                'period' => $entry['period'],
+                'report_date' => $entry['report_date'],
+                'periode_text' => sprintf(
+                    'Laporan per 6 jam, tanggal %s pukul %s',
+                    $entry['report_date'],
+                    trim((string) preg_replace(
+                        '/^Periode\s+/i',
+                        '',
+                        $entry['period'],
+                    )),
+                ),
+                'location' => null,
+                'image' => null,
+                'visual' => null,
+                'keterangan' => null,
+                'klimatologi' => null,
+                'kegempaan' => null,
+                'rekomendasi' => null,
+            ];
+
+            if (preg_match('/<p class="col-lg-6 pd-0">([^<]+)<\/p>/', $html, $m)) {
+                $result['location'] = trim(html_entity_decode(
+                    $m[1],
+                    ENT_QUOTES | ENT_HTML5,
+                    'UTF-8',
+                ));
+            }
+
+            if (preg_match('/<img class="img-fluid" src="(https?:\/\/[^"]+)"/', $html, $m)) {
+                $result['image'] = $m[1];
+            }
+
+            $sectionMap = [
+                'Pengamatan Visual' => 'visual',
+                'Keterangan Lainnya' => 'keterangan',
+                'Klimatologi' => 'klimatologi',
+                'Pengamatan Kegempaan' => 'kegempaan',
+                'Rekomendasi' => 'rekomendasi',
+            ];
+
+            $searchOffset = 0;
+
+            while (preg_match(
+                '/<h6 class="slim-card-title">([^<]+)<\/h6>/',
+                $html,
+                $m,
+                PREG_OFFSET_CAPTURE,
+                $searchOffset,
+            )) {
+                $field = $sectionMap[trim($m[1][0])] ?? null;
+                $contentStart = $m[0][1] + strlen($m[0][0]);
+
+                if (preg_match(
+                    '/<\/div>\s*<\/div>\s*<\/div>/',
+                    $html,
+                    $em,
+                    PREG_OFFSET_CAPTURE,
+                    $contentStart,
+                )) {
+                    $contentEnd = $em[0][1];
+                } else {
+                    $contentEnd = strlen($html);
+                }
+
+                if ($field !== null) {
+                    $clean = $this->cleanReportBlock(
+                        substr($html, $contentStart, $contentEnd - $contentStart),
+                    );
+
+                    if ($clean !== null) {
+                        $result[$field] = $clean;
+                    }
+                }
+
+                $searchOffset = $contentEnd;
+            }
+
+            return $result;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+    }
+
+    /**
+     * Bersihkan HTML satu blok laporan menjadi teks per baris.
+     */
+    private function cleanReportBlock(string $html): ?string
+    {
+        $html = preg_replace('/<br\s*\/?\s*>/i', "\n", $html);
+        $html = preg_replace('/<hr\s*\/?\s*>/i', "\n", $html);
+        $html = strip_tags($html);
+        $html = html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        $lines = array_values(array_filter(
+            array_map(
+                fn (string $line): string => trim(preg_replace('/\s+/u', ' ', $line)),
+                explode("\n", $html),
+            ),
+            fn (string $line): bool => $line !== ''
+                && ! in_array($line, ['Rekomendasi', 'Pengamatan Kegempaan'], true),
+        ));
+
+        return $lines === [] ? null : implode("\n", $lines);
     }
 
     /**

@@ -64,6 +64,9 @@ interface Volcano {
     province?: string | null;
     periode_periode?: string | null;
     periode_report_date?: string | null;
+    periode_text?: string | null;
+    lokasi?: string | null;
+    klimatologi?: string | null;
 }
 
 interface CctvCamera {
@@ -73,7 +76,7 @@ interface CctvCamera {
 
 interface VolcanoPhoto {
     image: string | null;
-    source: 'cctv' | 'ven' | null;
+    source: 'photo' | 'cctv' | 'ven' | null;
 }
 
 interface Weather {
@@ -1262,7 +1265,7 @@ export default function Monitoring() {
                     result: {
                         cameras?: CctvCamera[];
                         image?: string | null;
-                        source?: 'cctv' | 'ven' | null;
+                        source?: 'photo' | 'cctv' | 'ven' | null;
                     } | null,
                 ) => {
                     if (cancelled) {

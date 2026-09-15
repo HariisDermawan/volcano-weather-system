@@ -13,15 +13,29 @@ class VolcanoController extends Controller
     /**
      * Foto popup untuk sebuah gunung, sumber terbaik yang tersedia.
      *
-     * Prioritas: (1) visual VEN terbaru dari halaman letusan MAGMA — foto
-     * persis yang tampil di popup magma.esdm.go.id/v1, (2) snapshot CCTV
-     * real-time sebagai cadangan, (3) null → placeholder di frontend.
+     * Prioritas:
+     * (1) Foto resmi periode laporan dari MAGMA (`img/ga/...`) — foto
+     *     persis yang tampil di popup magma.esdm.go.id/v1.
+     * (2) Visual VEN terbaru dari halaman letusan (crs/VEN_...).
+     * (3) Snapshot CCTV real-time sebagai cadangan.
+     * (4) null → placeholder di frontend.
      */
     public function cctv(
         Volcano $volcano,
         MagmaCctvService $cctv,
         MagmaService $magma,
     ): JsonResponse {
+        $reportPhoto = $magma->getReportPhoto($volcano->name);
+
+        if ($reportPhoto !== null) {
+            return response()->json([
+                'name' => $volcano->name,
+                'cameras' => [],
+                'image' => $reportPhoto,
+                'source' => 'photo',
+            ]);
+        }
+
         $visual = $magma->getVisualPhoto($volcano->name);
 
         if ($visual !== null) {
@@ -157,6 +171,25 @@ class VolcanoController extends Controller
                 $volcano->setAttribute(
                     'periode_report_date',
                     $report['report_date'] ?? null,
+                );
+
+                // Data laporan detail (kalimat lokasi, klimatologi, teks
+                // periode) — sumber yang sama dengan popup /v1.
+                $reportData = $magma->getReportData((string) $volcano->name);
+
+                $volcano->setAttribute(
+                    'lokasi',
+                    $reportData['location'] ?? null,
+                );
+
+                $volcano->setAttribute(
+                    'klimatologi',
+                    $reportData['klimatologi'] ?? null,
+                );
+
+                $volcano->setAttribute(
+                    'periode_text',
+                    $reportData['periode_text'] ?? null,
                 );
 
                 $eruptionWhen = $latestEruptionAt[$key] ?? null;
