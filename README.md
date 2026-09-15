@@ -1,18 +1,8 @@
-<<<<<<< HEAD
 ![Volcano Watch](https://github.com/HariisDermawan/volcano-weather-system/blob/main/public/gambar/gam.png)
 
 # Volcano Watch
 
-=======
-Volcano Watch
-=======
-
-# Volcano Watch
-
-> > > > > > > a56385f (feat: add new image asset for volcano monitoring)
-
-> > > > > > > eb20ca3 (Add CO2 and Volcano SVG icons, implement VolcanoIcon component, and update Monitoring page to display weather data)
-> > > > > > > Sistem pemantauan **gunung api & cuaca** interaktif untuk Indonesia. Menampilkan status aktivitas gunung api (PVMBG/MAGMA), informasi letusan, advisory abu vulkanik VAAC Darwin (BOM), prakiraan & prediksi sebaran abu, gempa bumi terkini (BMKG), gerakan tanah, serta prakiraan cuaca (BMKG & Open-Meteo) — semuanya divisualisasikan di atas peta Leaflet secara real-time.
+Sistem pemantauan **gunung api & cuaca** interaktif untuk Indonesia. Menampilkan status aktivitas gunung api (PVMBG/MAGMA), informasi letusan, advisory abu vulkanik VAAC Darwin (BOM), prakiraan & prediksi sebaran abu, gempa bumi terkini (BMKG), gerakan tanah, serta prakiraan cuaca (BMKG & Open-Meteo) — semuanya divisualisasikan di atas peta Leaflet secara real-time.
 
 ## Fitur Utama
 
@@ -231,25 +221,3 @@ composer ci:check        # mirip pipeline CI
 php artisan test --compact                        # semua test
 php artisan test --compact --filter=testName      # per nama
 ```
-
-CI tunggal (`.github/workflows/tests.yml`) berjalan pada push ke `main` dan semua PR: checkout → PHP 8.3 → Node 22 → `composer setup` → `composer ci:check`.
-
-## FAQ & Troubleshooting
-
-**Vite manifest error saat akses halaman?**
-Bangun aset dulu: `npm run build`, atau jalankan `composer dev`.
-
-**Aplikasi tidak terhubung ke MySQL?**
-Pastikan `python-service/.env` berisi kredensial MySQL yang sesuai, dan service scheduler berjalan.
-
-**Collector gagal karena `bs4`?**
-Instal dependensi yang belum tercantum: `pip install beautifulsoup4` lalu tambahkan ke `requirements.txt`.
-<<<<<<< HEAD
-=======
-
-## Lisensi
-
-MIT
-
-> > > > > > > a56385f (feat: add new image asset for volcano monitoring)
-> > > > > > > eb20ca3 (Add CO2 and Volcano SVG icons, implement VolcanoIcon component, and update Monitoring page to display weather data)
