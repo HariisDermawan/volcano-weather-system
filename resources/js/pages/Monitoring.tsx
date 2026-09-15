@@ -62,11 +62,12 @@ interface Volcano {
     last_eruption_at?: string | null;
     kabupaten?: string | null;
     province?: string | null;
-    periode_periode?: string | null;
-    periode_report_date?: string | null;
     periode_text?: string | null;
     lokasi?: string | null;
     klimatologi?: string | null;
+    visual?: string | null;
+    visual_lainnya?: string | null;
+    rekomendasi?: string | null;
 }
 
 interface CctvCamera {

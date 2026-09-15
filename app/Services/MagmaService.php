@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use GuzzleHttp\Cookie\CookieJar;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
@@ -31,8 +32,6 @@ class MagmaService
 
     private const VAR_SIGNATURE = '22bb021f910ca5d2cb91120509029340e9367d214d8d1f382aa4f5ce4faf11b6';
 
-    private const REPORTS_URL = 'https://magma.esdm.go.id/v1/gunung-api/laporan';
-
     private const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36';
 
     private const LEVELS_CACHE_KEY = 'magma:levels';
@@ -43,7 +42,7 @@ class MagmaService
 
     private const MARKER_META_CACHE_KEY = 'magma:marker-meta';
 
-    private const REPORT_PERIODS_CACHE_KEY = 'magma:report-periods';
+    private const VAR_CACHE_KEY = 'magma:var';
 
     private const CACHE_TTL = 180; // 3 minutes
 
@@ -189,55 +188,9 @@ class MagmaService
     }
 
     /**
-     * Entri laporan pengamatan terbaru per gunung dari `gunung-api/laporan`.
-     *
-     * Berisi id + signature link detail (untuk menarik foto & konten
-     * laporan) sekaligus periode + tanggal. Halaman terurut terbaru dulu,
-     * sehingga entri PERTAMA per gunung yang disimpan.
-     *
-     * @return array<string, array{id: string, signature: string, period: string, report_date: string}>
+     * Resolve MAGMA ga_code (e.g., 'RAU') from volcano name via marker meta.
      */
-    public function getReportEntries(): array
-    {
-        return Cache::remember(
-            self::REPORT_PERIODS_CACHE_KEY,
-            self::CACHE_TTL * 2,
-            function (): array {
-                return $this->fetchReportEntries();
-            },
-        );
-    }
-
-    /**
-     * Periode pengamatan laporan per gunung, dari entri laporan.
-     *
-     * @return array<string, array<string, string>>
-     */
-    public function getReportPeriods(): array
-    {
-        $result = [];
-
-        foreach ($this->getReportEntries() as $key => $entry) {
-            $result[$key] = [
-                'period' => $entry['period'],
-                'report_date' => $entry['report_date'],
-            ];
-        }
-
-        return $result;
-    }
-
-    /**
-     * Data laporan pengamatan terbaru sebuah gunung, atau null.
-     *
-     * Menarik halaman detail `gunung-api/laporan/{id}?signature=...`
-     * — sumber publik yang sama dengan popup magma.esdm.go.id/v1 — lalu
-     * mengekstrak kalimat lokasi, foto resmi, visual, klimatologi, dan
-     * seismik. Di-cache 10 menit per gunung.
-     *
-     * @return array<string, string|null>|null
-     */
-    public function getReportData(string $volcanoName): ?array
+    private function resolveGaCode(string $volcanoName): ?string
     {
         $key = $this->normalizeName($volcanoName);
 
@@ -245,54 +198,164 @@ class MagmaService
             return null;
         }
 
-        return Cache::remember(
-            'magma:report-data:'.mb_strtolower(str_replace(' ', '-', $key)),
-            600,
-            function () use ($volcanoName, $key): ?array {
-                return $this->fetchReportData($volcanoName, $key);
-            },
-        );
+        $meta = $this->getMarkerMeta()[$key] ?? null;
+
+        $code = $meta['ga_code'] ?? null;
+
+        return is_string($code) && $code !== '' ? $code : null;
     }
 
     /**
-     * Foto resmi periode pengamatan terbaru sebuah gunung, atau null.
+     * Data popup resmi dari /v1 untuk sebuah gunung (foto, lokasi,
+     * klimatologi, periode, rekomendasi, dll) — sumber yang sama
+     * dengan popup magma.esdm.go.id/v1.
      *
-     * Diambil dari halaman detail laporan MAGMA (`img/ga/...`) — foto
-     * yang sama persis dengan yang tampil di popup /v1.
-     */
-    public function getReportPhoto(string $volcanoName): ?string
-    {
-        $data = $this->getReportData($volcanoName);
-
-        $image = $data['image'] ?? null;
-
-        return is_string($image) && $image !== '' ? $image : null;
-    }
-
-    /**
-     * Visual photo terbaru sebuah gunung (`VEN_` crs image) atau null.
+     * Di-cache 10 menit per ga_code agar tidak membobol rate-limit.
      *
-     * Diambil dari halaman `informasi-letusan/{SLUG}` — gambar visual
-     * terbaru yang tersimpan di `magma.vsi.esdm.go.id/img/crs/`. Photo
-     * yang benar-benar real-time hanya tersedia lewat API `var` yang
-     * terkunci per-session, jadi ini pendekatan publik terbaik. Di-cache
-     * 1 jam agar popup tetap ringan.
+     * @return array<string, mixed>|null
      */
-    public function getVisualPhoto(string $volcanoName): ?string
+    public function getVarData(string $volcanoName): ?array
     {
-        $slug = $this->getVolcanoSlugForName($volcanoName);
+        $gaCode = $this->resolveGaCode($volcanoName);
 
-        if ($slug === null) {
+        if ($gaCode === null) {
             return null;
         }
 
         return Cache::remember(
-            'magma:visual:'.mb_strtolower($slug),
-            3600,
-            function () use ($slug): ?string {
-                return $this->fetchVisualPhoto($slug);
+            self::VAR_CACHE_KEY.':'.mb_strtolower($gaCode),
+            600,
+            function () use ($gaCode): ?array {
+                return $this->fetchVarData($gaCode);
             },
         );
+    }
+
+    /**
+     * Fetch data /v1 via POST `json/var` — alur yang dipakai popup browser.
+     *
+     * GET `/v1` untuk CSRF token + session → POST `json/var` dengan
+     * `ga_code`. CookieJar menjaga session antar request.
+     */
+    private function fetchVarData(string $gaCode): ?array
+    {
+        try {
+            $jar = new CookieJar;
+
+            $r1 = Http::withOptions(['cookies' => $jar, 'allow_redirects' => true])
+                ->withHeaders([
+                    'User-Agent' => self::USER_AGENT,
+                    'Accept' => 'text/html,application/xhtml+xml',
+                ])
+                ->timeout(25)
+                ->get(self::MAP_URL);
+
+            if ($r1->failed()) {
+                return null;
+            }
+
+            $html = $r1->body();
+
+            if (! preg_match('/<meta name="csrf-token" content="([^"]+)"/', $html, $cm)) {
+                return null;
+            }
+
+            $csrf = $cm[1];
+
+            $r2 = Http::withOptions(['cookies' => $jar, 'allow_redirects' => true])
+                ->asForm()
+                ->withHeaders([
+                    'User-Agent' => self::USER_AGENT,
+                    'X-CSRF-TOKEN' => $csrf,
+                    'X-Requested-With' => 'XMLHttpRequest',
+                    'Accept' => 'application/json, text/javascript, */*; q=0.01',
+                ])
+                ->timeout(25)
+                ->post(
+                    self::VAR_URL.'?signature='.self::VAR_SIGNATURE,
+                    ['ga_code' => $gaCode],
+                );
+
+            if ($r2->failed()) {
+                return null;
+            }
+
+            $json = json_decode($r2->body(), true);
+
+            $data = $json['data'] ?? null;
+
+            if (! is_array($data)) {
+                return null;
+            }
+
+            $lokasi = $data['gunungapi']['deskripsi'] ?? null;
+
+            if (is_string($lokasi)) {
+                $lokasi = $this->cleanVarText($lokasi);
+            }
+
+            $klima = $data['klimatologi']['deskripsi'] ?? null;
+
+            if (is_string($klima)) {
+                $klima = $this->cleanVarText($klima);
+            }
+
+            $visual = $data['visual']['deskripsi'] ?? null;
+
+            if (is_string($visual)) {
+                $visual = $this->cleanVarText($visual);
+            }
+
+            $rekom = $data['rekomendasi'] ?? null;
+
+            if (is_string($rekom)) {
+                $rekom = $this->cleanVarText($rekom);
+            }
+
+            $lainnya = $data['visual']['lainnya'] ?? null;
+
+            if (is_string($lainnya)) {
+                $lainnya = $this->cleanVarText($lainnya);
+            }
+
+            return [
+                'foto' => $data['visual']['foto'] ?? null,
+                'lokasi' => $lokasi,
+                'periode_text' => $data['laporan']['tanggal'] ?? null,
+                'klimatologi' => $klima,
+                'visual' => $visual,
+                'visual_lainnya' => $lainnya,
+                'rekomendasi' => $rekom,
+                'pembuat' => $data['laporan']['pembuat'] ?? null,
+                'grafik_gempa' => $data['gempa']['grafik'] ?? null,
+                'deskripsi_gempa' => is_array($data['gempa']['deskripsi'] ?? null)
+                    ? $data['gempa']['deskripsi']
+                    : null,
+                'status' => $data['gunungapi']['status'] ?? null,
+                'vona' => $data['vona'] ?? null,
+            ];
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+    }
+
+    /**
+     * Bersihkan teks laporan dari HTML var (`<br/>` → baris baru,
+     * buang tag, dan decode entity seperti `&deg;`).
+     */
+    private function cleanVarText(string $html): string
+    {
+        $html = preg_replace('/<br\s*\/?\s*>/i', "\n", $html);
+        $html = strip_tags($html);
+        $html = html_entity_decode(
+            $html,
+            ENT_QUOTES | ENT_HTML5,
+            'UTF-8',
+        );
+
+        return trim($html);
     }
 
     /**
@@ -394,6 +457,7 @@ class MagmaService
                 }
 
                 $result[$key] = [
+                    'ga_code' => (string) ($item['ga_code'] ?? ''),
                     'kabupaten' => (string) ($item['ga_kab_gapi'] ?? ''),
                     'province' => (string) ($item['ga_prov_gapi'] ?? ''),
                     'elevation' => isset($item['ga_elev_gapi'])
@@ -411,261 +475,10 @@ class MagmaService
     }
 
     /**
-     * Parse halaman laporan pengamatan (`gunung-api/laporan`) menjadi
-     * entri per gunung: id + signature link detail, periode, dan tanggal.
-     *
-     * @return array<string, array{id: string, signature: string, period: string, report_date: string}>
-     */
-    private function fetchReportEntries(): array
-    {
-        try {
-            $response = Http::withHeaders([
-                'User-Agent' => self::USER_AGENT,
-                'Accept' => 'text/html,application/xhtml+xml',
-            ])
-                ->timeout(25)
-                ->get(self::REPORTS_URL);
-
-            if ($response->failed()) {
-                return [];
-            }
-
-            $html = $response->body();
-            $result = [];
-            $chunks = explode('<div class="timeline-item">', $html);
-
-            array_shift($chunks); // drop preamble
-
-            foreach ($chunks as $chunk) {
-                if (! preg_match('/<small>\s*(Periode\s+[^<]+)\s*<\/small>/', $chunk, $period)) {
-                    continue;
-                }
-
-                if (! preg_match('/<p class="timeline-title"><a href="#">([^<]+)<\/a>/', $chunk, $name)) {
-                    continue;
-                }
-
-                if (! preg_match('/- ([\p{L}]+),\s*(\d{1,2})\s+(\p{L}+)\s+(\d{4})/u', $chunk, $date)) {
-                    continue;
-                }
-
-                if (! preg_match('/laporan\/(\d+)\?signature=([0-9a-f]{64})/', $chunk, $link)) {
-                    continue;
-                }
-
-                $reportDate = $this->parseReportDate($date[2], $date[3], $date[4]);
-
-                if ($reportDate === null) {
-                    continue;
-                }
-
-                $key = $this->normalizeName(trim($name[1]));
-
-                // Halaman terurut laporan terbaru dulu — pertahankan entri
-                // PERTAMA per gunung agar periode (dan fotonya) selalu yang
-                // paling baru, bukan terakhir yang kebetulan muncul.
-                if (isset($result[$key])) {
-                    continue;
-                }
-
-                $result[$key] = [
-                    'id' => $link[1],
-                    'signature' => $link[2],
-                    'period' => trim(html_entity_decode(
-                        $period[1],
-                        ENT_QUOTES | ENT_HTML5,
-                        'UTF-8',
-                    )),
-                    'report_date' => $reportDate,
-                ];
-            }
-
-            return $result;
-        } catch (\Throwable $e) {
-            report($e);
-
-            return [];
-        }
-    }
-
-    /**
-     * Fetch halaman detail laporan sebuah gunung dan ekstrak isinya.
-     *
-     * Halaman ini adalah sumber publik resmi yang juga dipakai popup /v1:
-     * kalimat lokasi geografis, foto resmi `img/ga/...`, visual, keterangan
-     * lainnya, klimatologi, kegempaan, dan rekomendasi.
-     *
-     * @return array<string, string|null>|null
-     */
-    private function fetchReportData(
-        string $volcanoName,
-        string $normalizedName,
-    ): ?array {
-        $entry = $this->getReportEntries()[$normalizedName] ?? null;
-
-        if ($entry === null) {
-            return null;
-        }
-
-        try {
-            $response = Http::withHeaders([
-                'User-Agent' => self::USER_AGENT,
-                'Accept' => 'text/html,application/xhtml+xml',
-            ])
-                ->timeout(25)
-                ->get(self::REPORTS_URL.'/'.$entry['id'].'?signature='.$entry['signature']);
-
-            if ($response->failed()) {
-                return null;
-            }
-
-            $html = $response->body();
-
-            $result = [
-                'period' => $entry['period'],
-                'report_date' => $entry['report_date'],
-                'periode_text' => sprintf(
-                    'Laporan per 6 jam, tanggal %s pukul %s',
-                    $entry['report_date'],
-                    trim((string) preg_replace(
-                        '/^Periode\s+/i',
-                        '',
-                        $entry['period'],
-                    )),
-                ),
-                'location' => null,
-                'image' => null,
-                'visual' => null,
-                'keterangan' => null,
-                'klimatologi' => null,
-                'kegempaan' => null,
-                'rekomendasi' => null,
-            ];
-
-            if (preg_match('/<p class="col-lg-6 pd-0">([^<]+)<\/p>/', $html, $m)) {
-                $result['location'] = trim(html_entity_decode(
-                    $m[1],
-                    ENT_QUOTES | ENT_HTML5,
-                    'UTF-8',
-                ));
-            }
-
-            if (preg_match('/<img class="img-fluid" src="(https?:\/\/[^"]+)"/', $html, $m)) {
-                $result['image'] = $m[1];
-            }
-
-            $sectionMap = [
-                'Pengamatan Visual' => 'visual',
-                'Keterangan Lainnya' => 'keterangan',
-                'Klimatologi' => 'klimatologi',
-                'Pengamatan Kegempaan' => 'kegempaan',
-                'Rekomendasi' => 'rekomendasi',
-            ];
-
-            $searchOffset = 0;
-
-            while (preg_match(
-                '/<h6 class="slim-card-title">([^<]+)<\/h6>/',
-                $html,
-                $m,
-                PREG_OFFSET_CAPTURE,
-                $searchOffset,
-            )) {
-                $field = $sectionMap[trim($m[1][0])] ?? null;
-                $contentStart = $m[0][1] + strlen($m[0][0]);
-
-                if (preg_match(
-                    '/<\/div>\s*<\/div>\s*<\/div>/',
-                    $html,
-                    $em,
-                    PREG_OFFSET_CAPTURE,
-                    $contentStart,
-                )) {
-                    $contentEnd = $em[0][1];
-                } else {
-                    $contentEnd = strlen($html);
-                }
-
-                if ($field !== null) {
-                    $clean = $this->cleanReportBlock(
-                        substr($html, $contentStart, $contentEnd - $contentStart),
-                    );
-
-                    if ($clean !== null) {
-                        $result[$field] = $clean;
-                    }
-                }
-
-                $searchOffset = $contentEnd;
-            }
-
-            return $result;
-        } catch (\Throwable $e) {
-            report($e);
-
-            return null;
-        }
-    }
-
-    /**
-     * Bersihkan HTML satu blok laporan menjadi teks per baris.
-     */
-    private function cleanReportBlock(string $html): ?string
-    {
-        $html = preg_replace('/<br\s*\/?\s*>/i', "\n", $html);
-        $html = preg_replace('/<hr\s*\/?\s*>/i', "\n", $html);
-        $html = strip_tags($html);
-        $html = html_entity_decode($html, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-
-        $lines = array_values(array_filter(
-            array_map(
-                fn (string $line): string => trim(preg_replace('/\s+/u', ' ', $line)),
-                explode("\n", $html),
-            ),
-            fn (string $line): bool => $line !== ''
-                && ! in_array($line, ['Rekomendasi', 'Pengamatan Kegempaan'], true),
-        ));
-
-        return $lines === [] ? null : implode("\n", $lines);
-    }
-
-    /**
-     * Fetch halaman letusan sebuah gunung dan ambil visual `VEN_` pertama.
-     */
-    private function fetchVisualPhoto(string $slug): ?string
-    {
-        try {
-            $response = Http::withHeaders([
-                'User-Agent' => self::USER_AGENT,
-                'Accept' => 'text/html,application/xhtml+xml',
-            ])
-                ->timeout(25)
-                ->get(self::ERUPTIONS_URL.'/'.$slug);
-
-            if ($response->failed()) {
-                return null;
-            }
-
-            $html = $response->body();
-
-            if (! preg_match(
-                '/https?:\/\/magma\.vsi\.esdm\.go\.id\/img\/crs\/VEN_[A-Z0-9_]+\.png/',
-                $html,
-                $match,
-            )) {
-                return null;
-            }
-
-            return $match[0];
-        } catch (\Throwable $e) {
-            report($e);
-
-            return null;
-        }
-    }
-
-    /**
      * Extract a balanced `[...]` JSON block starting at `$start`.
+     *
+     * Array `markersGunungApi` adalah JSON murni tanpa tanda kurung di
+     * dalam string, sehingga cukup diimbangi `[`/`]` dengan kedalaman.
      */
     private function extractBracketedJson(string $html, int $start): ?string
     {
@@ -687,28 +500,6 @@ class MagmaService
         }
 
         return null;
-    }
-
-    /**
-     * Convert an Indonesian date label (`15 September 2026`) to `Y-m-d`.
-     */
-    private function parseReportDate(
-        string $day,
-        string $monthLabel,
-        string $year,
-    ): ?string {
-        $month = self::INDONESIAN_MONTHS[$monthLabel] ?? null;
-
-        if ($month === null) {
-            return null;
-        }
-
-        return sprintf(
-            '%04d-%02d-%02d',
-            (int) $year,
-            $month,
-            (int) $day,
-        );
     }
 
     /**

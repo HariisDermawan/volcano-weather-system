@@ -41,11 +41,12 @@ interface VolcanoMarkerInfo {
     kabupaten?: string | null;
     province?: string | null;
     elevation?: number | string | null;
-    periode_periode?: string | null;
-    periode_report_date?: string | null;
     periode_text?: string | null;
     lokasi?: string | null;
     klimatologi?: string | null;
+    visual?: string | null;
+    visual_lainnya?: string | null;
+    rekomendasi?: string | null;
 }
 
 interface EarthquakeMarkerInfo {
@@ -514,14 +515,9 @@ function VolcanoMarker({
                             color: '#cfd7e5',
                         }}
                     >
-                        {volcano.periode_periode || volcano.periode_text ? (
+                        {volcano.periode_text ? (
                             <>
-                                {volcano.periode_text ??
-                                    `Laporan per 6 jam, tanggal ${
-                                        volcano.periode_report_date ?? '-'
-                                    } pukul ${(
-                                        volcano.periode_periode ?? ''
-                                    ).replace(/^Periode\s+/, '')}`}{' '}
+                                {volcano.periode_text}{' '}
                                 <a
                                     href="https://magma.esdm.go.id/v1"
                                     target="_blank"
@@ -568,6 +564,69 @@ function VolcanoMarker({
                                 }}
                             >
                                 {volcano.klimatologi}
+                            </p>
+                        </>
+                    )}
+                    {(volcano.visual || volcano.visual_lainnya) && (
+                        <>
+                            <div
+                                style={{
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: 0.6,
+                                    color: '#94a3b8',
+                                    marginBottom: 2,
+                                }}
+                            >
+                                Pengamatan Visual
+                            </div>
+                            <p
+                                style={{
+                                    margin: '2px 0 9px',
+                                    fontSize: 12.5,
+                                    lineHeight: 1.55,
+                                    color: '#cfd7e5',
+                                }}
+                            >
+                                {volcano.visual}
+                                {volcano.visual_lainnya &&
+                                    volcano.visual_lainnya !== 'null' &&
+                                    volcano.visual_lainnya !== 'Nihil' &&
+                                    volcano.visual_lainnya.toLowerCase() !==
+                                        'nihil' && (
+                                        <span>
+                                            <br />
+                                            {volcano.visual_lainnya}
+                                        </span>
+                                    )}
+                            </p>
+                        </>
+                    )}
+                    {volcano.rekomendasi && (
+                        <>
+                            <div
+                                style={{
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: 0.6,
+                                    color: '#94a3b8',
+                                    marginBottom: 2,
+                                }}
+                            >
+                                Rekomendasi
+                            </div>
+                            <p
+                                style={{
+                                    margin: '2px 0 9px',
+                                    fontSize: 12.5,
+                                    lineHeight: 1.55,
+                                    color: '#cfd7e5',
+                                    whiteSpace: 'pre-line',
+                                }}
+                            >
+                                {volcano.rekomendasi}
                             </p>
                         </>
                     )}

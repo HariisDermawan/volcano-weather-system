@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Volcano;
-use App\Services\MagmaCctvService;
 use App\Services\MagmaService;
 use App\Services\VaacDarwinService;
 use Illuminate\Http\JsonResponse;
@@ -11,50 +10,23 @@ use Illuminate\Http\JsonResponse;
 class VolcanoController extends Controller
 {
     /**
-     * Foto popup untuk sebuah gunung, sumber terbaik yang tersedia.
-     *
-     * Prioritas:
-     * (1) Foto resmi periode laporan dari MAGMA (`img/ga/...`) — foto
-     *     persis yang tampil di popup magma.esdm.go.id/v1.
-     * (2) Visual VEN terbaru dari halaman letusan (crs/VEN_...).
-     * (3) Snapshot CCTV real-time sebagai cadangan.
-     * (4) null → placeholder di frontend.
+     * Foto popup sebuah gunung — persis sumber yang dipakai popup
+     * magma.esdm.go.id/v1 (POST `json/var` → visual.foto).
      */
     public function cctv(
         Volcano $volcano,
-        MagmaCctvService $cctv,
         MagmaService $magma,
     ): JsonResponse {
-        $reportPhoto = $magma->getReportPhoto($volcano->name);
+        $data = $magma->getVarData($volcano->name);
 
-        if ($reportPhoto !== null) {
+        $foto = $data['foto'] ?? null;
+
+        if (is_string($foto) && $foto !== '') {
             return response()->json([
                 'name' => $volcano->name,
                 'cameras' => [],
-                'image' => $reportPhoto,
+                'image' => $foto,
                 'source' => 'photo',
-            ]);
-        }
-
-        $visual = $magma->getVisualPhoto($volcano->name);
-
-        if ($visual !== null) {
-            return response()->json([
-                'name' => $volcano->name,
-                'cameras' => [],
-                'image' => $visual,
-                'source' => 'ven',
-            ]);
-        }
-
-        $cameras = $cctv->getCameras($volcano);
-
-        if ($cameras !== []) {
-            return response()->json([
-                'name' => $volcano->name,
-                'cameras' => $cameras,
-                'image' => $cameras[0]['image'],
-                'source' => 'cctv',
             ]);
         }
 
@@ -85,9 +57,9 @@ class VolcanoController extends Controller
         // Gunung yang sedang bererupsi menurut MAGMA (erupt_icon) (cached 3m).
         $eruptingSet = array_flip($magma->getEruptingVolcanoNames());
 
-        // Meta administratif/geografis + periode laporan pengamatan per gunung.
+        // Meta administratif/geografis per gunung (termasuk ga_code untuk
+        // menarik data `json/var` — sumber popup /v1).
         $markerMeta = $magma->getMarkerMeta();
-        $reportPeriods = $magma->getReportPeriods();
 
         // Waktu erupsi terakhir per gunung (UTC) dari MAGMA — dipakai
         // frontend untuk memilih gunung erupsi yang paling baru.
@@ -121,7 +93,6 @@ class VolcanoController extends Controller
                 $liveStatuses,
                 $eruptingSet,
                 $markerMeta,
-                $reportPeriods,
                 $latestEruptionAt,
                 $magma,
             ) {
@@ -161,35 +132,41 @@ class VolcanoController extends Controller
                     $volcano->setAttribute('elevation', $meta['elevation']);
                 }
 
-                $report = $reportPeriods[$key] ?? null;
+                $report = $magma->getVarData((string) $volcano->name);
 
                 $volcano->setAttribute(
-                    'periode_periode',
-                    $report['period'] ?? null,
+                    'periode_text',
+                    $report['periode_text'] ?? null,
                 );
-
-                $volcano->setAttribute(
-                    'periode_report_date',
-                    $report['report_date'] ?? null,
-                );
-
-                // Data laporan detail (kalimat lokasi, klimatologi, teks
-                // periode) — sumber yang sama dengan popup /v1.
-                $reportData = $magma->getReportData((string) $volcano->name);
 
                 $volcano->setAttribute(
                     'lokasi',
-                    $reportData['location'] ?? null,
+                    $report['lokasi'] ?? null,
                 );
 
                 $volcano->setAttribute(
                     'klimatologi',
-                    $reportData['klimatologi'] ?? null,
+                    $report['klimatologi'] ?? null,
                 );
 
                 $volcano->setAttribute(
-                    'periode_text',
-                    $reportData['periode_text'] ?? null,
+                    'visual',
+                    $report['visual'] ?? null,
+                );
+
+                $volcano->setAttribute(
+                    'visual_lainnya',
+                    $report['visual_lainnya'] ?? null,
+                );
+
+                $volcano->setAttribute(
+                    'rekomendasi',
+                    $report['rekomendasi'] ?? null,
+                );
+
+                $volcano->setAttribute(
+                    'grafik_gempa',
+                    $report['grafik_gempa'] ?? null,
                 );
 
                 $eruptionWhen = $latestEruptionAt[$key] ?? null;
