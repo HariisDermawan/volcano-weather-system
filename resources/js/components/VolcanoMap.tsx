@@ -80,6 +80,7 @@ interface VolcanoMapProps {
     onSelectVolcano?: (id: number) => void;
     earthquakes?: EarthquakeMarkerInfo[];
     selectedQuakeId?: string | null;
+    focusKey?: number;
     onSelectEarthquake?: (quake: EarthquakeMarkerInfo) => void;
     volcanoQuakes?: Record<number, VolcanoQuakeInfo | null>;
 }
@@ -445,20 +446,26 @@ function MapFly({
     zoom,
     fit,
     fitKey,
+    focusKey = 0,
 }: {
     target: [number, number];
     zoom: number;
     fit?: Array<[number, number]>;
     fitKey?: string;
+    focusKey?: number;
 }) {
     const map = useMap();
 
-    const first = useRef(true);
+    const [lat, lng] = target;
 
     const fitRef = useRef(fit);
     fitRef.current = fit;
 
-    const [lat, lng] = target;
+    const prev = useRef({ lat, lng, focusKey, fitKey: '' });
+
+    const first = useRef(true);
+
+    const focusedRef = useRef(false);
 
     useEffect(() => {
         if (first.current) {
@@ -466,20 +473,39 @@ function MapFly({
             return;
         }
 
-        const currentFit = fitRef.current;
+        const before = prev.current;
 
-        if (currentFit && currentFit.length > 0) {
-            map.flyToBounds(L.latLngBounds([[lat, lng], ...currentFit]), {
-                padding: [60, 60],
-                maxZoom: 10,
-                duration: 0.9,
-            });
+        const posChanged = before.lat !== lat || before.lng !== lng;
+
+        const focusChanged = before.focusKey !== focusKey;
+
+        const fitChanged = before.fitKey !== (fitKey ?? '');
+
+        prev.current = { lat, lng, focusKey, fitKey: fitKey ?? '' };
+
+        if (posChanged || focusChanged) {
+            // Gunung dipilih (cari / klik marker) → zoom ke gunung itu.
+            focusedRef.current = true;
+            map.flyTo([lat, lng], zoom, { duration: 0.9 });
 
             return;
         }
 
-        map.flyTo([lat, lng], zoom, { duration: 0.9 });
-    }, [map, lat, lng, zoom, fitKey]);
+        // Sebelum pengguna fokus ke gunung mana pun: bila jumlah/posisi
+        // gempa berubah, sesuaikan jangkauan peta agar semua titik
+        // radar gempa terlihat bersama gunung aktif.
+        if (fitChanged && !focusedRef.current) {
+            const currentFit = fitRef.current;
+
+            if (currentFit && currentFit.length > 0) {
+                map.flyToBounds(L.latLngBounds([[lat, lng], ...currentFit]), {
+                    padding: [60, 60],
+                    maxZoom: 10,
+                    duration: 0.9,
+                });
+            }
+        }
+    }, [map, lat, lng, zoom, fitKey, focusKey]);
 
     return null;
 }
@@ -650,6 +676,7 @@ export default function VolcanoMap({
     activeVolcanoIds = [],
     earthquakes = [],
     selectedQuakeId = null,
+    focusKey = 0,
     volcanoQuakes = {},
     onSelectVolcano,
     onSelectEarthquake,
@@ -883,6 +910,7 @@ export default function VolcanoMap({
                     zoom={10}
                     fit={fitQuakes}
                     fitKey={fitKey}
+                    focusKey={focusKey}
                 />
 
                 {/* ==================================

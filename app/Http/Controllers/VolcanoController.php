@@ -70,6 +70,36 @@ class VolcanoController extends Controller
                 return $volcano;
             });
 
+        // =====================================================
+        // HAPUS DUPLIKAT NAMA (Gunung Semeru vs Semeru)
+        //
+        // Pipeline Python bisa menciptakan baris `Gunung ...`
+        // baru setelah migrasi merge. Pilih nama resmi MAGMA
+        // (tanpa prefix `Gunung `) agar dropdown tidak dobel.
+        // =====================================================
+
+        $seen = [];
+
+        foreach ($volcanoes as $volcano) {
+            $key = $magma->normalizeName((string) $volcano->name);
+
+            if ($key === '') {
+                $key = 'v'.$volcano->id;
+            }
+
+            $existing = $seen[$key] ?? null;
+
+            $hasPrefix = str_starts_with((string) $volcano->name, 'Gunung ');
+
+            if ($existing === null) {
+                $seen[$key] = $volcano;
+            } elseif (str_starts_with((string) $existing->name, 'Gunung ') && ! $hasPrefix) {
+                $seen[$key] = $volcano;
+            }
+        }
+
+        $volcanoes = array_values($seen);
+
         return response()->json($volcanoes);
     }
 }

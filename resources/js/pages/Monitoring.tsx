@@ -252,6 +252,7 @@ interface GerakanTanahItem {
     title: string | null;
     date: string | null;
     url: string | null;
+    thumbnail: string | null;
 }
 
 interface GerakanTanahData {
@@ -941,6 +942,8 @@ export default function Monitoring() {
 
     const [volcanoQuery, setVolcanoQuery] = useState('');
 
+    const [volcanoFocusKey, setVolcanoFocusKey] = useState(0);
+
     const [timelinePlaying, setTimelinePlaying] = useState(false);
 
     const [timelineBucketKey, setTimelineBucketKey] = useState('observasi');
@@ -1508,6 +1511,10 @@ export default function Monitoring() {
     const selectVolcanoById = (id: number) => {
         setVolcanoOpen(false);
 
+        // Minta peta mengarah ke gunung ini (termasuk saat marker
+        // gunung yang sama diklik kembali).
+        setVolcanoFocusKey((key) => key + 1);
+
         if (id === selectedVolcanoId) {
             return;
         }
@@ -1521,10 +1528,28 @@ export default function Monitoring() {
     const filteredVolcanoes = volcanoes.filter((volcano) => {
         const query = volcanoQuery.trim().toLowerCase();
 
+        if (!query) {
+            return true;
+        }
+
+        // "Gunung ..." dipakai user sebagai awalan nama, tetapi prefix
+        // itu tidak dipakai untuk pencocokan. Tanpa pengecualian ini,
+        // mengetik "gunung ..." membuat "Gunung Anak Krakatau" (satu-satunya
+        // nama berprefix "Gunung " yang tersisa di daftar) selalu muncul
+        // lebih dulu sebelum gunung tujuan.
+        const normQuery = query.replace(/^gunung\s*/i, '').trim();
+
+        // Masih hanya "gunung" / "gunung " → tampilkan seluruh daftar
+        // sampai user mengetik nama gunung yang dituju.
+        if (normQuery === '') {
+            return true;
+        }
+
+        const normName = volcano.name.toLowerCase().replace(/^gunung\s*/i, '');
+
         return (
-            !query ||
-            volcano.name.toLowerCase().includes(query) ||
-            volcano.code.toLowerCase().includes(query)
+            normName.includes(normQuery) ||
+            volcano.code.toLowerCase().includes(normQuery)
         );
     });
 
@@ -2535,6 +2560,7 @@ export default function Monitoring() {
                         onSelectVolcano={selectVolcanoById}
                         earthquakes={showGempaMarkers ? gempaMarkers : []}
                         selectedQuakeId={selectedQuakeId}
+                        focusKey={volcanoFocusKey}
                         onSelectEarthquake={(quake) => {
                             const matched =
                                 gempa?.list.find(
@@ -3028,7 +3054,7 @@ export default function Monitoring() {
 
                                 {/* CUACA KOTA SAYA (REAL-TIME) */}
 
-                                <section>
+                                <section className="mt-4">
                                     <PanelTitle
                                         icon={
                                             <MapPin
@@ -3129,7 +3155,7 @@ export default function Monitoring() {
                                                       ) ?? '-');
 
                                             return (
-                                                <div className="rounded-xl border border-emerald-400/20 bg-gradient-to-b from-emerald-400/10 to-white/[0.03] p-3">
+                                                <div className="rounded-xl border border-emerald-400/20 bg-gradient-to-b from-emerald-400/10 to-white/[0.03] p-3.5 pb-4">
                                                     <div className="flex items-center justify-between">
                                                         <span className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-wider text-emerald-300 uppercase">
                                                             <span className="relative flex h-1.5 w-1.5">
@@ -3263,7 +3289,7 @@ export default function Monitoring() {
                                                         </span>
                                                     </div>
 
-                                                    <p className="mt-1.5 text-[8.5px] leading-relaxed text-slate-600">
+                                                    <p className="mt-2.5 text-[8.5px] leading-relaxed text-slate-600">
                                                         {weather.source ===
                                                         'BMKG'
                                                             ? `Sumber: BMKG (prakiraan resmi)${weather.location ? ` • Prakiraan ${weather.location}` : ''} • Lokasi dari GPS perangkat`
@@ -3302,9 +3328,9 @@ export default function Monitoring() {
                                                             ? `${eruption.occurred_at}-${index}`
                                                             : `${eruption.name}-${index}`
                                                     }
-                                                    className="rounded-xl border border-orange-400/25 border-l-orange-400/80 bg-orange-400/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                                                    className="rounded-xl border border-sky-400/25 border-l-sky-400/80 bg-sky-400/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
                                                 >
-                                                    <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-orange-300 uppercase">
+                                                    <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-sky-300 uppercase">
                                                         <VolcanoIcon
                                                             size={10}
                                                             strokeWidth={2.5}
@@ -3375,8 +3401,8 @@ export default function Monitoring() {
                                         )}
                                     </div>
                                 ) : data.activity?.description ? (
-                                    <div className="rounded-xl border border-orange-400/25 border-l-orange-400/80 bg-orange-400/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                                        <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-orange-300 uppercase">
+                                    <div className="rounded-xl border border-sky-400/25 border-l-sky-400/80 bg-sky-400/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                                        <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-sky-300 uppercase">
                                             <VolcanoIcon
                                                 size={10}
                                                 strokeWidth={2.5}
@@ -4433,7 +4459,7 @@ export default function Monitoring() {
                                         Memuat laporan tanggapan…
                                     </p>
                                 ) : gerakanTanah.list.length > 0 ? (
-                                    <ul className="space-y-1.5">
+                                    <ul className="space-y-2.5">
                                         {gerakanTanah.list.map(
                                             (item, index) => (
                                                 <li
@@ -4447,29 +4473,47 @@ export default function Monitoring() {
                                                         href={item.url ?? '#'}
                                                         target="_blank"
                                                         rel="noreferrer"
-                                                        className="group block rounded-lg border border-white/5 bg-white/[0.04] px-2.5 py-2 text-[11px] transition hover:border-sky-500/30 hover:bg-sky-500/10"
+                                                        className="group block overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:border-sky-500/30 hover:bg-sky-500/10"
                                                     >
-                                                        <span className="flex items-start justify-between gap-2">
-                                                            <span className="leading-snug font-semibold text-slate-300 group-hover:text-white">
-                                                                {item.title}
-                                                            </span>
-
-                                                            <ExternalLink
-                                                                size={11}
-                                                                strokeWidth={
-                                                                    2.5
-                                                                }
-                                                                className="mt-0.5 shrink-0 text-slate-600 group-hover:text-sky-400"
-                                                            />
-                                                        </span>
-
-                                                        {item.date && (
-                                                            <span className="mt-1 block text-[9.5px] font-medium text-slate-600">
-                                                                {formatWIB(
-                                                                    item.date,
-                                                                )}
-                                                            </span>
+                                                        {item.thumbnail && (
+                                                            <div className="relative h-32 overflow-hidden border-b border-white/10">
+                                                                <img
+                                                                    src={
+                                                                        item.thumbnail
+                                                                    }
+                                                                    alt={
+                                                                        item.title ??
+                                                                        'Laporan tanggapan VSI'
+                                                                    }
+                                                                    loading="lazy"
+                                                                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                                                                />
+                                                            </div>
                                                         )}
+
+                                                        <span className="block px-3 py-2.5">
+                                                            <span className="flex items-start justify-between gap-2">
+                                                                <span className="text-[11px] leading-snug font-semibold text-slate-300 group-hover:text-white">
+                                                                    {item.title}
+                                                                </span>
+
+                                                                <ExternalLink
+                                                                    size={11}
+                                                                    strokeWidth={
+                                                                        2.5
+                                                                    }
+                                                                    className="mt-0.5 shrink-0 text-slate-600 group-hover:text-sky-400"
+                                                                />
+                                                            </span>
+
+                                                            {item.date && (
+                                                                <span className="mt-1 block text-[9.5px] font-medium text-slate-600">
+                                                                    {formatWIB(
+                                                                        item.date,
+                                                                    )}
+                                                                </span>
+                                                            )}
+                                                        </span>
                                                     </a>
                                                 </li>
                                             ),
