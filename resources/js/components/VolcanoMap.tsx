@@ -14,6 +14,7 @@ import {
     Polyline,
     Popup,
     TileLayer,
+    Tooltip,
     useMap,
 } from 'react-leaflet';
 
@@ -43,10 +44,8 @@ interface VolcanoMarkerInfo {
     elevation?: number | string | null;
     periode_text?: string | null;
     lokasi?: string | null;
-    klimatologi?: string | null;
     visual?: string | null;
     visual_lainnya?: string | null;
-    rekomendasi?: string | null;
 }
 
 interface EarthquakeMarkerInfo {
@@ -344,6 +343,21 @@ function VolcanoMarker({
                 click: () => onSelect?.(volcano.id),
             }}
         >
+            <Tooltip
+                direction="top"
+                offset={[0, -10]}
+                opacity={1}
+                className="volcano-map-tooltip"
+            >
+                <strong style={{ fontSize: 12.5, color: '#f1f5f9' }}>
+                    {volcano.name}
+                </strong>
+                {volcano.elevation != null && (
+                    <div style={{ fontSize: 11.5, color: '#94a3b8' }}>
+                        Ketinggian {volcano.elevation} mdpl
+                    </div>
+                )}
+            </Tooltip>
             <Popup>
                 <div style={{ width: 268 }}>
                     {image ? (
@@ -541,32 +555,6 @@ function VolcanoMarker({
                             </>
                         )}
                     </p>
-                    {volcano.klimatologi && (
-                        <>
-                            <div
-                                style={{
-                                    fontSize: 11,
-                                    fontWeight: 700,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: 0.6,
-                                    color: '#94a3b8',
-                                    marginBottom: 2,
-                                }}
-                            >
-                                Klimatologi
-                            </div>
-                            <p
-                                style={{
-                                    margin: '2px 0 9px',
-                                    fontSize: 12.5,
-                                    lineHeight: 1.55,
-                                    color: '#cfd7e5',
-                                }}
-                            >
-                                {volcano.klimatologi}
-                            </p>
-                        </>
-                    )}
                     {(volcano.visual || volcano.visual_lainnya) && (
                         <>
                             <div
@@ -600,33 +588,6 @@ function VolcanoMarker({
                                             {volcano.visual_lainnya}
                                         </span>
                                     )}
-                            </p>
-                        </>
-                    )}
-                    {volcano.rekomendasi && (
-                        <>
-                            <div
-                                style={{
-                                    fontSize: 11,
-                                    fontWeight: 700,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: 0.6,
-                                    color: '#94a3b8',
-                                    marginBottom: 2,
-                                }}
-                            >
-                                Rekomendasi
-                            </div>
-                            <p
-                                style={{
-                                    margin: '2px 0 9px',
-                                    fontSize: 12.5,
-                                    lineHeight: 1.55,
-                                    color: '#cfd7e5',
-                                    whiteSpace: 'pre-line',
-                                }}
-                            >
-                                {volcano.rekomendasi}
                             </p>
                         </>
                     )}

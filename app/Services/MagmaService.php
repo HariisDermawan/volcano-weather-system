@@ -236,6 +236,8 @@ class MagmaService
      *
      * GET `/v1` untuk CSRF token + session → POST `json/var` dengan
      * `ga_code`. CookieJar menjaga session antar request.
+     *
+     * @return array<string, mixed>|null
      */
     private function fetchVarData(string $gaCode): ?array
     {

@@ -49,6 +49,37 @@
     margin: 12px 16px !important;
 }
 
+/* =========================================
+    Tooltip marker gunung (nama + ketinggian)
+========================================= */
+
+.volcano-map-tooltip {
+    background: linear-gradient(to bottom, #16233c, #0c1322) !important;
+    color: #eef1f5 !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    border-radius: 10px !important;
+    padding: 6px 10px !important;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    font-family:
+        'Instrument Sans', ui-sans-serif, system-ui, sans-serif !important;
+    text-align: center;
+}
+
+.volcano-map-tooltip::before {
+    display: none !important;
+}
+
+.volcano-map-tooltip .leaflet-tooltip-tip {
+    background: #141f38 !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+}
+
+.leaflet-container .leaflet-tooltip-top.volcano-map-tooltip::before {
+    border-top-color: #141f38 !important;
+}
+
 .leaflet-control-zoom {
     border: none !important;
     box-shadow: none !important;

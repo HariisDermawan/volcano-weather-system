@@ -64,10 +64,8 @@ interface Volcano {
     province?: string | null;
     periode_text?: string | null;
     lokasi?: string | null;
-    klimatologi?: string | null;
     visual?: string | null;
     visual_lainnya?: string | null;
-    rekomendasi?: string | null;
 }
 
 interface CctvCamera {
