@@ -2174,7 +2174,7 @@ export default function Monitoring() {
 
     if (loading && !data) {
         return (
-            <div className="relative flex h-screen w-screen items-center justify-center overflow-hidden bg-[#05070a] text-[#eef1f5]">
+            <div className="relative flex h-dvh w-screen items-center justify-center overflow-hidden bg-[#05070a] text-[#eef1f5]">
                 <div className="text-center">
                     <img
                         src="/logo/logoSi-thumb.webp"
@@ -2671,7 +2671,7 @@ export default function Monitoring() {
         : null;
 
     return (
-        <div className="relative h-screen w-screen overflow-hidden bg-[#05070a] text-[#eef1f5]">
+        <div className="relative h-dvh w-screen overflow-hidden bg-[#05070a] text-[#eef1f5]">
             <Head title="Monitoring Gunung Berapi & Cuaca Indonesia">
                 <meta
                     name="description"
@@ -4984,7 +4984,7 @@ export default function Monitoring() {
                         className="absolute inset-0 z-0 cursor-default bg-black/50 backdrop-blur-sm"
                     />
 
-                    <div className="pointer-events-auto relative z-10 mx-3 mb-24 max-h-[60dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/98 to-[#0a0f1c]/98 p-3.5 shadow-2xl shadow-black/60 backdrop-blur-xl">
+                    <div className="pointer-events-auto relative z-10 mx-3 mb-[max(6rem,calc(env(safe-area-inset-bottom)+5.5rem))] max-h-[60dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/98 to-[#0a0f1c]/98 p-3.5 shadow-2xl shadow-black/60 backdrop-blur-xl">
                         <LegendPanel
                             showGempaMarkers={showGempaMarkers}
                             onToggleGempa={() =>
@@ -5002,7 +5002,7 @@ export default function Monitoring() {
                 BOTTOM BAR
             ====================================== */}
 
-            <footer className="pointer-events-none absolute inset-x-3 bottom-3 z-[1100] flex items-end justify-between gap-2">
+            <footer className="pointer-events-none absolute inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-[1100] flex items-end justify-between gap-2">
                 <div className="pointer-events-auto rounded-xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-3 py-2 text-[10.5px] text-slate-500 backdrop-blur-xl">
                     Volcano Watch by : Haris Darmawan | • BMKG / PVMBG / VAAC
                     Darwin
