@@ -38,6 +38,11 @@ interface VolcanoMarkerInfo {
     latitude: number | string;
     longitude: number | string;
     status?: string | null;
+    kabupaten?: string | null;
+    province?: string | null;
+    elevation?: number | string | null;
+    periode_periode?: string | null;
+    periode_report_date?: string | null;
 }
 
 interface EarthquakeMarkerInfo {
@@ -83,6 +88,9 @@ interface VolcanoMapProps {
     focusKey?: number;
     onSelectEarthquake?: (quake: EarthquakeMarkerInfo) => void;
     volcanoQuakes?: Record<number, VolcanoQuakeInfo | null>;
+    volcanoImage?: string | null;
+    volcanoImageLoading?: boolean;
+    volcanoImageSource?: 'cctv' | 'ven' | null;
 }
 
 /*
@@ -291,12 +299,18 @@ function VolcanoMarker({
     isSelected,
     active,
     quake,
+    image,
+    imageLoading,
+    imageSource,
     onSelect,
 }: {
     volcano: VolcanoMarkerInfo;
     isSelected: boolean;
     active: boolean;
     quake?: VolcanoQuakeInfo | null;
+    image?: string | null;
+    imageLoading?: boolean;
+    imageSource?: 'cctv' | 'ven' | null;
     onSelect?: (id: number) => void;
 }) {
     const icon = useMemo(() => {
@@ -327,27 +341,244 @@ function VolcanoMarker({
             }}
         >
             <Popup>
-                <strong>{volcano.name}</strong>
-                <br />
-                Status: {volcano.status ?? '-'}
-                {quake && (
-                    <>
-                        <br />
-                        <span style={{ color: '#ef4444' }}>
-                            Gempa terdekat M{quake.magnitude ?? '-'}
-                            {quake.distanceKm != null &&
-                                ` • ${quake.distanceKm.toFixed(0)} km`}
-                        </span>
-                        {quake.region && (
+                <div style={{ width: 268 }}>
+                    {image ? (
+                        <img
+                            src={image}
+                            alt={volcano.name}
+                            style={{
+                                width: '100%',
+                                height: 150,
+                                objectFit: 'cover',
+                                borderRadius: 10,
+                                display: 'block',
+                                marginBottom: 2,
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                            }}
+                        />
+                    ) : (
+                        <div
+                            style={{
+                                width: '100%',
+                                height: 150,
+                                borderRadius: 10,
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 6,
+                                background:
+                                    'linear-gradient(160deg, #16233c, #0d1526)',
+                                border: '1px dashed rgba(255, 255, 255, 0.16)',
+                                marginBottom: 2,
+                                color: '#7e8ba1',
+                            }}
+                        >
+                            <svg
+                                width="34"
+                                height="34"
+                                viewBox="0 0 34 34"
+                                fill="none"
+                            >
+                                <path
+                                    d="M17 4 L30 30 L4 30 Z"
+                                    fill="#1c2a45"
+                                    stroke="#3b4a68"
+                                    strokeWidth="1.5"
+                                    strokeLinejoin="round"
+                                />
+                                <path
+                                    d="M17 10 L26 30 L8 30 Z"
+                                    fill="#131f35"
+                                />
+                                <circle
+                                    cx="17"
+                                    cy="12"
+                                    r="2.5"
+                                    fill="#f59e0b"
+                                    opacity="0.9"
+                                />
+                            </svg>
+                            <span style={{ fontSize: 11.5 }}>
+                                {imageLoading
+                                    ? 'Memuat foto…'
+                                    : 'Foto tidak tersedia'}
+                            </span>
+                        </div>
+                    )}
+                    {image && (
+                        <div
+                            style={{
+                                textAlign: 'right',
+                                fontSize: 10.5,
+                                color: '#64748b',
+                                marginBottom: 8,
+                            }}
+                        >
+                            {imageSource === 'cctv'
+                                ? 'Kamera PVMBG • real-time'
+                                : imageSource === 'ven'
+                                  ? 'Foto visual PVMBG'
+                                  : null}
+                        </div>
+                    )}
+                    <div
+                        style={{
+                            textAlign: 'center',
+                            borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+                            paddingBottom: 8,
+                            marginBottom: 8,
+                        }}
+                    >
+                        <strong
+                            style={{ fontSize: '1.05em', letterSpacing: 0.2 }}
+                        >
+                            {volcano.name}
+                        </strong>
+                        {volcano.status && (
+                            <div style={{ marginTop: 3 }}>
+                                <span
+                                    style={{
+                                        display: 'inline-block',
+                                        padding: '1px 9px',
+                                        borderRadius: 999,
+                                        fontSize: 11,
+                                        fontWeight: 700,
+                                        color: '#0b1220',
+                                        background: statusColor(volcano.status),
+                                    }}
+                                >
+                                    {volcano.status}
+                                </span>
+                            </div>
+                        )}
+                    </div>
+                    {(volcano.kabupaten || volcano.province) && (
+                        <>
+                            <div
+                                style={{
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: 0.6,
+                                    color: '#94a3b8',
+                                    marginBottom: 2,
+                                }}
+                            >
+                                Lokasi Administratif dan Geografis
+                            </div>
+                            <p
+                                style={{
+                                    margin: '2px 0 9px',
+                                    fontSize: 12.5,
+                                    lineHeight: 1.55,
+                                    color: '#cfd7e5',
+                                }}
+                            >
+                                Terletak di Kab\Kota {volcano.kabupaten ?? '-'},{' '}
+                                {volcano.province ?? '-'} dengan posisi
+                                geografis di Latitude {Number(volcano.latitude)}
+                                °LU, Longitude {Number(volcano.longitude)}°BT
+                                dan memiliki ketinggian{' '}
+                                {volcano.elevation != null
+                                    ? volcano.elevation
+                                    : '-'}{' '}
+                                mdpl
+                            </p>
+                        </>
+                    )}
+                    <div
+                        style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.6,
+                            color: '#94a3b8',
+                            marginBottom: 2,
+                        }}
+                    >
+                        Periode Pengamatan
+                    </div>
+                    <p
+                        style={{
+                            margin: '2px 0 8px',
+                            fontSize: 12.5,
+                            lineHeight: 1.55,
+                            color: '#cfd7e5',
+                        }}
+                    >
+                        {volcano.periode_periode ? (
                             <>
-                                <br />
-                                {quake.region}
+                                Laporan per 6 jam, tanggal{' '}
+                                {volcano.periode_report_date ?? '-'} pukul{' '}
+                                {(volcano.periode_periode ?? '').replace(
+                                    /^Periode\s+/,
+                                    '',
+                                )}{' '}
+                                <a
+                                    href="https://magma.esdm.go.id/v1"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{ color: '#38bdf8' }}
+                                >
+                                    magma.esdm.go.id/v1
+                                </a>
+                            </>
+                        ) : (
+                            <>
+                                Tidak ada laporan pengamatan terbaru.{' '}
+                                <a
+                                    href="https://magma.esdm.go.id/v1"
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    style={{ color: '#38bdf8' }}
+                                >
+                                    magma.esdm.go.id/v1
+                                </a>
                             </>
                         )}
-                    </>
-                )}
-                <br />
-                <span style={{ color: '#f97316' }}>Klik untuk pantau →</span>
+                    </p>
+                    {quake && (
+                        <div
+                            style={{
+                                marginBottom: 8,
+                                padding: '6px 8px',
+                                borderRadius: 8,
+                                background: 'rgba(239, 68, 68, 0.12)',
+                                border: '1px solid rgba(239, 68, 68, 0.35)',
+                            }}
+                        >
+                            <div style={{ color: '#f87171', fontWeight: 600 }}>
+                                Gempa terdekat M{quake.magnitude ?? '-'}
+                                {quake.distanceKm != null &&
+                                    ` • ${quake.distanceKm.toFixed(0)} km`}
+                            </div>
+                            {quake.region && (
+                                <div style={{ color: '#e2e8f0', fontSize: 12 }}>
+                                    {quake.region}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    <div
+                        style={{
+                            marginTop: 4,
+                            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                            paddingTop: 8,
+                            textAlign: 'center',
+                        }}
+                    >
+                        <span
+                            style={{
+                                color: '#38bdf8',
+                                fontWeight: 600,
+                                fontSize: 12.5,
+                            }}
+                        >
+                            Klik untuk pantau →
+                        </span>
+                    </div>
+                </div>
             </Popup>
         </Marker>
     );
@@ -678,6 +909,9 @@ export default function VolcanoMap({
     selectedQuakeId = null,
     focusKey = 0,
     volcanoQuakes = {},
+    volcanoImage = null,
+    volcanoImageLoading = false,
+    volcanoImageSource = null,
     onSelectVolcano,
     onSelectEarthquake,
 }: VolcanoMapProps) {
@@ -770,6 +1004,27 @@ export default function VolcanoMap({
 
         return [...groups.values()];
     }, [volcanoes, activeVolcanoIds]);
+
+    /*
+     * ==========================================
+     * TARGET FOKUS KAMERA
+     *
+     * Saat gunung dipilih / diklik, arahkan kamera
+     * langsung ke gunung itu dari daftar — jangan
+     * menunggu data monitoring terbaru turun dari
+     * server (yang baru selesai sesaat kemudian dan
+     * membuat kamera "lompat" dua kali).
+     * ==========================================
+     */
+
+    const selectedVolcano = useMemo(
+        () => markerVolcanoes.find((v) => v.id === selectedVolcanoId) ?? null,
+        [markerVolcanoes, selectedVolcanoId],
+    );
+
+    const flyTarget: [number, number] = selectedVolcano
+        ? [Number(selectedVolcano.latitude), Number(selectedVolcano.longitude)]
+        : position;
 
     const toPolygonPositions = (
         geometry: AshGeometry | null | undefined,
@@ -885,6 +1140,20 @@ export default function VolcanoMap({
                         isSelected={volcano.id === selectedVolcanoId}
                         active={activeVolcanoIds.includes(volcano.id)}
                         quake={volcanoQuakes[volcano.id] ?? null}
+                        image={
+                            volcano.id === selectedVolcanoId
+                                ? volcanoImage
+                                : null
+                        }
+                        imageLoading={
+                            volcano.id === selectedVolcanoId &&
+                            volcanoImageLoading
+                        }
+                        imageSource={
+                            volcano.id === selectedVolcanoId
+                                ? volcanoImageSource
+                                : null
+                        }
                         onSelect={onSelectVolcano}
                     />
                 ))}
@@ -906,7 +1175,7 @@ export default function VolcanoMap({
                 ))}
 
                 <MapFly
-                    target={position}
+                    target={flyTarget}
                     zoom={10}
                     fit={fitQuakes}
                     fitKey={fitKey}

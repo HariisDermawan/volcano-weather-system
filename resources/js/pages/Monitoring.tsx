@@ -26,6 +26,7 @@ import {
     CloudSun,
     ExternalLink,
     Gauge,
+    Info,
     LandPlot,
     Layers,
     MapPin,
@@ -45,6 +46,8 @@ import {
 
 const VolcanoMap = lazy(() => import('@/components/VolcanoMap'));
 
+const WindyMap = lazy(() => import('@/components/WindyMap'));
+
 interface Volcano {
     id: number;
     name: string;
@@ -56,6 +59,21 @@ interface Volcano {
     status_source?: 'live' | 'database';
     ash_active?: boolean;
     erupting?: boolean;
+    last_eruption_at?: string | null;
+    kabupaten?: string | null;
+    province?: string | null;
+    periode_periode?: string | null;
+    periode_report_date?: string | null;
+}
+
+interface CctvCamera {
+    label: string;
+    image: string;
+}
+
+interface VolcanoPhoto {
+    image: string | null;
+    source: 'cctv' | 'ven' | null;
 }
 
 interface Weather {
@@ -356,12 +374,33 @@ function PanelTitle({
 
 const LAYER_ORDER = ['observasi', 'hour-6', 'hour-12', 'hour-18'] as const;
 
+function So2Icon({
+    size = 18,
+    className = '',
+}: {
+    size?: number;
+    strokeWidth?: number;
+    className?: string;
+}) {
+    return (
+        <img
+            src="/icons/co2.svg"
+            alt="SO2"
+            width={size}
+            height={size}
+            className={className}
+            style={{ filter: 'invert(1)' }}
+        />
+    );
+}
+
 const PANEL_ITEMS = [
     { key: 'kota', label: 'Kota Saya', Icon: MapPin },
     { key: 'letusan', label: 'Informasi Letusan', Icon: VolcanoIcon },
     { key: 'status', label: 'Status Erupsi & PVMBG', Icon: Activity },
     { key: 'cuaca', label: 'Cuaca & Sebaran Abu', Icon: CloudSun },
     { key: 'advisory', label: 'Advisory Abu Vulkanik', Icon: Radio },
+    { key: 'so2', label: 'Gas SO2 (Vulkanik)', Icon: So2Icon },
     { key: 'gempa', label: 'Gempa Terkini', Icon: Siren },
     { key: 'gerakan', label: 'Gerakan Tanah', Icon: LandPlot },
 ] as const;
@@ -950,6 +989,13 @@ export default function Monitoring() {
 
     const [openPanel, setOpenPanel] = useState<PanelKey | null>(null);
 
+    const [volcanoPhoto, setVolcanoPhoto] = useState<VolcanoPhoto>({
+        image: null,
+        source: null,
+    });
+
+    const [volcanoPhotoLoading, setVolcanoPhotoLoading] = useState(false);
+
     // ==========================================
     // DATA GEO (GEMPA & GERAKAN TANAH)
     // ==========================================
@@ -1021,9 +1067,36 @@ export default function Monitoring() {
 
                 setVolcanoes(result);
 
-                // Pertahankan gunung yang sedang dipilih
-                // jika masih tersedia di database.
+                // Arahkan ke gunung berstatus level Siaga (Level III); kalau lebih
+                // dari satu yang Siaga, pilih yang letusannya paling baru.
+                // Kalau tidak ada yang Siaga, biarkan pilihan saat ini.
                 setSelectedVolcanoId((currentId) => {
+                    const siaga = result
+                        .filter(
+                            (v) =>
+                                (v.status ?? '')
+                                    .toLowerCase()
+                                    .includes('siaga') ||
+                                (v.status ?? '').includes('III'),
+                        )
+                        .sort((a, b) => {
+                            const ta = a.last_eruption_at
+                                ? new Date(a.last_eruption_at).getTime()
+                                : 0;
+
+                            const tb = b.last_eruption_at
+                                ? new Date(b.last_eruption_at).getTime()
+                                : 0;
+
+                            return tb - ta;
+                        })[0];
+
+                    if (siaga) {
+                        return siaga.id;
+                    }
+
+                    // Pertahankan gunung yang sedang dipilih
+                    // jika masih tersedia di database.
                     const exists = result.some(
                         (volcano) => volcano.id === currentId,
                     );
@@ -1167,6 +1240,56 @@ export default function Monitoring() {
             cancelled = true;
         };
     }, [selectedVolcanoId, refreshKey]);
+
+    // ==========================================
+    // AMBIL FOTO POPUP (CCTV REAL-TIME / VISUAL MAGMA)
+    // ==========================================
+
+    useEffect(() => {
+        let cancelled = false;
+
+        setVolcanoPhoto({ image: null, source: null });
+        setVolcanoPhotoLoading(true);
+
+        fetch(`/api/volcano/cctv/${selectedVolcanoId}`, {
+            headers: {
+                Accept: 'application/json',
+            },
+        })
+            .then((response) => (response.ok ? response.json() : null))
+            .then(
+                (
+                    result: {
+                        cameras?: CctvCamera[];
+                        image?: string | null;
+                        source?: 'cctv' | 'ven' | null;
+                    } | null,
+                ) => {
+                    if (cancelled) {
+                        return;
+                    }
+
+                    setVolcanoPhoto({
+                        image: result?.image ?? null,
+                        source: result?.source ?? null,
+                    });
+                },
+            )
+            .catch(() => {
+                if (!cancelled) {
+                    setVolcanoPhoto({ image: null, source: null });
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setVolcanoPhotoLoading(false);
+                }
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedVolcanoId]);
 
     // Reset deteksi erupsi baru saat gunung diganti,
     // supaya tidak muncul alert "1" karena pindah gunung.
@@ -2561,6 +2684,8 @@ export default function Monitoring() {
                         earthquakes={showGempaMarkers ? gempaMarkers : []}
                         selectedQuakeId={selectedQuakeId}
                         focusKey={volcanoFocusKey}
+                        volcanoImage={volcanoPhoto.image}
+                        volcanoImageLoading={volcanoPhotoLoading}
                         onSelectEarthquake={(quake) => {
                             const matched =
                                 gempa?.list.find(
@@ -4360,6 +4485,186 @@ export default function Monitoring() {
                                     </div>
                                 </section>
                             )}
+
+                        {/* GAS SO2 (VULKANIK) */}
+
+                        {active === 'so2' && (
+                            <section>
+                                <PanelTitle
+                                    icon={
+                                        <So2Icon size={11} strokeWidth={2.5} />
+                                    }
+                                >
+                                    Gas SO2 (Vulkanik)
+                                </PanelTitle>
+
+                                <div className="mb-3 flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
+                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-sky-500/25 bg-sky-500/10">
+                                        <MapPin
+                                            size={13}
+                                            strokeWidth={2.5}
+                                            className="text-sky-400"
+                                        />
+                                    </span>
+
+                                    <div className="min-w-0">
+                                        <p className="truncate text-[11.5px] font-bold text-white">
+                                            {data.volcano.name}
+                                        </p>
+
+                                        <p className="text-[9.5px] text-slate-500">
+                                            Pusat pemantauan konsentrasi gas SO2
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <p className="mb-2 text-[9.5px] text-slate-500">
+                                    Sumber: CAMS Total Column Sulphur Dioxide
+                                    (Copernicus/ECMWF) via Windy • Perkiraan
+                                    konsentrasi SO2 kolom atmosfer, bukan
+                                    pengukuran di kawah
+                                </p>
+
+                                <Suspense
+                                    fallback={
+                                        <div className="h-[420px] w-full animate-pulse rounded-2xl bg-slate-900" />
+                                    }
+                                >
+                                    <WindyMap
+                                        latitude={data.volcano.latitude}
+                                        longitude={data.volcano.longitude}
+                                        volcanoName={data.volcano.name}
+                                    />
+                                </Suspense>
+
+                                <div className="mt-4 grid grid-cols-2 gap-3">
+                                    <div className="flex flex-col rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="flex h-5 w-5 items-center justify-center rounded-md border border-white/10 bg-white/5">
+                                                <So2Icon
+                                                    size={11}
+                                                    strokeWidth={2.5}
+                                                />
+                                            </span>
+
+                                            <p className="text-[9.5px] font-bold tracking-wide text-slate-300 uppercase">
+                                                Apa itu SO2?
+                                            </p>
+                                        </div>
+
+                                        <p className="mt-2 text-[10.5px] leading-relaxed text-slate-300">
+                                            Sulfur dioksida (SO2) adalah salah
+                                            satu gas utama gunung berapi,
+                                            bersama uap air (H2O) dan karbon
+                                            dioksida (CO2). Perubahan emisi gas
+                                            ini mencerminkan kondisi magmatik:
+                                            meningkatnya SO2 menandakan magma
+                                            naik (degassing) atau mendahului
+                                            erupsi.
+                                        </p>
+
+                                        <a
+                                            href="https://pubs.usgs.gov/of/1995/0085/"
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="mt-auto inline-flex items-center gap-1 pt-2.5 text-[9px] font-semibold text-sky-400 transition hover:text-sky-300"
+                                        >
+                                            <ExternalLink
+                                                size={9}
+                                                strokeWidth={2.5}
+                                            />
+                                            Sumber: USGS — Volcanic Gas
+                                        </a>
+                                    </div>
+
+                                    <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="flex h-5 w-5 items-center justify-center rounded-md border border-white/10 bg-white/5">
+                                                <Gauge
+                                                    size={11}
+                                                    strokeWidth={2.5}
+                                                    className="text-sky-400"
+                                                />
+                                            </span>
+
+                                            <p className="text-[9.5px] font-bold tracking-wide text-slate-300 uppercase">
+                                                Baca warna
+                                            </p>
+                                        </div>
+
+                                        <div className="mt-2.5">
+                                            <div className="flex h-2.5 w-full items-stretch overflow-hidden rounded-full">
+                                                <span className="flex-1 bg-emerald-500/80" />
+                                                <span className="flex-1 bg-lime-400/80" />
+                                                <span className="flex-1 bg-yellow-400/80" />
+                                                <span className="flex-1 bg-orange-500/80" />
+                                                <span className="flex-1 bg-red-500/80" />
+                                                <span className="flex-1 bg-purple-500/80" />
+                                            </div>
+
+                                            <div className="mt-1 flex items-center justify-between text-[8px] font-bold tracking-wide text-slate-500 uppercase">
+                                                <span>Rendah</span>
+                                                <span>Tinggi</span>
+                                            </div>
+                                        </div>
+
+                                        <p className="mt-2 text-[9.5px] leading-relaxed text-slate-500">
+                                            Konsentrasi total kolom SO2. Skala
+                                            &amp; satuan sesuai legenda peta
+                                            Windy.
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+                                    <div className="flex items-center gap-1.5 border-b border-white/5 bg-white/[0.03] px-3 py-2.5">
+                                        <Info
+                                            size={10}
+                                            strokeWidth={2.5}
+                                            className="text-sky-400"
+                                        />
+
+                                        <p className="text-[9.5px] font-extrabold tracking-wide text-slate-400 uppercase">
+                                            Sumber &amp; Keterbatasan
+                                        </p>
+                                    </div>
+
+                                    <ul className="flex flex-col gap-2.5 p-3 text-[10px] leading-relaxed text-slate-400">
+                                        <li className="flex gap-2">
+                                            <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-sky-400" />
+
+                                            <span>
+                                                Data prakiraan CAMS
+                                                (Copernicus/ECMWF) via Windy —
+                                                konsentrasi kolom SO2 atmosfer,
+                                                bukan pengukuran langsung di
+                                                kawah.
+                                            </span>
+                                        </li>
+
+                                        <li className="flex gap-2">
+                                            <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-sky-400" />
+
+                                            <span>
+                                                Nilai rendah/latar (background)
+                                                umum terjadi dan belum tentu
+                                                menandakan aktivitas vulkanik.
+                                            </span>
+                                        </li>
+
+                                        <li className="flex gap-2">
+                                            <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-sky-400" />
+
+                                            <span>
+                                                Status &amp; rekomendasi resmi
+                                                gunung tetap merujuk PVMBG /
+                                                MAGMA Indonesia.
+                                            </span>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </section>
+                        )}
 
                         {/* GEMPA TERKINI (BMKG) */}
 
