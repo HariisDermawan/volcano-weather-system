@@ -2909,7 +2909,7 @@ export default function Monitoring() {
 
             {}
 
-            <aside className="pointer-events-auto absolute top-[190px] left-2 z-[1100] flex items-start gap-2 sm:left-3">
+            <aside className="pointer-events-auto absolute top-[178px] left-2 z-[1100] flex items-start gap-2 sm:top-[190px] sm:left-3">
                 {}
 
                 <div className="flex min-h-0 w-14 flex-col items-center justify-center gap-2 rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 py-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
@@ -3405,6 +3405,170 @@ export default function Monitoring() {
                                         )}
                                     </section>
                                 )}
+
+                                {active === 'cuaca' &&
+                                    geoState === 'success' &&
+                                    displayCityWeather && (
+                                        <section className="mt-4">
+                                            <PanelTitle
+                                                icon={
+                                                    <CloudSun
+                                                        size={11}
+                                                        strokeWidth={2.5}
+                                                    />
+                                                }
+                                            >
+                                                Prakiraan Cuaca BMKG
+                                            </PanelTitle>
+
+                                            <div className="flex items-center gap-2">
+                                                <span className="flex h-5 w-5 items-center justify-center rounded-full border border-sky-500/30 bg-sky-500/10">
+                                                    <MapPin
+                                                        size={10}
+                                                        strokeWidth={2.5}
+                                                        className="text-sky-400"
+                                                    />
+                                                </span>
+
+                                                <p className="truncate text-[11px] font-bold text-white">
+                                                    {displayCityWeather.location ??
+                                                        cityData?.city.name ??
+                                                        'wilayah Anda'}
+                                                </p>
+                                            </div>
+
+                                            <p className="mt-0.5 text-[9.5px] text-slate-500">
+                                                Sumber: BMKG • Prakiraan setiap
+                                                3 jam di kota Anda
+                                            </p>
+
+                                            <div className="mt-2.5 flex flex-col gap-3">
+                                                {cityForecastDays.length ===
+                                                0 ? (
+                                                    <p className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-500">
+                                                        Belum ada prakiraan
+                                                        cuaca BMKG untuk kota
+                                                        Anda.
+                                                    </p>
+                                                ) : (
+                                                    cityForecastDays.map(
+                                                        (day) => (
+                                                            <div
+                                                                key={day.label}
+                                                            >
+                                                                <p className="mb-1 flex items-center gap-1.5 text-[9.5px] font-extrabold tracking-wide text-slate-400 uppercase">
+                                                                    <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+                                                                    {day.label}
+                                                                </p>
+
+                                                                <div className="flex flex-col gap-1">
+                                                                    {day.slots.map(
+                                                                        (
+                                                                            slot,
+                                                                        ) => {
+                                                                            const {
+                                                                                Icon,
+                                                                                className,
+                                                                            } =
+                                                                                bmkgCondition(
+                                                                                    slot.weather_code,
+                                                                                    slot.weather_desc,
+                                                                                );
+
+                                                                            const windCardinal =
+                                                                                slot.wind_direction_cardinal
+                                                                                    ? bmkgWindDirectionLabel(
+                                                                                          slot.wind_direction_cardinal,
+                                                                                      )
+                                                                                    : (degreesToWindDirection(
+                                                                                          slot.wind_direction_deg,
+                                                                                      ) ??
+                                                                                      '-');
+
+                                                                            return (
+                                                                                <div
+                                                                                    key={
+                                                                                        slot.time
+                                                                                    }
+                                                                                    className="grid grid-cols-[34px_1fr_auto] items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-2 py-1.5"
+                                                                                >
+                                                                                    <span className="text-[11px] font-extrabold text-white">
+                                                                                        {formatWIBTimeHM(
+                                                                                            slot.time.replace(
+                                                                                                ' ',
+                                                                                                'T',
+                                                                                            ),
+                                                                                        )}
+                                                                                    </span>
+
+                                                                                    <span className="flex min-w-0 items-center gap-1.5">
+                                                                                        <Icon
+                                                                                            size={
+                                                                                                13
+                                                                                            }
+                                                                                            strokeWidth={
+                                                                                                2.5
+                                                                                            }
+                                                                                            className={`shrink-0 ${className}`}
+                                                                                        />
+
+                                                                                        <span
+                                                                                            className="truncate text-[10px] text-slate-400"
+                                                                                            title={
+                                                                                                slot.weather_desc ??
+                                                                                                '-'
+                                                                                            }
+                                                                                        >
+                                                                                            {slot.weather_desc ??
+                                                                                                '-'}
+                                                                                        </span>
+                                                                                    </span>
+
+                                                                                    <span className="flex items-center gap-2 text-right">
+                                                                                        <span className="text-[12px] font-bold text-white">
+                                                                                            {slot.temperature ??
+                                                                                                '-'}
+                                                                                            °
+                                                                                        </span>
+
+                                                                                        <span className="text-[9px] text-sky-400">
+                                                                                            {slot.humidity ??
+                                                                                                '-'}
+                                                                                            %
+                                                                                        </span>
+                                                                                    </span>
+
+                                                                                    <span className="col-span-3 flex items-center justify-between border-t border-white/5 pt-1 text-[9px] text-slate-500">
+                                                                                        <span>
+                                                                                            angin{' '}
+                                                                                            <b className="text-slate-400">
+                                                                                                {slot.wind_speed ??
+                                                                                                    '-'}{' '}
+                                                                                                km/j
+                                                                                            </b>
+                                                                                        </span>
+
+                                                                                        <span>
+                                                                                            arah{' '}
+                                                                                            <b className="text-slate-400">
+                                                                                                {
+                                                                                                    windCardinal
+                                                                                                }
+                                                                                            </b>
+                                                                                        </span>
+                                                                                    </span>
+                                                                                </div>
+                                                                            );
+                                                                        },
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        ),
+                                                    )
+                                                )}
+                                            </div>
+                                        </section>
+                                    )}
                             </section>
                         )}
 
