@@ -9,9 +9,9 @@ from app.collectors.weather_collector import (
 from app.database.connection import SessionLocal
 
 
-# =========================================================
-# GET BMKG WEATHER SOURCES
-# =========================================================
+
+
+
 
 def get_weather_sources():
     db = SessionLocal()
@@ -36,9 +36,9 @@ def get_weather_sources():
         db.close()
 
 
-# =========================================================
-# SAVE WEATHER FORECAST
-# =========================================================
+
+
+
 
 def save_weather_forecasts(
     volcano_id: int,
@@ -53,9 +53,9 @@ def save_weather_forecasts(
     print(f"Source     : {source}")
     print()
 
-    # =====================================================
-    # 1. AMBIL DATA DARI BMKG
-    # =====================================================
+
+
+
 
     print("Mengambil data cuaca dari BMKG...")
 
@@ -71,9 +71,9 @@ def save_weather_forecasts(
     )
     print()
 
-    # =====================================================
-    # 2. CONNECT DATABASE
-    # =====================================================
+
+
+
 
     db = SessionLocal()
 
@@ -83,9 +83,9 @@ def save_weather_forecasts(
 
     try:
 
-        # =================================================
-        # 3. LOOP FORECAST
-        # =================================================
+
+
+
 
         for forecast in forecasts:
 
@@ -97,9 +97,9 @@ def save_weather_forecasts(
                 skipped += 1
                 continue
 
-            # =============================================
-            # PARSE DATETIME
-            # =============================================
+
+
+
 
             try:
                 forecast_at = datetime.fromisoformat(
@@ -115,9 +115,9 @@ def save_weather_forecasts(
                 skipped += 1
                 continue
 
-            # =============================================
-            # DATA FORECAST
-            # =============================================
+
+
+
 
             temperature = forecast.get(
                 "temperature"
@@ -147,12 +147,12 @@ def save_weather_forecasts(
                 "visibility_text"
             )
 
-            # =============================================
-            # CEK DATABASE
-            #
-            # Kunci:
-            # volcano_id + forecast_at
-            # =============================================
+
+
+
+
+
+
 
             existing = db.execute(
                 text("""
@@ -168,9 +168,9 @@ def save_weather_forecasts(
                 },
             ).fetchone()
 
-            # =================================================
-            # 4. UPDATE JIKA SUDAH ADA
-            # =================================================
+
+
+
 
             if existing:
 
@@ -212,9 +212,9 @@ def save_weather_forecasts(
                     f"{wind_speed} km/h"
                 )
 
-            # =================================================
-            # 5. INSERT JIKA BELUM ADA
-            # =================================================
+
+
+
 
             else:
 
@@ -273,15 +273,15 @@ def save_weather_forecasts(
                     f"{wind_speed} km/h"
                 )
 
-        # =================================================
-        # 6. COMMIT
-        # =================================================
+
+
+
 
         db.commit()
 
-        # =================================================
-        # 7. SUMMARY
-        # =================================================
+
+
+
 
         print()
 
@@ -325,9 +325,9 @@ def save_weather_forecasts(
         db.close()
 
 
-# =========================================================
-# RUN DIRECTLY
-# =========================================================
+
+
+
 
 if __name__ == "__main__":
 

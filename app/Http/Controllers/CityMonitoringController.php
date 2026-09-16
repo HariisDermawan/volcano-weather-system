@@ -9,10 +9,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
-/**
- * Monitoring real-time sebaran abu vulkanik ke kota
- * pengguna berdasarkan koordinat lokasi saat ini.
- */
 class CityMonitoringController extends Controller
 {
     private const GEOCODE_CACHE_TTL = 86400;
@@ -21,9 +17,9 @@ class CityMonitoringController extends Controller
 
     private const BMKG_URL = 'https://api.bmkg.go.id/publik/prakiraan-cuaca';
 
-    private const BMKG_CACHE_TTL = 1800; // 30 menit
+    private const BMKG_CACHE_TTL = 1800;
 
-    private const ADM4_CACHE_TTL = 604800; // 7 hari
+    private const ADM4_CACHE_TTL = 604800;
 
     private const WILAYAH_DB_PATH = 'python-service/wilayah-adm4/locations.db';
 
@@ -60,8 +56,6 @@ class CityMonitoringController extends Controller
 
         $weather = $this->resolveCityWeather($latitude, $longitude);
 
-        // Advisory abu VAAC Darwin real-time (cached 2m),
-        // diambil hanya untuk gunung yang abunya aktif (< 24 jam).
         $activeAdvisories = $this->activeAdvisories(
             $vaac->getLiveAdvisories(),
         );
@@ -114,7 +108,6 @@ class CityMonitoringController extends Controller
             $minEdgeKm = 0.0;
         }
 
-        // Nama gunung untuk respons (hanya yang benar-benar dipakai).
         $names = $plumeVolcanoes === [] ? [] : Volcano::whereIn(
             'id',
             array_unique(array_merge($plumeVolcanoes, $nearestVolcano !== null ? [$nearestVolcano] : [])),
@@ -309,9 +302,6 @@ class CityMonitoringController extends Controller
         return $best;
     }
 
-    /**
-     * Jarak dua koordinat dalam kilometer (haversine).
-     */
     private function haversineKm(
         float $lat1,
         float $lon1,
@@ -566,8 +556,7 @@ class CityMonitoringController extends Controller
         float $longitude,
         array $geometries,
     ): ?float {
-        // Proyeksi equirectangular lokal sekitar titik kota:
-        // akurat untuk radius ratusan km di sekitar gunung berapi.
+
         $metersPerDegLat = 110540.0;
         $metersPerDegLon = 111320.0 * cos(deg2rad($latitude));
 
@@ -617,9 +606,6 @@ class CityMonitoringController extends Controller
         return $min === null ? null : $min / 1000.0;
     }
 
-    /**
-     * Jarak titik (px,py) ke segmen [a,b] pada bidang (meter).
-     */
     private function pointSegmentDistance(
         float $px,
         float $py,
@@ -711,8 +697,6 @@ class CityMonitoringController extends Controller
             return $cached;
         }
 
-        // Nominatim diprioritaskan: admin boundaries Indonesia
-        // umumnya lebih tepat (kota + provinsi). BigDataCloud jadi cadangan.
         $geocoded = $this->geocodeNominatim($latitude, $longitude)
             ?? $this->geocodeBigDataCloud($latitude, $longitude)
             ?? [];

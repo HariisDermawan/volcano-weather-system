@@ -1,9 +1,9 @@
-"""Pemetaan alias nama gunung antara sumber data dan database.
 
-Gunung yang sama kadang ditulis berbeda di halaman MAGMA/PVMBG
-dan di database lokal. Normalisasi di sini memastikan record
-tetap cocok satu sama lain.
-"""
+
+
+
+
+
 
 
 VOLCANO_NAME_ALIASES = {
@@ -69,7 +69,7 @@ VOLCANO_NAME_ALIASES = {
 
 
 def normalize_volcano_name(name):
-    """Samakan penulisan nama gunung antar sumber."""
+
 
     if not name:
         return name
@@ -83,13 +83,13 @@ def normalize_volcano_name(name):
 
 
 def volcano_match_candidates(name):
-    """Urutan nama kandidat untuk dicocokkan ke `volcanoes.name`.
 
-    Database lokal punya variasi penulisan (misal `Ibu` vs
-    `Gunung Ibu`, `Ili Lewotolok` vs `Lewotolok`). Fungsi ini
-    mengembalikan varian nama yang layak dicoba, dari yang
-    paling spesifik sampai yang paling longgar.
-    """
+
+
+
+
+
+
 
     clean = " ".join(name.split()).strip()
     normalized = normalize_volcano_name(name)

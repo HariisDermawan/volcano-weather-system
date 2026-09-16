@@ -22,12 +22,6 @@ class MonitoringController extends Controller
         MagmaService $magma,
         GdacsService $gdacs,
     ): JsonResponse {
-        // =====================================================
-        // 1. AKTIVITAS / ERUPSI TERBARU (REAL-TIME)
-        //
-        // Utama: event erupsi terbaru dari MAGMA Indonesia
-        // (cached 3 menit). Fallback: database (Python scheduler).
-        // =====================================================
 
         $liveStatus = $magma->getStatusForVolcano(
             $volcano->name
@@ -61,10 +55,6 @@ class MonitoringController extends Controller
                 ->first();
         }
 
-        // =====================================================
-        // 2. AMBIL SEMUA ASH PREDICTION
-        // =====================================================
-
         $ashPredictions = AshPrediction::where(
             'volcano_id',
             $volcano->id
@@ -72,18 +62,7 @@ class MonitoringController extends Controller
             ->orderBy('forecast_at')
             ->get();
 
-        // =====================================================
-        // 3. PREDICTION UTAMA
-        //
-        // Tetap dipertahankan supaya frontend lama
-        // masih bisa menggunakan ash_prediction.
-        // =====================================================
-
         $ashPrediction = $ashPredictions->first();
-
-        // =====================================================
-        // 4. WEATHER YANG SESUAI DENGAN PREDICTION UTAMA
-        // =====================================================
 
         $weather = null;
 
@@ -102,10 +81,6 @@ class MonitoringController extends Controller
                 ->first();
         }
 
-        // =====================================================
-        // 5. FALLBACK WEATHER
-        // =====================================================
-
         if (! $weather) {
             $weather = WeatherForecast::where(
                 'volcano_id',
@@ -120,13 +95,6 @@ class MonitoringController extends Controller
                 ->first();
         }
 
-        // =====================================================
-        // 6. AMBIL SEMUA WEATHER FORECAST
-        //
-        // Digunakan frontend untuk sinkronisasi dengan
-        // timeline prediksi abu.
-        // =====================================================
-
         $weatherForecasts = WeatherForecast::where(
             'volcano_id',
             $volcano->id
@@ -134,24 +102,10 @@ class MonitoringController extends Controller
             ->orderBy('forecast_at')
             ->get();
 
-        // =====================================================
-        // 6a. WILAYAH (LOKASI) SUMBER PRAKIRAAN BMKG
-        //
-        // Nama desa/kelurahan lokasi BMKG untuk gunung ini,
-        // dipakai frontend sebagai "Prakiraan Cuaca Wilayah".
-        // =====================================================
-
         $weatherLocation = DB::table('volcano_weather_sources')
             ->where('volcano_id', $volcano->id)
             ->where('source', 'BMKG')
             ->value('location_name');
-
-        // =====================================================
-        // 6b. KONDISI CUACA SAAT INI (OPEN-METEO / GFS-ICON)
-        //
-        // Diisi Python scheduler tiap 5 menit via
-        // weather_current_job.py. Satu baris per gunung.
-        // =====================================================
 
         $currentWeather = WeatherCurrent::where(
             'volcano_id',
@@ -159,13 +113,6 @@ class MonitoringController extends Controller
         )
             ->latest('observed_at')
             ->first();
-
-        // =====================================================
-        // 7. ADVISORY ABU VAAC DARWIN (REAL-TIME)
-        //
-        // Utama: fetch langsung dari BOM (cached 2 menit).
-        // Fallback: data di MySQL (diisi Python scheduler).
-        // =====================================================
 
         $liveAdvisory = $vaac->getLatestForVolcano(
             $volcano->id
@@ -178,7 +125,7 @@ class MonitoringController extends Controller
             $advisorySource = 'live';
             $ashAdvisory = (object) $liveAdvisory;
         } else {
-            // Fallback ke database
+
             $ashAdvisory = AshAdvisory::where(
                 'volcano_id',
                 $volcano->id
@@ -186,10 +133,6 @@ class MonitoringController extends Controller
                 ->latest('issued_at')
                 ->first();
 
-            // Fallback: database punya beberapa gunung ganda
-            // (misal `Semeru` dan `Gunung Semeru`). Kalau gunung
-            // yang dipilih tidak punya advisory, cari through
-            // baris volcano lain dengan nama sepadan.
             if (! $ashAdvisory) {
                 $baseName = preg_replace(
                     '/^Gunung\s+/i',
@@ -246,16 +189,6 @@ class MonitoringController extends Controller
             }
         }
 
-        // =====================================================
-        // 7b. STATUS ABU REAL-TIME
-        //
-        // Gunung dianggap sedang bererupsi (menghasilkan abu)
-        // hanya bila VAAC masih menerbitkan advisory dengan abu
-        // terdeteksi dalam 24 jam terakhir. Selain itu, gunung
-        // tidak erupsi -> data tampilan harus mencerminkan
-        // kondisi real-time (tidak ada sebaran abu).
-        // =====================================================
-
         $issuedAt = $ashAdvisory->issued_at ?? null;
 
         if ($issuedAt instanceof \DateTimeInterface) {
@@ -271,14 +204,7 @@ class MonitoringController extends Controller
             && $issuedTimestamp !== null
             && $issuedTimestamp >= now()->subHours(24)->getTimestamp();
 
-        // =====================================================
-        // 8. RESPONSE
-        // =====================================================
-
         return response()->json([
-            // =================================================
-            // VOLCANO
-            // =================================================
 
             'volcano' => [
                 'id' => $volcano->id,
@@ -292,19 +218,7 @@ class MonitoringController extends Controller
                 'erupting' => $erupting,
             ],
 
-            // =================================================
-            // ACTIVITY
-            // =================================================
-
             'activity' => $this->formatActivity($activity),
-
-            // =================================================
-            // RIWAYAT ERUPSI (MAGMA per-gunung)
-            //
-            // Daftar lengkap erupsi dari halaman
-            // `/v1/gunung-api/informasi-letusan/{slug}` — termasuk
-            // yang sudah lewat beberapa hari, persis seperti sumber.
-            // =================================================
 
             'eruptions' => collect($volcanoEruptions)
                 ->map(function ($eruption) use ($volcanoStatus) {
@@ -325,19 +239,7 @@ class MonitoringController extends Controller
                 })
                 ->values(),
 
-            // =================================================
-            // STATUS BAHaya (GDACS) — DATA ASLI
-            //
-            // Alert volcano aktif dari GDACS (UN/EU) sesuai feed
-            // resminya. `null` berarti GDACS tidak menerbitkan
-            // alert untuk gunung ini.
-            // =================================================
-
             'gdacs' => $gdacs->getAlertForVolcano($volcano->id),
-
-            // =================================================
-            // WEATHER UTAMA
-            // =================================================
 
             'weather' => $weather
                 ? [
@@ -351,12 +253,6 @@ class MonitoringController extends Controller
                     'visibility_text' => $weather->visibility_text,
                 ]
                 : null,
-
-            // =================================================
-            // SEMUA WEATHER FORECAST
-            //
-            // Dicocokkan frontend berdasarkan forecast_at.
-            // =================================================
 
             'weather_forecasts' => $weatherForecasts
                 ->map(function ($forecast) {
@@ -374,15 +270,7 @@ class MonitoringController extends Controller
                 })
                 ->values(),
 
-            // =================================================
-            // LOKASI SUMBER PRAKIRAAN BMKG
-            // =================================================
-
             'weather_location' => $weatherLocation,
-
-            // =================================================
-            // KONDISI CUACA SAAT INI (OPEN-METEO)
-            // =================================================
 
             'current_weather' => $currentWeather
                 ? [
@@ -400,10 +288,6 @@ class MonitoringController extends Controller
                     'wind_gust_kmh' => $currentWeather->wind_gust_kmh,
                 ]
                 : null,
-
-            // =================================================
-            // ADVISORY ABU VAAC DARWIN
-            // =================================================
 
             'ash_active' => $ashActive,
 
@@ -439,12 +323,6 @@ class MonitoringController extends Controller
                 ]
                 : null,
 
-            // =================================================
-            // ASH PREDICTION UTAMA
-            //
-            // Untuk kompatibilitas dengan frontend lama.
-            // =================================================
-
             'ash_prediction' => $ashPrediction
                 ? [
                     'id' => $ashPrediction->id,
@@ -460,13 +338,6 @@ class MonitoringController extends Controller
                     ),
                 ]
                 : null,
-
-            // =================================================
-            // SEMUA ASH PREDICTIONS
-            //
-            // Digunakan untuk timeline forecast
-            // dan pemilihan plume di frontend.
-            // =================================================
 
             'ash_predictions' => $ashPredictions
                 ->map(function ($prediction) {
@@ -493,13 +364,6 @@ class MonitoringController extends Controller
         ]);
     }
 
-    /**
-     * Format a date-time value to a consistent string.
-     *
-     * Live advisory dari VaacDarwinService memakai DateTimeImmutable
-     * (microseconds saat json_encode); data DB memakai Carbon. Keduanya
-     * dinormalisasi ke `Y-m-d H:i:s` agar konsisten untuk frontend.
-     */
     private function formatDateTime(mixed $value): ?string
     {
         if ($value instanceof \DateTimeInterface) {

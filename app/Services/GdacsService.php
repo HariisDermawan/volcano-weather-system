@@ -6,19 +6,6 @@ use App\Models\Volcano;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
-/**
- * Live-fetch & parse GDACS volcano alerts dari beranda resmi.
- *
- * Sumber: https://www.gdacs.org/default.aspx (panel "Volcanoes") —
- * mengandung daftar episode erupsi terkini & lewat beserta level
- * alert (Green/Orange/Red) masing-masing.
- *
- * RSS GDACS (`rss.xml`) tidak memuat alert gunung berapi; beranda
- * adalah satu-satunya sumber terlengkap untuk data ini.
- *
- * Data di-fetch langsung per request (cache 10 menit) supaya
- * frontend selalu menampilkan status GDACS terkini secara akurat.
- */
 class GdacsService
 {
     private const HOMEPAGE_URL = 'https://www.gdacs.org/default.aspx';
@@ -27,7 +14,7 @@ class GdacsService
 
     private const CACHE_KEY = 'gdacs:volcano:alerts';
 
-    private const CACHE_TTL = 600; // 10 menit
+    private const CACHE_TTL = 600;
 
     /**
      * Ambil alert GDACS paling relevan untuk satu gunung.
@@ -194,9 +181,6 @@ class GdacsService
         ];
     }
 
-    /**
-     * Parse tanggal `"04 Sep 2026"` → `"2026-09-04"`.
-     */
     private function parseOccurredDate(?string $dateText): ?string
     {
         if ($dateText === null || trim($dateText) === '') {
@@ -250,7 +234,7 @@ class GdacsService
         $past = [];
 
         foreach ($alerts as $alert) {
-            // Bersihkan: "Krakatau (Indonesia)" → "Krakatau"
+
             $gdacsName = preg_replace('/\s*\(.+\)\s*$/', '', $alert['volcano_name'] ?? '');
             $gdacsName = strtolower(trim($gdacsName));
 
@@ -270,7 +254,6 @@ class GdacsService
             }
         }
 
-        // Prioritas: alert aktif > episode terakhir.
         if ($current !== []) {
             return $current[0];
         }

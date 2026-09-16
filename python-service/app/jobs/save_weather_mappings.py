@@ -16,18 +16,18 @@ BMKG_URL = "https://api.bmkg.go.id/publik/prakiraan-cuaca"
 CANDIDATE_LIMIT = 5
 REQUEST_TIMEOUT = 30
 
-# Retry per request BMKG
+
 BMKG_RETRY_TOTAL = 4
 BMKG_BACKOFF_FACTOR = 1.0
 
-# Jeda kecil antar request agar tidak terlalu agresif
+
 REQUEST_DELAY = 0.3
 
 
 def create_bmkg_session():
-    """
-    Membuat HTTP session dengan automatic retry.
-    """
+
+
+
 
     retry = Retry(
         total=BMKG_RETRY_TOTAL,
@@ -73,9 +73,9 @@ def create_bmkg_session():
 
 
 def haversine(lat1, lon1, lat2, lon2):
-    """
-    Menghitung jarak dua koordinat dalam kilometer.
-    """
+
+
+
 
     radius = 6371.0
 
@@ -112,9 +112,9 @@ def find_nearest_villages(
     lon,
     limit=CANDIDATE_LIMIT,
 ):
-    """
-    Mencari desa terdekat dari koordinat gunung.
-    """
+
+
+
 
     rows = db.execute(
         """
@@ -166,13 +166,13 @@ def validate_bmkg(
     session,
     adm4,
 ):
-    """
-    Validasi ADM4 ke API BMKG.
 
-    Return:
-        dict -> valid
-        None -> tidak valid / gagal
-    """
+
+
+
+
+
+
 
     try:
         response = session.get(
@@ -190,7 +190,7 @@ def validate_bmkg(
         )
         return None
 
-    # Setelah retry selesai, tetap bukan sukses.
+
     if response.status_code != 200:
         print(
             f"    BMKG HTTP ERROR: "
@@ -208,9 +208,9 @@ def validate_bmkg(
         )
         return None
 
-    # ============================================
-    # ROOT LOKASI
-    # ============================================
+
+
+
 
     lokasi = data.get(
         "lokasi"
@@ -229,8 +229,8 @@ def validate_bmkg(
     if not returned_adm4:
         return None
 
-    # Pastikan kode yang dikembalikan BMKG
-    # benar-benar sama.
+
+
     if returned_adm4 != adm4:
         print(
             f"    BMKG ADM4 MISMATCH: "
@@ -238,9 +238,9 @@ def validate_bmkg(
         )
         return None
 
-    # ============================================
-    # FORECAST DATA
-    # ============================================
+
+
+
 
     forecast_data = data.get(
         "data"
@@ -275,9 +275,9 @@ def validate_bmkg(
     ):
         return None
 
-    # ============================================
-    # HITUNG FORECAST
-    # ============================================
+
+
+
 
     forecast_count = 0
 
@@ -293,9 +293,9 @@ def validate_bmkg(
     if forecast_count == 0:
         return None
 
-    # ============================================
-    # VALID
-    # ============================================
+
+
+
 
     return {
         "adm4": returned_adm4,
@@ -316,9 +316,9 @@ def validate_bmkg(
 
 
 def get_volcanoes():
-    """
-    Mengambil daftar gunung dari MySQL.
-    """
+
+
+
 
     db = SessionLocal()
 
@@ -346,9 +346,9 @@ def save_mapping(
     adm4,
     location_name,
 ):
-    """
-    Insert atau update mapping BMKG.
-    """
+
+
+
 
     db = SessionLocal()
 
@@ -368,9 +368,9 @@ def save_mapping(
             },
         ).fetchone()
 
-        # ========================================
-        # UPDATE
-        # ========================================
+
+
+
 
         if existing:
             db.execute(
@@ -393,9 +393,9 @@ def save_mapping(
 
             action = "UPDATE"
 
-        # ========================================
-        # INSERT
-        # ========================================
+
+
+
 
         else:
             db.execute(
@@ -451,13 +451,13 @@ def main(missing_only=False):
     try:
         volcanoes = get_volcanoes()
 
-        # ========================================
-        # MODE MISSING-ONLY
-        #
-        # Hanya proses gunung yang BELUM punya
-        # mapping BMKG. Aman dijalankan berulang:
-        # mapping yang sudah ada tidak diubah.
-        # ========================================
+
+
+
+
+
+
+
 
         existing_mapped = set()
 
@@ -535,9 +535,9 @@ def main(missing_only=False):
                 f"(ID {volcano_id})"
             )
 
-            # ====================================
-            # Cari kandidat desa terdekat
-            # ====================================
+
+
+
 
             candidates = (
                 find_nearest_villages(
@@ -550,9 +550,9 @@ def main(missing_only=False):
 
             selected = None
 
-            # ====================================
-            # Cek kandidat
-            # ====================================
+
+
+
 
             for candidate in candidates:
 
@@ -570,7 +570,7 @@ def main(missing_only=False):
                     ],
                 )
 
-                # Beri jeda antar request
+
                 time.sleep(
                     REQUEST_DELAY
                 )
@@ -595,9 +595,9 @@ def main(missing_only=False):
 
                 break
 
-            # ====================================
-            # Tidak ada kandidat valid
-            # ====================================
+
+
+
 
             if not selected:
 
@@ -620,9 +620,9 @@ def main(missing_only=False):
 
                 continue
 
-            # ====================================
-            # Kandidat berhasil ditemukan
-            # ====================================
+
+
+
 
             candidate = selected[
                 "candidate"
@@ -637,9 +637,9 @@ def main(missing_only=False):
                 or candidate["nama"]
             )
 
-            # ====================================
-            # Simpan mapping
-            # ====================================
+
+
+
 
             try:
 
@@ -682,9 +682,9 @@ def main(missing_only=False):
 
             print()
 
-        # ========================================
-        # SUMMARY
-        # ========================================
+
+
+
 
         print(
             "=" * 80
@@ -706,9 +706,9 @@ def main(missing_only=False):
             "=" * 80
         )
 
-        # ========================================
-        # DETAIL YANG GAGAL
-        # ========================================
+
+
+
 
         if failed_volcanoes:
 

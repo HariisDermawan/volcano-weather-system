@@ -8,36 +8,15 @@ use Illuminate\Support\Facades\Http;
 
 class GeoHazardController extends Controller
 {
-    /*
-     * =====================================================
-     * GEMPA TERKINI (BMKG)
-     *
-     * Sumber utama: halaman "Gempabumi Terkini (Real-time)"
-     *   https://www.bmkg.go.id/gempabumi/gempabumi-realtime
-     * Data dikirim sebagai payload Nuxt SSR (`__NUXT_DATA__`)
-     * dengan skema `Infogempa.gempa` (35+ kejadian terakhir).
-     *
-     * Fallback bila halaman tidak dapat di-scrape:
-     *   - autogempa.json      : gempa terakhir yang dirasakan
-     *   - gempaterkini.json   : 15 gempa terkini
-     *
-     * Hasil di-cache 90 detik supaya tidak membebani BMKG.
-     * =====================================================
-     */
-
     public function gempa(): JsonResponse
     {
         $data = Cache::remember('geo:gempa', 90, function () {
-            // Utama: halaman "Gempabumi Terkini (Real-time)"
-            // https://www.bmkg.go.id/gempabumi/gempabumi-realtime
-            // Berisi 35+ gempa terakhir — paling cepat update dan
-            // mencakup gempa yang belum tentu dirasakan.
+
             try {
                 $list = $this->fetchRealtimeGempa();
 
                 if (! empty($list)) {
-                    // Cocokkan potensi tsunami dari gempaterkini.json
-                    // untuk SEMUA item berdasarkan waktu kejadian.
+
                     $gempaterkini = [];
 
                     try {
@@ -45,14 +24,9 @@ class GeoHazardController extends Controller
                             ->get('https://data.bmkg.go.id/DataMKG/TEWS/gempaterkini.json')
                             ->json('Infogempa.gempa') ?? [];
                     } catch (\Throwable $e) {
-                        // potential tetap null — tidak kritis
+
                     }
 
-                    // Merge autogempa.json ("Gempa Dirasakan") sebagai pelengkap.
-                    // BMKG memublikasikan gempa yang dirasakan lewat channel
-                    // ini (halaman bmkg.go.id/gempabumi); feed realtime
-                    // bisa saja belum memuat event terbaru tersebut sehingga
-                    // data di aplikasi ketinggalan.
                     try {
                         $autogempa = $this->fetchAutogempa(
                             is_array($gempaterkini) ? $gempaterkini : [],
@@ -62,7 +36,7 @@ class GeoHazardController extends Controller
                             $list[] = $autogempa;
                         }
                     } catch (\Throwable $e) {
-                        // autogempa tidak kritis — lanjut dengan feed realtime
+
                     }
 
                     foreach ($list as &$item) {
@@ -83,8 +57,6 @@ class GeoHazardController extends Controller
 
                     unset($item);
 
-                    // Urutkan terbaru di atas & buang duplikat
-                    // (BMKG tidak menjamin urutan payload Nuxt descending).
                     $list = $this->sortUniqueGempa($list);
 
                     $latest = $list[0];
@@ -92,10 +64,9 @@ class GeoHazardController extends Controller
                     return ['latest' => $latest, 'list' => $list];
                 }
             } catch (\Throwable $e) {
-                // lanjut ke fallback berikutnya
+
             }
 
-            // Fallback 1: autogempa.json — gempa terakhir yang dirasakan.
             try {
                 $latest = $this->fetchAutogempa();
 
@@ -103,10 +74,9 @@ class GeoHazardController extends Controller
                     return ['latest' => $latest, 'list' => [$latest]];
                 }
             } catch (\Throwable $e) {
-                // lanjut ke fallback berikutnya
+
             }
 
-            // Fallback 2: gempaterkini.json + autogempa.json.
             try {
                 [$latest, $list] = $this->fetchGempa();
 
@@ -120,8 +90,6 @@ class GeoHazardController extends Controller
             }
         });
 
-        // Ambil gempa terbaru & batasi list maks 2 item paling anyar —
-        // hanya yang benar-benar baru; gempa lama dibuang.
         $latest = $data['latest'] ?? null;
 
         $list = $data['list'];
@@ -247,9 +215,6 @@ class GeoHazardController extends Controller
 
             $rowCoords = $this->coordsKey($row);
 
-            // Waktu sama: bila salah satu tanpa koordinat, anggap sama
-            // (tidak bisa dibedakan). Bila keduanya punya koordinat,
-            // baru dianggap sama bila koordinatnya cocok.
             if ($coords === null || $rowCoords === null) {
                 return true;
             }
@@ -384,8 +349,6 @@ class GeoHazardController extends Controller
             )) {
                 [, $y, $mo, $d, $h, $mi, $s] = $parts;
 
-                // Field `waktu` BMKG real-time adalah UTC, bukan WIB.
-                // Disimpan UTC supaya frontend menampilkan WIB dengan benar.
                 $dateTime = sprintf('%s-%s-%sT%s:%s:%s+00:00', $y, $mo, $d, $h, $mi, $s);
 
                 try {
@@ -566,20 +529,6 @@ class GeoHazardController extends Controller
             'shakemap' => $row['Shakemap'] ?? null,
         ];
     }
-
-    /*
-     * =====================================================
-     * GERAKAN TANAH (PVMBG / VSI)
-     *
-     * VSI tidak menyediakan API "gerakan tanah" dengan data
-     * nyata; feed `/gerakan-tanah?category_id=1` hanya berisi
-     * artikel uji-coba. Feed nyata & terbaru adalah laporan
-     * tanggapan kejadian geologi (termasuk penyelidikan
-     * gerakan tanah / lahan relokasi):
-     *   GET https://vsi.esdm.go.id/tanggapan-kejadian/apis/get
-     * Hasil di-cache 3 menit.
-     * =====================================================
-     */
 
     public function gerakanTanah(): JsonResponse
     {

@@ -6,12 +6,12 @@ from app.database.connection import get_db
 from sqlalchemy import text
 
 
-# Sementara menggunakan kode wilayah untuk pengujian.
-# Nanti diganti dengan wilayah yang benar-benar terkait gunung.
+
+
 BMKG_ADM4 = "31.71.03.1001"
 
-# Sementara untuk pengujian.
-# Nanti menggunakan ID gunung yang benar dari tabel volcanoes.
+
+
 VOLCANO_ID = 1
 
 

@@ -7,16 +7,6 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
-/**
- * Live-fetch & parse VAAC Darwin volcanic ash advisories.
- *
- * Ported from python-service/app/collectors/vaac_collector.py.
- * Source: https://www.bom.gov.au/aviation/warnings/volcanic-ash/
- *
- * Fetches directly from BOM on each request (cached 2 minutes)
- * so the frontend always gets fresh advisory data without
- * waiting for the Python scheduler.
- */
 class VaacDarwinService
 {
     private const VAAC_URL = 'https://www.bom.gov.au/aviation/warnings/volcanic-ash/';
@@ -25,7 +15,7 @@ class VaacDarwinService
 
     private const CACHE_KEY = 'vaac:darwin:advisories';
 
-    private const CACHE_TTL = 120; // 2 minutes
+    private const CACHE_TTL = 120;
 
     /**
      * Volcano name aliases (mirrors python name_aliases.py).
@@ -101,9 +91,7 @@ class VaacDarwinService
     public function getLiveAdvisories(): array
     {
         $raw = Cache::remember(self::CACHE_KEY, self::CACHE_TTL, function () {
-            // Cache hanya menyimpan skalar/string karena Laravel 13
-            // menolak unserialize class (gadget-chain protection).
-            // Tanggal disimpan sebagai string lalu dihidrasi ulang.
+
             return $this->toCacheSafe($this->fetchAndParse());
         });
 
@@ -243,13 +231,6 @@ class VaacDarwinService
         }
     }
 
-    /**
-     * Convert HTML to plain text.
-     *
-     * Mirrors BeautifulSoup `stripped_strings` in vaac_collector.py:
-     * script/style content dibuang, dan tiap tag diganti spasi agar
-     * kata-kata antar tag (termasuk setelah `<br/>`) tidak tergabung.
-     */
     private function htmlToPlainText(string $html): string
     {
         $text = preg_replace('#<script\b[^>]*>.*?</script>#is', ' ', $html);
@@ -263,9 +244,6 @@ class VaacDarwinService
         return trim($text);
     }
 
-    /**
-     * Isolate the Darwin VAAC 24-hour section.
-     */
     private function getDarwin24hSection(string $text): ?string
     {
         $marker = 'FROM DARWIN VAAC - LAST 24 HOURS';
@@ -277,7 +255,6 @@ class VaacDarwinService
 
         $section = substr($text, $start);
 
-        // End at next VAAC section header (e.g., LONDON)
         $nextMarker = strpos($section, '- LAST 24 HOURS', strlen($marker));
 
         if ($nextMarker !== false) {
@@ -375,7 +352,6 @@ class VaacDarwinService
 
         $nextUtc = $this->parseNextAdvisory($block, $issuedUtc);
 
-        // Convert UTC to WIB (+7)
         $issuedWib = (clone $issuedUtc)->modify('+7 hours');
         $observedWib = $observedUtc !== null
             ? (clone $observedUtc)->modify('+7 hours')
@@ -410,9 +386,6 @@ class VaacDarwinService
         ];
     }
 
-    /**
-     * Parse advisory DTG: `20260909/1100Z` -> DateTime UTC.
-     */
     private function parseAdvisoryDtg(string $raw): ?\DateTimeImmutable
     {
         if (! preg_match('/DTG:\s*(\d{8})\/(\d{4})Z/', $raw, $m)) {
@@ -426,9 +399,6 @@ class VaacDarwinService
         }
     }
 
-    /**
-     * Parse OBS VA DTG: `09/1040Z` -> DateTime UTC (uses month/year from issued DTG).
-     */
     private function parseObsDtg(string $raw, \DateTimeImmutable $issuedUtc): ?\DateTimeImmutable
     {
         if (! preg_match('/(?:OBS|EST) VA DTG:\s*(\d{2})\/(\d{4})Z/', $raw, $m)) {
@@ -450,9 +420,6 @@ class VaacDarwinService
         }
     }
 
-    /**
-     * Parse NXT ADVISORY: `NO LATER THAN 20260909/1700Z` -> DateTime UTC.
-     */
     private function parseNextAdvisory(string $raw, \DateTimeImmutable $issuedUtc): ?\DateTimeImmutable
     {
         if (! preg_match('/NXT ADVISORY:\s*(.+?)\s*$/m', $raw, $m)) {
@@ -540,14 +507,13 @@ class VaacDarwinService
         for ($i = 0, $len = count($tokens); $i < $len - 1; $i += 2) {
             $lat = $this->azimuthToDecimal($tokens[$i][1], $tokens[$i][2]);
             $lng = $this->azimuthToDecimal($tokens[$i + 1][1], $tokens[$i + 1][2]);
-            $points[] = [$lng, $lat]; // GeoJSON [lng, lat]
+            $points[] = [$lng, $lat];
         }
 
         if (count($points) < 3) {
             return null;
         }
 
-        // Close the ring
         if ($points[0] !== $points[count($points) - 1]) {
             $points[] = $points[0];
         }
@@ -558,11 +524,6 @@ class VaacDarwinService
         ];
     }
 
-    /**
-     * Convert BOM azimuth notation to decimal degrees.
-     *
-     * `S0601` -> -6.0167, `E10552` -> 105.8667
-     */
     private function azimuthToDecimal(string $letter, string $digits): float
     {
         $degreesLen = strlen($digits) - 2;
@@ -632,7 +593,6 @@ class VaacDarwinService
     {
         $candidates = $this->volcanoMatchCandidates($advisoryName);
 
-        // Exact/alias match
         foreach ($candidates as $candidate) {
             $match = $volcanoes->first(
                 fn (Volcano $v): bool => strcasecmp($v->name, $candidate) === 0,
@@ -644,7 +604,6 @@ class VaacDarwinService
             }
         }
 
-        // Substring fallback
         $base = strtolower(preg_replace('/\s+/', ' ', trim($advisoryName)));
 
         $match = $volcanoes->first(
@@ -681,8 +640,6 @@ class VaacDarwinService
             }
         };
 
-        // Nama asli dari advisory lebih dulu; alias hanya fallback agar
-        // nama seperti "SEMERU" cocok ke "Semeru" bukan "Gunung Semeru".
         $push($clean);
         $push($normalized);
 

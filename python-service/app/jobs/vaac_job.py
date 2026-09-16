@@ -11,7 +11,7 @@ RETENTION_DAYS = 7
 
 
 def resolve_volcano_id(db, advisory_name):
-    """Cocokkan nama gunung advisory VAAC ke baris `volcanoes`."""
+
 
     for candidate in volcano_match_candidates(advisory_name):
         row = db.execute(
@@ -32,7 +32,7 @@ def resolve_volcano_id(db, advisory_name):
         if row:
             return row.id
 
-    # Fallback: substring (misal `LEWOTOLOK` -> `Ili Lewotolok`).
+
     base = " ".join(advisory_name.split()).lower()
 
     row = db.execute(
@@ -296,7 +296,7 @@ def sync_vaac_advisories():
                 print(f"  -> ERROR: {error}")
                 failed += 1
 
-        # Rapikan arsip lama agar tabel tidak membengkak.
+
         db.execute(
             text(
                 """

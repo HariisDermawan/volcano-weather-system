@@ -6,17 +6,6 @@ use GuzzleHttp\Cookie\CookieJar;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
-/**
- * Real-time MAGMA Indonesia volcano status & eruption events.
- *
- * Fetches directly from magma.esdm.go.id on each request (cached 3 minutes)
- * so the frontend gets fresh PVMBG status and eruption data without
- * waiting for the Python scheduler.
- *
- * Sources:
- * - Levels:      /v1/gunung-api/tingkat-aktivitas (volcano list by level)
- * - Eruptions:   /v1/gunung-api/informasi-letusan  (newest eruption events)
- */
 class MagmaService
 {
     private const LEVELS_URL = 'https://magma.esdm.go.id/v1/gunung-api/tingkat-aktivitas';
@@ -25,9 +14,6 @@ class MagmaService
 
     private const MAP_URL = 'https://magma.esdm.go.id/v1';
 
-    /**
-     * Endpoints
-     */
     private const VAR_URL = 'https://magma.esdm.go.id/v1/json/var';
 
     private const VAR_SIGNATURE = '22bb021f910ca5d2cb91120509029340e9367d214d8d1f382aa4f5ce4faf11b6';
@@ -44,7 +30,7 @@ class MagmaService
 
     private const VAR_CACHE_KEY = 'magma:var';
 
-    private const CACHE_TTL = 180; // 3 minutes
+    private const CACHE_TTL = 180;
 
     private const INDONESIAN_MONTHS = [
         'Januari' => 1,
@@ -148,9 +134,6 @@ class MagmaService
         )[0] ?? null;
     }
 
-    /**
-     * Resolve MAGMA slug (`KRA`) for a volcano name.
-     */
     public function getVolcanoSlugForName(string $volcanoName): ?string
     {
         $key = $this->normalizeName($volcanoName);
@@ -187,9 +170,6 @@ class MagmaService
         });
     }
 
-    /**
-     * Resolve MAGMA ga_code (e.g., 'RAU') from volcano name via marker meta.
-     */
     private function resolveGaCode(string $volcanoName): ?string
     {
         $key = $this->normalizeName($volcanoName);
@@ -343,10 +323,6 @@ class MagmaService
         }
     }
 
-    /**
-     * Bersihkan teks laporan dari HTML var (`<br/>` → baris baru,
-     * buang tag, dan decode entity seperti `&deg;`).
-     */
     private function cleanVarText(string $html): string
     {
         $html = preg_replace('/<br\s*\/?\s*>/i', "\n", $html);
@@ -476,12 +452,6 @@ class MagmaService
         }
     }
 
-    /**
-     * Extract a balanced `[...]` JSON block starting at `$start`.
-     *
-     * Array `markersGunungApi` adalah JSON murni tanpa tanda kurung di
-     * dalam string, sehingga cukup diimbangi `[`/`]` dengan kedalaman.
-     */
     private function extractBracketedJson(string $html, int $start): ?string
     {
         $depth = 0;
@@ -745,7 +715,7 @@ class MagmaService
             $result = [];
 
             $chunks = explode('<div class="timeline-item">', $html);
-            array_shift($chunks); // drop preamble
+            array_shift($chunks);
 
             foreach ($chunks as $chunk) {
                 $eruption = $this->parseEruptionChunk($chunk);
@@ -800,9 +770,6 @@ class MagmaService
         ];
     }
 
-    /**
-     * Extract the event time displayed on the source page (`09:10 WIB`).
-     */
     private function extractTimeLabel(string $chunk): ?string
     {
         if (! preg_match('/<div class="timeline-time"><small>(.*?)<\/small><\/div>/is', $chunk, $m)) {
@@ -818,9 +785,6 @@ class MagmaService
         return $time !== '' ? $time : null;
     }
 
-    /**
-     * Extract the report author (`Dibuat oleh ...`) from the chunk.
-     */
     private function extractAuthor(string $chunk): ?string
     {
         if (! preg_match('/<p class="timeline-author">\s*(.*?)\s*<\/p>/is', $chunk, $m)) {
@@ -838,9 +802,6 @@ class MagmaService
         return $author !== '' ? $author : null;
     }
 
-    /**
-     * Extract the eruption photo URL from the chunk.
-     */
     private function extractImage(string $chunk): ?string
     {
         if (! preg_match('/<img[^>]+src="(https?:\/\/[^"]+)"/', $chunk, $m)) {
@@ -850,11 +811,6 @@ class MagmaService
         return $m[1];
     }
 
-    /**
-     * Extract eruption occurrence time from the event description.
-     *
-     * Format: `pukul 16:24 WIT`, date `23 Agustus 2026` -> DateTime UTC.
-     */
     private function parseOccurredAt(string $description): ?\DateTimeImmutable
     {
         if (! preg_match('/pukul (\d{1,2}):(\d{2})\s*(WIB|WITA|WIT)/', $description, $t)) {
@@ -892,9 +848,6 @@ class MagmaService
         }
     }
 
-    /**
-     * Extract ash column height in meters from the description.
-     */
     private function extractAshHeight(string $description): ?int
     {
         if (! preg_match('/tinggi kolom abu teramati\s*(?:&plusmn;|±)?\s*(\d{1,4})\s*m/i', $description, $m)) {
@@ -904,12 +857,6 @@ class MagmaService
         return (int) $m[1];
     }
 
-    /**
-     * Normalize a volcano name for matching.
-     *
-     * Strips `Gunung`/`g.` prefixes, lowercases and collapses
-     * punctuation/spaces so `Gunung Anak Krakatau` === `Anak Krakatau`.
-     */
     public function normalizeName(string $name): string
     {
         $name = mb_strtolower(trim($name));

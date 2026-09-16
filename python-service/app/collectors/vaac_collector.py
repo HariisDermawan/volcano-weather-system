@@ -1,14 +1,14 @@
-"""Collector untuk advisories abu vulkanik VAAC Darwin (BOM Australia).
 
-Sumber: https://www.bom.gov.au/aviation/warnings/volcanic-ash/
 
-Halaman tersebut berisi bulletin naratif `VOLCANIC ASH ADVISORIES FROM
-DARWIN VAAC - LAST 24 HOURS` yang memuat satu blok teks per advisory.
-Blok Darwin ditandai format `Received FVAU..` dan berakhir karakter `=`.
 
-Semua waktu DTG dari advisory adalah UTC; dikonversi ke WIB (+7) sebelum
-disimpan agar konsisten dengan data MAGMA/BMKG lain di sistem.
-"""
+
+
+
+
+
+
+
+
 
 import re
 from datetime import datetime, timedelta, timezone
@@ -32,7 +32,7 @@ WIB = timezone(timedelta(hours=7))
 
 
 def get_volcanic_ash_page():
-    """Ambil halaman Volcanic Ash BOM."""
+
     response = requests.get(
         VAAC_DARWIN_URL,
         headers={"User-Agent": USER_AGENT},
@@ -43,7 +43,7 @@ def get_volcanic_ash_page():
 
 
 def to_plain_text(html):
-    """Ubah markup HTML menjadi satu string normal."""
+
     soup = BeautifulSoup(html, "html.parser")
     return " ".join(soup.stripped_strings)
 
@@ -54,20 +54,20 @@ DARWIN_24H_MARKER = (
 
 
 def get_darwin_24h_section(text):
-    """Isolir bagian `LAST 24 HOURS` khusus Darwin VAAC.
 
-    Halaman BOM memuat beberapa bagian: 24 jam (semua VAAC) dan
-    arsip 7 hari. Kita ambil hanya blok Darwin 24 jam agar tidak
-    memuat advisory lama dari arsip.
-    """
+
+
+
+
+
     start = text.find(DARWIN_24H_MARKER)
     if start == -1:
         return None
 
     section = text[start:]
 
-    # Bagian diakhiri saat header "LAST 24 HOURS" dari VAAC berikutnya
-    # (misal LONDON) atau akhir halaman.
+
+
     next_marker = section.find(
         "- LAST 24 HOURS",
         len(DARWIN_24H_MARKER),
@@ -80,10 +80,10 @@ def get_darwin_24h_section(text):
 
 
 def split_darwin_advisories(text):
-    """Pisahkan teks menjadi blok-blok advisory Darwin.
 
-    Advisory Darwin selalu diawali `Received FVAU..` dan diakhiri `=`.
-    """
+
+
+
     section = get_darwin_24h_section(text)
     if not section:
         return []
@@ -124,11 +124,11 @@ VA_COORD_RE = re.compile(r"([NSEW])(\d{3,5})")
 
 
 def azimuth_to_decimal(letter, digits):
-    """`S0601` atau `E10552` -> koordinat desimal.
 
-    Digit terakhir dua posisi adalah menit, sisanya derajat.
-    S/W bernilai negatif (selatan/barat).
-    """
+
+
+
+
     degrees_len = len(digits) - 2
 
     value = (
@@ -140,12 +140,12 @@ def azimuth_to_decimal(letter, digits):
 
 
 def extract_va_cloud_geometry(va_cld):
-    """Ubang poligon OBS/EST VA CLD menjadi GeoJSON Polygon.
 
-    Format BOM: `S0601 E10552 - S0636 E10513 - ...`.
-    Ring polygon ditutup otomatis; koordinat [lng, lat] sesuai
-    konvensi GeoJSON yang dipakai frontend.
-    """
+
+
+
+
+
     if not va_cld:
         return None
 
@@ -186,7 +186,7 @@ def extract_va_cloud_geometry(va_cld):
 
 
 def parse_advisory_dtg(raw):
-    """`20260909/1100Z` -> datetime UTC naive."""
+
     match = DTG_RE.search(raw)
     if not match:
         return None
@@ -203,7 +203,7 @@ def parse_advisory_dtg(raw):
 
 
 def parse_obs_dtg(raw, issued_utc):
-    """`09/1040Z` -> datetime UTC naive, memakai bulan/tahun DTG."""
+
     match = OBS_DTG_RE.search(raw)
     if not match or not issued_utc:
         return None
@@ -225,7 +225,7 @@ def parse_obs_dtg(raw, issued_utc):
 
 
 def parse_next_advisory(raw, issued_utc):
-    """`NO LATER THAN 20260909/1700Z` -> datetime UTC naive."""
+
     match = NXT_RE.search(raw)
     if not match:
         return None
@@ -249,7 +249,7 @@ def parse_next_advisory(raw, issued_utc):
 
 
 def extract_va_cloud_info(va_cld):
-    """Petik info tinggi/arah dari teks OBS/EST VA CLD."""
+
     ash_detected = False
     altitude_ft = None
     movement = None
@@ -277,11 +277,11 @@ def extract_va_cloud_info(va_cld):
 
 
 def extract_fcst_va_cloud_geometries(block):
-    """Petik poligon `FCST VA CLD +N HR` menjadi dict {jam: GeoJSON}.
 
-    Contoh baris: `FCST VA CLD +6 HR: 09/1740Z SFC/FL150 S0808 E11251 - ...`
-    Kunci memakai string (misal `"6"`, `"12"`, `"18"`) karena JSON.
-    """
+
+
+
+
     geometries = {}
 
     for match in FCST_CLD_RE.finditer(block):
@@ -296,7 +296,7 @@ def extract_fcst_va_cloud_geometries(block):
 
 
 def parse_advisory(block):
-    """Parse satu blok advisory Darwin menjadi dict terstruktur."""
+
     issued_utc = parse_advisory_dtg(block)
 
     volcano_match = VOLCANO_RE.search(block)
@@ -396,7 +396,7 @@ def parse_advisory(block):
 
 
 def get_darwin_advisories():
-    """Ambil & parse seluruh advisory Darwin terkini (24 jam)."""
+
     html = get_volcanic_ash_page()
     text = to_plain_text(html)
     blocks = split_darwin_advisories(text)

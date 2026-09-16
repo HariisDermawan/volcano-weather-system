@@ -4,7 +4,4 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class AshPrediction extends Model
-{
-    //
-}
+class AshPrediction extends Model {}

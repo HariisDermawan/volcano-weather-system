@@ -6,14 +6,6 @@ use App\Models\Volcano;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
-/**
- * MAGMA Indonesia CCTV snapshot images per volcano.
- *
- * The public popup photo (`var`) endpoint is signature/POST-only, but the
- * CCTV page `gunung-api/cctv/{CODE}` is a plain GET page that embeds the
- * latest JPEG snapshot of every installed camera as base64 data URIs.
- * Snapshot data cached 15 minutes.
- */
 class MagmaCctvService
 {
     public function __construct(
@@ -24,14 +16,8 @@ class MagmaCctvService
 
     private const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Safari/537.36';
 
-    private const CACHE_TTL = 900; // 15 minutes
+    private const CACHE_TTL = 900;
 
-    /**
-     * MAGMA ga_codes that actually expose a CCTV page.
-     *
-     * Namespaces petakan ke kode CETV MAGMA (CODE database lokal beberapa
-     * berbeda, mis. Semeru `SEM`->`SMR`, Anak Krakatau `GAK`->`KRA`).
-     */
     private const CCTV_CODES = [
         'bromo' => 'BRO',
         'dempo' => 'DEM',

@@ -3,8 +3,8 @@ import math
 
 EARTH_RADIUS_KM = 6371.0
 
-# Batas maksimum visualisasi plume.
-# Ini bukan batas ilmiah penyebaran abu.
+
+
 MAX_PLUME_DISTANCE_KM = 150.0
 MAX_PLUME_WIDTH_KM = 10.0
 
@@ -15,13 +15,13 @@ def destination_point(
     bearing: float,
     distance_km: float,
 ):
-    """
-    Menghitung titik tujuan berdasarkan:
 
-    - koordinat awal
-    - bearing dalam derajat
-    - jarak dalam kilometer
-    """
+
+
+
+
+
+
 
     lat1 = math.radians(latitude)
     lon1 = math.radians(longitude)
@@ -70,27 +70,27 @@ def generate_ash_plume(
     ash_height: float | None = None,
     activity_level: str | None = None,
 ):
-    """
-    Estimasi visual penyebaran plume abu berdasarkan angin.
 
-    CATATAN PENTING:
-    Model ini bukan model prakiraan bahaya abu vulkanik resmi.
 
-    Model digunakan untuk:
-    - visualisasi arah plume
-    - simulasi penyebaran
-    - monitoring dashboard
-    - demonstrasi sistem
 
-    Bukan untuk:
-    - keputusan evakuasi
-    - navigasi penerbangan
-    - peringatan keselamatan resmi
-    """
 
-    # =========================================================
-    # 1. NORMALISASI INPUT
-    # =========================================================
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     wind_speed = max(
         float(wind_speed or 0),
@@ -107,23 +107,23 @@ def generate_ash_plume(
         1,
     )
 
-    # =========================================================
-    # 2. ARAH PLUME
-    # =========================================================
 
-    # BMKG menunjukkan arah DATANGNYA angin.
-    #
-    # Contoh:
-    # Angin SE = 135°
-    # Abu bergerak berlawanan = 315° / NW
+
+
+
+
+
+
+
+
 
     plume_direction = (
         wind_direction + 180
     ) % 360
 
-    # =========================================================
-    # 3. FAKTOR TINGGI KOLOM ABU
-    # =========================================================
+
+
+
 
     height_factor = 1.0
 
@@ -134,17 +134,17 @@ def generate_ash_plume(
             0.0,
         )
 
-        # Tinggi kolom memengaruhi
-        # skala visual penyebaran.
+
+
 
         height_factor += min(
             ash_height / 10000.0,
             0.5,
         )
 
-    # =========================================================
-    # 4. FAKTOR STATUS GUNUNG
-    # =========================================================
+
+
+
 
     activity_factor = 1.0
 
@@ -167,32 +167,32 @@ def generate_ash_plume(
 
             activity_factor = 1.10
 
-    # =========================================================
-    # 5. FAKTOR DISPERSI
-    # =========================================================
+
+
+
 
     dispersion_factor = (
         height_factor
         * activity_factor
     )
 
-    # =========================================================
-    # 6. JARAK ADVEKSI
-    # =========================================================
 
-    # wind_speed:
-    # km/jam
-    #
-    # forecast_hour:
-    # jam
-    #
-    # Secara sederhana:
-    #
-    # distance = wind speed × waktu × faktor visual
-    #
-    # Faktor 0.65 digunakan agar jarak visual
-    # tidak sama persis dengan perpindahan udara
-    # teoritis.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     advection_factor = 0.65
 
@@ -202,31 +202,31 @@ def generate_ash_plume(
         * advection_factor
     )
 
-    # Minimum agar plume tetap terlihat
-    # ketika angin sangat lemah.
+
+
 
     distance_km = max(
         distance_km,
         1.0,
     )
 
-    # Pengaruh tinggi kolom dan status aktivitas.
+
 
     distance_km *= (
         dispersion_factor
     )
 
-    # Batas maksimum hanya untuk
-    # menjaga visualisasi peta.
+
+
 
     distance_km = min(
         distance_km,
         MAX_PLUME_DISTANCE_KM,
     )
 
-    # =========================================================
-    # 7. CENTERLINE PLUME
-    # =========================================================
+
+
+
 
     center_distances = [
         0.0,
@@ -253,17 +253,17 @@ def generate_ash_plume(
             point
         )
 
-    # =========================================================
-    # 8. LEBAR PLUME
-    # =========================================================
 
-    # Angin lebih kuat → plume sedikit lebih panjang
-    # tetapi relatif lebih sempit.
-    #
-    # Angin lemah → plume lebih mudah menyebar
-    # ke samping.
-    #
-    # Ini tetap hanya pendekatan visual.
+
+
+
+
+
+
+
+
+
+
 
     if wind_speed < 5:
 
@@ -281,8 +281,8 @@ def generate_ash_plume(
 
         base_width = 0.6
 
-    # Status aktivitas mempengaruhi
-    # lebar visual secara ringan.
+
+
 
     base_width *= (
         0.85
@@ -318,9 +318,9 @@ def generate_ash_plume(
 
             progress = 0.0
 
-        # =====================================================
-        # Lebar plume bertambah secara gradual
-        # =====================================================
+
+
+
 
         width_growth = (
             progress ** 0.75
@@ -353,9 +353,9 @@ def generate_ash_plume(
             center_points[index]
         )
 
-        # =====================================================
-        # Titik sisi kiri
-        # =====================================================
+
+
+
 
         left_point = destination_point(
             center_lat,
@@ -364,9 +364,9 @@ def generate_ash_plume(
             width_km,
         )
 
-        # =====================================================
-        # Titik sisi kanan
-        # =====================================================
+
+
+
 
         right_point = destination_point(
             center_lat,
@@ -383,9 +383,9 @@ def generate_ash_plume(
             right_point
         )
 
-    # =========================================================
-    # 9. GEOJSON POLYGON
-    # =========================================================
+
+
+
 
     polygon_points = (
         left_points
@@ -408,7 +408,7 @@ def generate_ash_plume(
             ]
         )
 
-    # Tutup polygon.
+
 
     if coordinates:
 
@@ -423,15 +423,15 @@ def generate_ash_plume(
         ],
     }
 
-    # =========================================================
-    # 10. RISK SCORE
-    # =========================================================
+
+
+
 
     risk_score = 0
 
-    # ---------------------------------------------------------
-    # Kecepatan angin
-    # ---------------------------------------------------------
+
+
+
 
     if wind_speed >= 30:
 
@@ -445,9 +445,9 @@ def generate_ash_plume(
 
         risk_score += 1
 
-    # ---------------------------------------------------------
-    # Tinggi kolom abu
-    # ---------------------------------------------------------
+
+
+
 
     if ash_height is not None:
 
@@ -463,9 +463,9 @@ def generate_ash_plume(
 
             risk_score += 1
 
-    # ---------------------------------------------------------
-    # Status gunung
-    # ---------------------------------------------------------
+
+
+
 
     if activity_level:
 
@@ -486,9 +486,9 @@ def generate_ash_plume(
 
             risk_score += 1
 
-    # ---------------------------------------------------------
-    # Risk level
-    # ---------------------------------------------------------
+
+
+
 
     if risk_score >= 7:
 
@@ -506,12 +506,12 @@ def generate_ash_plume(
 
         risk_level = "low"
 
-    # =========================================================
-    # 11. CONFIDENCE INTERNAL MODEL
-    # =========================================================
 
-    # Ini BUKAN probabilitas kejadian.
-    # Hanya confidence internal untuk model visual.
+
+
+
+
+
 
     confidence = 55.0
 
@@ -536,9 +536,9 @@ def generate_ash_plume(
         90.0,
     )
 
-    # =========================================================
-    # 12. RETURN
-    # =========================================================
+
+
+
 
     return {
         "direction": round(

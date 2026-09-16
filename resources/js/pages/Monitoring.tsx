@@ -310,11 +310,11 @@ interface EarthquakeMarkerInfo {
     felt: string | null;
 }
 
-/*
- * ==========================================
- * JUDUL SEKSI (PANEL DECK / SIDE)
- * ==========================================
- */
+  
+                                             
+                                  
+                                             
+   
 
 function PanelTitle({
     icon,
@@ -389,8 +389,8 @@ const LAYER_LABELS: Record<string, string> = {
     'hour-18': '+18 jam',
 };
 
-// Gaya layer mengikuti referensi peta sebaran abu:
-// Observasi solid (area VAAC), forecast garis putus.
+                                                   
+                                                     
 const LAYER_STYLE: Record<
     string,
     { fillOpacity: number; strokeDashArray?: string }
@@ -564,10 +564,10 @@ function bmkgConditionIcon(weather: string | null) {
     return { Icon: CloudSun, className: 'text-slate-400' };
 }
 
-/**
- * Kondisi cuaca BMKG: label memakai deskripsi resmi BMKG,
- * icon dipilih berdasar teks deskripsi; fallback ke kode WMO.
- */
+   
+                                                          
+                                                              
+   
 function bmkgCondition(
     code: number | null,
     desc: string | null,
@@ -581,10 +581,10 @@ function bmkgCondition(
     return { ...bmkgConditionIcon(desc), label: desc };
 }
 
-/**
- * Normalisasi cuaca kota: BMKG (dari backend) diprioritaskan,
- * Open-Meteo jadi cadangan bila BMKG tidak tersedia.
- */
+   
+                                                              
+                                                     
+   
 function toDisplayWeather(
     bmkg: CityWeather | null | undefined,
     openMeteo: UserCityWeather | null,
@@ -904,9 +904,9 @@ function formatVisibility(visibility: number | null) {
 }
 
 export default function Monitoring() {
-    // ==========================================
-    // DAFTAR GUNUNG
-    // ==========================================
+                                                 
+                    
+                                                 
 
     const [volcanoes, setVolcanoes] = useState<Volcano[]>([]);
 
@@ -916,9 +916,9 @@ export default function Monitoring() {
 
     const [volcanoError, setVolcanoError] = useState<string | null>(null);
 
-    // ==========================================
-    // DATA MONITORING
-    // ==========================================
+                                                 
+                      
+                                                 
 
     const [data, setData] = useState<MonitoringData | null>(null);
 
@@ -955,9 +955,9 @@ export default function Monitoring() {
 
     const [volcanoPhotoLoading, setVolcanoPhotoLoading] = useState(false);
 
-    // ==========================================
-    // DATA GEO (GEMPA & GERAKAN TANAH)
-    // ==========================================
+                                                 
+                                       
+                                                 
 
     const [gempa, setGempa] = useState<GempaData | null>(null);
 
@@ -975,9 +975,9 @@ export default function Monitoring() {
 
     const quakeNotifPromptedRef = useRef(false);
 
-    // ==========================================
-    // IZIN NOTIFIKASI BROWSER (saat interaksi pertama)
-    // ==========================================
+                                                 
+                                                       
+                                                 
 
     useEffect(() => {
         if (!('Notification' in window) || quakeNotifPromptedRef.current) {
@@ -998,9 +998,9 @@ export default function Monitoring() {
         return () => window.removeEventListener('pointerdown', onFirstGesture);
     }, []);
 
-    // ==========================================
-    // NOTIFIKASI GEMPA BARU (browser + auto-dismiss toast)
-    // ==========================================
+                                                 
+                                                           
+                                                 
 
     const notifyQuakeBrowser = (item: GempaItem) => {
         if (
@@ -1031,7 +1031,7 @@ export default function Monitoring() {
                 setOpenPanel('gempa');
             };
         } catch {
-            // Notifikasi diblokir browser — diabaikan.
+                                                       
         }
     };
 
@@ -1093,9 +1093,9 @@ export default function Monitoring() {
 
     const displayGempa = selectedGempa ?? gempa?.latest ?? null;
 
-    // ==========================================
-    // AMBIL DAFTAR SEMUA GUNUNG
-    // ==========================================
+                                                 
+                                
+                                                 
 
     useEffect(() => {
         const fetchVolcanoes = async () => {
@@ -1117,9 +1117,9 @@ export default function Monitoring() {
 
                 setVolcanoes(result);
 
-                // Arahkan ke gunung berstatus level Siaga (Level III); kalau lebih
-                // dari satu yang Siaga, pilih yang letusannya paling baru.
-                // Kalau tidak ada yang Siaga, biarkan pilihan saat ini.
+                                                                                   
+                                                                           
+                                                                        
                 setSelectedVolcanoId((currentId) => {
                     const siaga = result
                         .filter(
@@ -1145,8 +1145,8 @@ export default function Monitoring() {
                         return siaga.id;
                     }
 
-                    // Pertahankan gunung yang sedang dipilih
-                    // jika masih tersedia di database.
+                                                             
+                                                       
                     const exists = result.some(
                         (volcano) => volcano.id === currentId,
                     );
@@ -1155,7 +1155,7 @@ export default function Monitoring() {
                         return currentId;
                     }
 
-                    // Jika tidak ada, gunakan gunung pertama.
+                                                              
                     return result[0]?.id ?? 1;
                 });
             } catch (err) {
@@ -1172,9 +1172,9 @@ export default function Monitoring() {
         fetchVolcanoes();
     }, []);
 
-    // ==========================================
-    // AMBIL DATA MONITORING GUNUNG TERPILIH
-    // ==========================================
+                                                 
+                                            
+                                                 
 
     useEffect(() => {
         let cancelled = false;
@@ -1226,8 +1226,8 @@ export default function Monitoring() {
 
                 lastEruptionKeysRef.current = eruptionKeys;
 
-                // Reset / pertahankan forecast
-                // sesuai gunung yang sedang aktif.
+                                               
+                                                   
                 if (
                     result.ash_predictions &&
                     result.ash_predictions.length > 0
@@ -1291,9 +1291,9 @@ export default function Monitoring() {
         };
     }, [selectedVolcanoId, refreshKey]);
 
-    // ==========================================
-    // AMBIL FOTO POPUP (CCTV REAL-TIME / VISUAL MAGMA)
-    // ==========================================
+                                                 
+                                                       
+                                                 
 
     useEffect(() => {
         let cancelled = false;
@@ -1341,18 +1341,18 @@ export default function Monitoring() {
         };
     }, [selectedVolcanoId]);
 
-    // Reset deteksi erupsi baru saat gunung diganti,
-    // supaya tidak muncul alert "1" karena pindah gunung.
+                                                     
+                                                          
     useEffect(() => {
         lastEruptionKeysRef.current = new Set();
         firstEruptionFetchRef.current = true;
         setHasNewEruption(false);
     }, [selectedVolcanoId]);
 
-    // ==========================================
-    // AMBIL GEMPA TERKINI & GERAKAN TANAH
-    // (sekali pada load; refresh manual via tombol)
-    // ==========================================
+                                                 
+                                          
+                                                    
+                                                 
 
     useEffect(() => {
         let cancelled = false;
@@ -1449,14 +1449,14 @@ export default function Monitoring() {
         };
     }, [refreshKey]);
 
-    // ==========================================
-    // AUTO-REFRESH (REAL-TIME)
-    //
-    // Polling otomatis tiap 30 detik selama tab
-    // tampak; sekali lagi saat tab kembali fokus,
-    // supaya status erupsi dan gempa tetap segar
-    // tanpa interaksi manual.
-    // ==========================================
+                                                 
+                               
+      
+                                                
+                                                  
+                                                 
+                              
+                                                 
 
     useEffect(() => {
         const interval = window.setInterval(() => {
@@ -1482,9 +1482,9 @@ export default function Monitoring() {
         };
     }, []);
 
-    // ==========================================
-    // SYNC NAMA GUNUNG KE SEARCH SELECT
-    // ==========================================
+                                                 
+                                        
+                                                 
 
     useEffect(() => {
         const volcano = volcanoes.find((v) => v.id === selectedVolcanoId);
@@ -1492,9 +1492,9 @@ export default function Monitoring() {
         setVolcanoQuery(volcano?.name ?? '');
     }, [selectedVolcanoId, volcanoes]);
 
-    // ==========================================
-    // REFRESH MANUAL (TOMBOL RING)
-    // ==========================================
+                                                 
+                                   
+                                                 
 
     const refreshNow = () => {
         setRefreshing(true);
@@ -1502,9 +1502,9 @@ export default function Monitoring() {
         window.setTimeout(() => setRefreshing(false), 1200);
     };
 
-    // ==========================================
-    // KOTA SAYA — GEOLOKASI + SEBARAN ABU
-    // ==========================================
+                                                 
+                                          
+                                                 
 
     const requestCityLocation = () => {
         if (!('geolocation' in navigator)) {
@@ -1517,7 +1517,7 @@ export default function Monitoring() {
         setGeoState('requesting');
         setGeoError(null);
 
-        // Coba GPS akurat dulu; kalau gagal, turun ke Wi-Fi/IP.
+                                                                
         let retried = false;
 
         const attemptLocation = (
@@ -1565,8 +1565,8 @@ export default function Monitoring() {
                 (error.code === error.TIMEOUT ||
                     error.code === error.POSITION_UNAVAILABLE)
             ) {
-                // GPS lambat/tidak ada sinyal → coba lagi pakai
-                // sumber yang lebih kasar (Wi-Fi/telepon seluler).
+                                                                
+                                                                   
                 retried = true;
 
                 attemptLocation(false, storePosition, failFinal);
@@ -1580,9 +1580,9 @@ export default function Monitoring() {
         attemptLocation(true, storePosition, failWithFallback);
     };
 
-    // Deteksi posisi secara otomatis saat halaman dibuka — browser akan
-    // meminta izin (Allow/Block). Koordinat selalu real-time, tidak
-    // diambil dari penyimpanan lama.
+                                                                        
+                                                                    
+                                     
     useEffect(() => {
         requestCityLocation();
     }, []);
@@ -1630,9 +1630,9 @@ export default function Monitoring() {
         };
     }, [cityCoords, refreshKey]);
 
-    // ==========================================
-    // CUACA KOTA SAYA — REAL-TIME (BMKG, FALLBACK OPEN-METEO)
-    // ==========================================
+                                                 
+                                                              
+                                                 
 
     const [userWeather, setUserWeather] = useState<UserCityWeather | null>(
         null,
@@ -1701,15 +1701,15 @@ export default function Monitoring() {
         return km >= 10 ? String(Math.round(km)) : km.toFixed(1);
     };
 
-    // ==========================================
-    // PILIH GUNUNG (SEARCH SELECT)
-    // ==========================================
+                                                 
+                                   
+                                                 
 
     const selectVolcanoById = (id: number) => {
         setVolcanoOpen(false);
 
-        // Minta peta mengarah ke gunung ini (termasuk saat marker
-        // gunung yang sama diklik kembali).
+                                                                  
+                                            
         setVolcanoFocusKey((key) => key + 1);
 
         if (id === selectedVolcanoId) {
@@ -1729,15 +1729,15 @@ export default function Monitoring() {
             return true;
         }
 
-        // "Gunung ..." dipakai user sebagai awalan nama, tetapi prefix
-        // itu tidak dipakai untuk pencocokan. Tanpa pengecualian ini,
-        // mengetik "gunung ..." membuat "Gunung Anak Krakatau" (satu-satunya
-        // nama berprefix "Gunung " yang tersisa di daftar) selalu muncul
-        // lebih dulu sebelum gunung tujuan.
+                                                                       
+                                                                      
+                                                                             
+                                                                         
+                                            
         const normQuery = query.replace(/^gunung\s*/i, '').trim();
 
-        // Masih hanya "gunung" / "gunung " → tampilkan seluruh daftar
-        // sampai user mengetik nama gunung yang dituju.
+                                                                      
+                                                        
         if (normQuery === '') {
             return true;
         }
@@ -1760,9 +1760,9 @@ export default function Monitoring() {
         (volcano) => volcano.ash_active,
     ).length;
 
-    // ==========================================
-    // GEMPA → MARKER PETA
-    // ==========================================
+                                                 
+                          
+                                                 
 
     const gempaMarkers: EarthquakeMarkerInfo[] = (gempa?.list ?? [])
         .map((item, index) => ({
@@ -2037,9 +2037,9 @@ export default function Monitoring() {
         </>
     );
 
-    // ==========================================
-    // PRAKIRAAN BMKG PER 3 JAM (GADGET CUACA)
-    // ==========================================
+                                                 
+                                              
+                                                 
 
     const bmkgForecasts = useMemo(() => {
         const sorted = (data?.weather_forecasts ?? [])
@@ -2073,9 +2073,9 @@ export default function Monitoring() {
 
     const bmkgCurrent = bmkgForecasts[0]?.slots[0] ?? null;
 
-    // ==========================================
-    // TIMELINE PLAY (PUTAR OTOMATIS)
-    // ==========================================
+                                                 
+                                     
+                                                 
 
     useEffect(() => {
         if (!timelinePlaying) {
@@ -2121,9 +2121,9 @@ export default function Monitoring() {
         setSelectedForecastId(prediction?.id ?? null);
     };
 
-    // ==========================================
-    // LOADING DAFTAR GUNUNG
-    // ==========================================
+                                                 
+                            
+                                                 
 
     if (volcanoLoading && volcanoes.length === 0) {
         return (
@@ -2145,9 +2145,9 @@ export default function Monitoring() {
         );
     }
 
-    // ==========================================
-    // ERROR DAFTAR GUNUNG
-    // ==========================================
+                                                 
+                          
+                                                 
 
     if (volcanoError && volcanoes.length === 0) {
         return (
@@ -2168,9 +2168,9 @@ export default function Monitoring() {
         );
     }
 
-    // ==========================================
-    // LOADING MONITORING (layar pertama saja)
-    // ==========================================
+                                                 
+                                              
+                                                 
 
     if (loading && !data) {
         return (
@@ -2196,9 +2196,9 @@ export default function Monitoring() {
         );
     }
 
-    // ==========================================
-    // ERROR MONITORING
-    // ==========================================
+                                                 
+                       
+                                                 
 
     if (error) {
         return (
@@ -2218,9 +2218,9 @@ export default function Monitoring() {
         );
     }
 
-    // ==========================================
-    // DATA KOSONG
-    // ==========================================
+                                                 
+                  
+                                                 
 
     if (!data) {
         return (
@@ -2230,9 +2230,9 @@ export default function Monitoring() {
         );
     }
 
-    // ==========================================
-    // FORMAT WIB
-    // ==========================================
+                                                 
+                 
+                                                 
 
     const formatWIB = (date: string) => {
         return new Intl.DateTimeFormat('id-ID', {
@@ -2247,9 +2247,9 @@ export default function Monitoring() {
         }).format(new Date(date));
     };
 
-    // ==========================================
-    // STATUS GUNUNG
-    // ==========================================
+                                                 
+                    
+                                                 
 
     const pvmbgLevelText = (() => {
         const parts = data.volcano.status.split(/[–—-]/);
@@ -2264,9 +2264,9 @@ export default function Monitoring() {
         return `${head} - ${level}`;
     })();
 
-    // ==========================================
-    // ARAH ANGIN (KOMPAS)
-    // ==========================================
+                                                 
+                          
+                                                 
 
     const COMPASS_DEGREES: Record<string, number> = {
         N: 0,
@@ -2287,13 +2287,13 @@ export default function Monitoring() {
         NNW: 337.5,
     };
 
-    // ==========================================
-    // ABU REAL-TIME VAAC DARWIN (PETA)
-    // ==========================================
+                                                 
+                                       
+                                                 
 
     const ashActive = data.ash_active;
 
-    // Bererupsi mengikuti status erupsi real-time MAGMA Indonesia.
+                                                                   
     const erupting = data.volcano.erupting ?? false;
 
     const realTimeAsh =
@@ -2309,13 +2309,13 @@ export default function Monitoring() {
         ? Number(realTimeAsh.speed_kts) * 1.852
         : null;
 
-    // ==========================================
-    // SYNTHETIC PREDICTIONS DARI ADVISORY
-    //
-    // Bila ash_predictions dari DB kosong, buat
-    // entry sintetis dari advisory fcst_geometries
-    // supaya timeline & layer tetap tampil.
-    // ==========================================
+                                                 
+                                          
+      
+                                                
+                                                   
+                                            
+                                                 
 
     const advisoryFcstHours = data.ash_advisory?.fcst_geometries
         ? Object.keys(data.ash_advisory.fcst_geometries)
@@ -2350,9 +2350,9 @@ export default function Monitoring() {
             (data.ash_advisory?.fcst_geometries &&
                 Object.keys(data.ash_advisory.fcst_geometries).length > 0));
 
-    // ==========================================
-    // FORECAST YANG DIPILIH
-    // ==========================================
+                                                 
+                            
+                                                 
 
     const selectedForecast =
         effectivePredictions?.find(
@@ -2361,9 +2361,9 @@ export default function Monitoring() {
         effectivePredictions?.[0] ??
         data.ash_prediction;
 
-    // ==========================================
-    // LEGENDA & LAYER
-    // ==========================================
+                                                 
+                      
+                                                 
 
     const closestForecastByHour = (hour: number) => {
         const predictions = effectivePredictions ?? [];
@@ -2385,8 +2385,8 @@ export default function Monitoring() {
         return closest;
     };
 
-    // Pemetaan jam forecast → layer terdekat
-    // (dipakai saat mengklik kartu timeline).
+                                             
+                                              
     const bucketHourOf = (key: string): number =>
         key === 'observasi' ? 0 : Number(key.split('-')[1]);
 
@@ -2404,7 +2404,7 @@ export default function Monitoring() {
         const wasChecked = checkedLayers.includes(key);
 
         if (!wasChecked) {
-            // Centang: aktifkan layer + jadikan ini yang utama.
+                                                                
             setCheckedLayers([...checkedLayers, key]);
 
             const prediction = forecastForLayer(key);
@@ -2418,7 +2418,7 @@ export default function Monitoring() {
             return;
         }
 
-        // Hapus centang: fallback ke layer lain yang masih aktif.
+                                                                  
         const nextLayers = checkedLayers.filter((layerKey) => layerKey !== key);
 
         setCheckedLayers(nextLayers);
@@ -2432,9 +2432,9 @@ export default function Monitoring() {
         setTimelineBucketKey(primaryKey ?? 'observasi');
     };
 
-    // ==========================================
-    // LAYER PETA AKTIF
-    // ==========================================
+                                                 
+                       
+                                                 
 
     const mapAshLayers = LAYER_ORDER.filter((key) =>
         checkedLayers.includes(key),
@@ -2444,8 +2444,8 @@ export default function Monitoring() {
                 const observation = forecastForLayer(key);
 
                 return {
-                    // Area Observasi = poligon VAAC (lebar, mengikuti
-                    // sebaran abu real-time), fallback ke plume +0 jam.
+                                                                      
+                                                                        
                     geometry:
                         realTimeAsh?.geometry ?? observation?.geometry ?? null,
                     color: LAYER_COLORS[key],
@@ -2460,8 +2460,8 @@ export default function Monitoring() {
             const forecastHour = Number(key.split('-')[1]);
 
             return {
-                // Poligon prakiraan = area lebar VAAC (FCST VA CLD),
-                // fallback ke plume hasil prediksi model.
+                                                                     
+                                                          
                 geometry:
                     realTimeAsh?.fcst_geometries?.[String(forecastHour)] ??
                     prediction?.geometry ??
@@ -2483,8 +2483,8 @@ export default function Monitoring() {
         })
         .filter((layer) => layer.geometry);
 
-    // Gunung tanpa erupsi (tidak ada advisory VAAC real-time)
-    // tidak menampilkan layer sebaran abu sama sekali.
+                                                              
+                                                       
     const ashLayers = ashActive ? mapAshLayers : [];
 
     const observasiVisible = checkedLayers.includes('observasi') && realTimeAsh;
@@ -2503,9 +2503,9 @@ export default function Monitoring() {
           ? Number(selectedForecast.speed)
           : realTimeSpeed;
 
-    // ==========================================
-    // RISIKO ABU
-    // ==========================================
+                                                 
+                 
+                                                 
 
     const riskLevel = selectedForecast?.risk_level?.toLowerCase() ?? '';
     const riskClass =
@@ -2517,14 +2517,14 @@ export default function Monitoring() {
                 ? 'text-yellow-400'
                 : 'text-emerald-400';
 
-    // ==========================================
-    // RENDER
-    // ==========================================
+                                                 
+             
+                                                 
 
-    // Status utama memakai laporan erupsi MAGMA (PVMBG). Bila MAGMA
-    // belum menandai erupsi tetapi VAAC mendeteksi abu, jangan
-    // menampilkan "tidak ada erupsi" — tampilkan kondisi abu agar
-    // tidak menyesatkan masyarakat.
+                                                                    
+                                                               
+                                                                  
+                                    
     const statusPillText =
         data === null
             ? 'MEMUAT DATA'
@@ -2570,9 +2570,9 @@ export default function Monitoring() {
         return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
     })();
 
-    // ==========================================
-    // STATUS ERUPSI REAL-TIME (TAB STATUS)
-    // ==========================================
+                                                 
+                                           
+                                                 
 
     const ashHeightM = data.ash_advisory?.ash_height_m ?? null;
 
@@ -2656,13 +2656,13 @@ export default function Monitoring() {
                 ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
                 : 'border-slate-500/30 bg-slate-500/10 text-slate-300';
 
-    // ==========================================
-    // PRAKIRAAN BMKG PER 3 JAM
-    //
-    // Data BMKG per jam; ditampilkan ala situs
-    // prakiraan-cuaca BMKG: slot tiap 3 jam,
-    // dikelompokkan per tanggal (WIB).
-    // ==========================================
+                                                 
+                               
+      
+                                               
+                                             
+                                       
+                                                 
 
     const availPanels = PANEL_ITEMS;
 
@@ -2680,9 +2680,9 @@ export default function Monitoring() {
                 <meta name="robots" content="index, follow" />
             </Head>
 
-            {/* =====================================
-            PETA LAYAR PENUH (LATAR BELAKANG)
-        ====================================== */}
+            {                                        
+                                             
+                                                 }
 
             <div className="absolute inset-0 z-0">
                 <Suspense
@@ -2765,15 +2765,15 @@ export default function Monitoring() {
                 </Suspense>
             </div>
 
-            {/* =====================================
-            AMBIENT GLOW (LATAR)
-        ====================================== */}
+            {                                        
+                                
+                                                 }
 
             <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-72 bg-[radial-gradient(70%_100%_at_50%_0%,rgba(14,165,233,0.14),rgba(124,58,237,0.06)_60%,transparent)]" />
 
-            {/* =====================================
-            TOPBAR (GLASS)
-        ====================================== */}
+            {                                        
+                          
+                                                 }
 
             <header className="pointer-events-none absolute inset-x-0 top-0 z-[1200] px-2.5 pt-2.5 sm:px-3 sm:pt-3">
                 <div className="pointer-events-auto relative rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-3 py-2.5 shadow-2xl shadow-black/50 backdrop-blur-xl before:pointer-events-none before:absolute before:inset-x-8 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-sky-400/70 before:to-transparent sm:px-4 sm:py-3">
@@ -2807,7 +2807,7 @@ export default function Monitoring() {
                         </div>
 
                         <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-2 lg:pl-3">
-                            {/* STATUS PILL */}
+                            {                 }
 
                             <span
                                 className={`hidden items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-extrabold tracking-wide uppercase sm:flex ${statusPillClass}`}
@@ -2821,7 +2821,7 @@ export default function Monitoring() {
                                 </span>
                             </span>
 
-                            {/* KOTA SAYA */}
+                            {               }
 
                             <button
                                 type="button"
@@ -2856,7 +2856,7 @@ export default function Monitoring() {
                                 </span>
                             </button>
 
-                            {/* LEGENDA (MOBILE) */}
+                            {                      }
 
                             <button
                                 type="button"
@@ -2869,7 +2869,7 @@ export default function Monitoring() {
                                 <span className="hidden sm:inline">Layer</span>
                             </button>
 
-                            {/* REFRESH RING */}
+                            {                  }
 
                             <button
                                 type="button"
@@ -2885,7 +2885,7 @@ export default function Monitoring() {
                         </div>
                     </div>
 
-                    {/* ERUPSI STATUS (MOBILE — di atas dropdown gunung) */}
+                    {                                                      }
 
                     {(eruptingCount > 0 || ashDetectedCount > 0) && (
                         <div className="mt-2 flex shrink-0 items-center gap-1.5 lg:hidden">
@@ -2911,7 +2911,7 @@ export default function Monitoring() {
                         </div>
                     )}
 
-                    {/* SEARCH SELECT GUNUNG */}
+                    {                          }
 
                     <div className="relative mt-2 sm:mt-2.5">
                         <div
@@ -3012,9 +3012,9 @@ export default function Monitoring() {
                 </div>
             </header>
 
-            {/* =====================================
-            BANNER GEMPA BARU (REAL-TIME)
-        ====================================== */}
+            {                                        
+                                         
+                                                 }
 
             {quakeAlert && hasNewQuake && (
                 <div className="pointer-events-none absolute inset-x-0 top-[150px] z-[1260] flex justify-center px-4">
@@ -3065,9 +3065,9 @@ export default function Monitoring() {
                 </div>
             )}
 
-            {/* =====================================
-            BANNER ANCAMAN ABU KE KOTA (REAL-TIME)
-        ====================================== */}
+            {                                        
+                                                  
+                                                 }
 
             {cityData?.summary.inside_plume && (
                 <div className="pointer-events-none absolute inset-x-0 top-[92px] z-[1250] flex justify-center px-4">
@@ -3082,12 +3082,12 @@ export default function Monitoring() {
                 </div>
             )}
 
-            {/* =====================================
-            DECK KIRI (INFO MONITORING)
-        ====================================== */}
+            {                                        
+                                       
+                                                 }
 
             <aside className="pointer-events-auto absolute top-[190px] left-2 z-[1100] flex items-start gap-2 sm:left-3">
-                {/* TOGGLE PANEL (KAYA LULCC IPB) */}
+                {                                   }
 
                 <div className="flex min-h-0 w-14 flex-col items-center justify-center gap-2 rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 py-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
                     {availPanels.map(({ key, label, Icon }) => {
@@ -3150,7 +3150,7 @@ export default function Monitoring() {
                     })}
                 </div>
 
-                {/* PANEL AKTIF */}
+                {                 }
 
                 <div
                     className={`w-[308px] max-w-[calc(100vw-96px)] self-start overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e] to-[#0a0f1c] pt-3.5 pb-3.5 pl-3.5 shadow-2xl shadow-black/50 ${
@@ -3293,7 +3293,7 @@ export default function Monitoring() {
                                     </>
                                 )}
 
-                                {/* CUACA KOTA SAYA (REAL-TIME) */}
+                                {                                 }
 
                                 <section className="mt-4">
                                     <PanelTitle
@@ -3544,7 +3544,7 @@ export default function Monitoring() {
                             </section>
                         )}
 
-                        {/* LETUSAN GUNUNG (MAGMA informasi-letusan) */}
+                        {                                              }
 
                         {active === 'letusan' && (
                             <section>
@@ -3702,7 +3702,7 @@ export default function Monitoring() {
                             </section>
                         )}
 
-                        {/* STATUS ERUPSI */}
+                        {                   }
 
                         {active === 'status' && (
                             <section>
@@ -3782,7 +3782,7 @@ export default function Monitoring() {
                             </section>
                         )}
 
-                        {/* TIMELINE SEBARAN */}
+                        {                      }
 
                         {active === 'cuaca' && hasTimelineData && (
                             <section>
@@ -3860,7 +3860,7 @@ export default function Monitoring() {
                             </section>
                         )}
 
-                        {/* PRAKIRAAN CUACA BMKG (PER 3 JAM) */}
+                        {                                      }
 
                         {active === 'cuaca' && (
                             <section>
@@ -4315,7 +4315,7 @@ export default function Monitoring() {
                             </section>
                         )}
 
-                        {/* ADVISORY ABU VULKANIK */}
+                        {                           }
 
                         {active === 'advisory' && (
                             <section>
@@ -4500,7 +4500,7 @@ export default function Monitoring() {
                             </section>
                         )}
 
-                        {/* PREDIKSI SEBARAN ABU */}
+                        {                          }
 
                         {active === 'cuaca' &&
                             ashActive &&
@@ -4602,7 +4602,7 @@ export default function Monitoring() {
                                 </section>
                             )}
 
-                        {/* GAS SO2 (VULKANIK) */}
+                        {                        }
 
                         {active === 'so2' && (
                             <section>
@@ -4775,7 +4775,7 @@ export default function Monitoring() {
                             </section>
                         )}
 
-                        {/* GEMPA TERKINI (BMKG) */}
+                        {                          }
 
                         {active === 'gempa' && (
                             <section>
@@ -4856,7 +4856,7 @@ export default function Monitoring() {
                             </section>
                         )}
 
-                        {/* GERAKAN TANAH (PVMBG / VSI) */}
+                        {                                 }
 
                         {active === 'gerakan' && (
                             <section>
@@ -4942,7 +4942,7 @@ export default function Monitoring() {
                             </section>
                         )}
 
-                        {/* META */}
+                        {          }
 
                         {active !== null && active !== 'advisory' && (
                             <div className="border-t border-white/10 pt-2.5 text-[10px] leading-relaxed text-slate-600">
@@ -4957,9 +4957,9 @@ export default function Monitoring() {
                 </div>
             </aside>
 
-            {/* =====================================
-            LEGENDA & LAYER (KANAN)
-        ====================================== */}
+            {                                        
+                                   
+                                                 }
 
             <aside className="pointer-events-auto absolute top-[190px] right-2 z-[1100] hidden w-[230px] max-w-[40vw] rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e] to-[#0a0f1c] p-3.5 shadow-2xl shadow-black/50 lg:block">
                 <LegendPanel
@@ -4971,9 +4971,9 @@ export default function Monitoring() {
                 />
             </aside>
 
-            {/* =====================================
-                LEGENDA & LAYER (MOBILE DRAWER)
-            ====================================== */}
+            {                                        
+                                               
+                                                     }
 
             {layerOpen && (
                 <div className="absolute inset-0 z-[1400] flex items-end justify-center lg:hidden">
@@ -4998,9 +4998,9 @@ export default function Monitoring() {
                 </div>
             )}
 
-            {/* =====================================
-                BOTTOM BAR
-            ====================================== */}
+            {                                        
+                          
+                                                     }
 
             <footer className="pointer-events-none absolute inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-[1100] flex items-end justify-between gap-2">
                 <div className="pointer-events-auto rounded-xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-3 py-2 text-[10.5px] text-slate-500 backdrop-blur-xl">
@@ -5011,3 +5011,4 @@ export default function Monitoring() {
         </div>
     );
 }
+

@@ -9,10 +9,6 @@ use Illuminate\Http\JsonResponse;
 
 class VolcanoController extends Controller
 {
-    /**
-     * Foto popup sebuah gunung — persis sumber yang dipakai popup
-     * magma.esdm.go.id/v1 (POST `json/var` → visual.foto).
-     */
     public function cctv(
         Volcano $volcano,
         MagmaService $magma,
@@ -42,27 +38,15 @@ class VolcanoController extends Controller
         VaacDarwinService $vaac,
         MagmaService $magma,
     ): JsonResponse {
-        // =====================================================
-        // STATUS ABU REAL-TIME PER GUNUNG
-        //
-        // Utama: fetch langsung dari VAAC Darwin (cached 2m).
-        // Fallback: database (diisi Python scheduler tiap 10m).
-        // =====================================================
 
         $liveActiveIds = $vaac->getActiveAshVolcanoIds();
 
-        // Status PVMBG real-time dari MAGMA (cached 3m).
         $liveStatuses = $magma->getStatuses();
 
-        // Gunung yang sedang bererupsi menurut MAGMA (erupt_icon) (cached 3m).
         $eruptingSet = array_flip($magma->getEruptingVolcanoNames());
 
-        // Meta administratif/geografis per gunung (termasuk ga_code untuk
-        // menarik data `json/var` — sumber popup /v1).
         $markerMeta = $magma->getMarkerMeta();
 
-        // Waktu erupsi terakhir per gunung (UTC) dari MAGMA — dipakai
-        // frontend untuk memilih gunung erupsi yang paling baru.
         $latestEruptionAt = [];
 
         foreach ($magma->getEruptions() as $eruption) {
@@ -180,14 +164,6 @@ class VolcanoController extends Controller
 
                 return $volcano;
             });
-
-        // =====================================================
-        // HAPUS DUPLIKAT NAMA (Gunung Semeru vs Semeru)
-        //
-        // Pipeline Python bisa menciptakan baris `Gunung ...`
-        // baru setelah migrasi merge. Pilih nama resmi MAGMA
-        // (tanpa prefix `Gunung `) agar dropdown tidak dobel.
-        // =====================================================
 
         $seen = [];
 

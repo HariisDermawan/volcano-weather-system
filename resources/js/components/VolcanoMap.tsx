@@ -89,11 +89,11 @@ interface VolcanoMapProps {
     userLocation?: { lat: number; lon: number } | null;
 }
 
-/*
- * ==========================================
- * WARNA STATUS (seperti MAGMA ESDM)
- * ==========================================
- */
+  
+                                             
+                                    
+                                             
+   
 
 function statusColor(status?: string | null): string {
     const value = status?.toLowerCase() ?? '';
@@ -113,11 +113,11 @@ function statusColor(status?: string | null): string {
     return '#22c55e';
 }
 
-/*
- * ==========================================
- * MARKER GUNUNG (ikon segitiga ala MAGMA)
- * ==========================================
- */
+  
+                                             
+                                          
+                                             
+   
 
 function renderVolcanoSvg(color: string): string {
     return `
@@ -129,14 +129,14 @@ function renderVolcanoSvg(color: string): string {
     `;
 }
 
-/*
- * ==========================================
- * IKON ERUPSI REAL-TIME
- *
- * Level II (Waspada) memakai gn2.gif,
- * selain itu memakai gn.gif.
- * ==========================================
- */
+  
+                                             
+                        
+  
+                                      
+                             
+                                             
+   
 
 function eruptingImage(status?: string | null): string {
     return (status?.toLowerCase() ?? '').includes('waspada')
@@ -152,15 +152,15 @@ function renderEruptingHtml(src: string): string {
     `;
 }
 
-/*
- * ==========================================
- * MARKER GEMPABUMI (simpul berdenyut)
- *
- * Simbol klasik episenter: cincin yang memancar
- * ke luar + titik berlabel magnitude. Warna
- * mengikuti skala kekuatan (earthquakeColor).
- * ==========================================
- */
+  
+                                             
+                                      
+  
+                                                
+                                            
+                                              
+                                             
+   
 
 function earthquakeHtml(
     magnitude: number | null,
@@ -649,11 +649,11 @@ function VolcanoMarker({
     );
 }
 
-/*
- * ==========================================
- * MARKER GEMPABUMI (warna berdasarkan magnitudo)
- * ==========================================
- */
+  
+                                             
+                                                 
+                                             
+   
 
 function earthquakeColor(magnitude: number | null): string {
     if (magnitude === null) {
@@ -679,14 +679,14 @@ function earthquakeColor(magnitude: number | null): string {
     return '#a855f7';
 }
 
-/*
- * ==========================================
- * DARK TILES
- *
- * Invert tiles agar serasi dengan tema gelap
- * (sama seperti referensi peta abu).
- * ==========================================
- */
+  
+                                             
+             
+  
+                                             
+                                     
+                                             
+   
 
 function DarkTiles({ enabled }: { enabled: boolean }) {
     const map = useMap();
@@ -708,14 +708,14 @@ function DarkTiles({ enabled }: { enabled: boolean }) {
     return null;
 }
 
-/*
- * ==========================================
- * MAP BRIDGE
- *
- * Ekspos instance peta Leaflet ke luar
- * agar overlay (tombol) bisa memakai-nya.
- * ==========================================
- */
+  
+                                             
+             
+  
+                                       
+                                          
+                                             
+   
 
 function MapBridge({ onMap }: { onMap: (map: L.Map) => void }) {
     const map = useMap();
@@ -727,15 +727,15 @@ function MapBridge({ onMap }: { onMap: (map: L.Map) => void }) {
     return null;
 }
 
-/*
- * ==========================================
- * MAP FLY
- *
- * Terbang mengikuti gunung yang dipilih.
- * Melewatkan render pertama supaya view
- * awal tetap seperti yang sudah diatur.
- * ==========================================
- */
+  
+                                             
+          
+  
+                                         
+                                        
+                                        
+                                             
+   
 
 function MapFly({
     target,
@@ -780,16 +780,16 @@ function MapFly({
         prev.current = { lat, lng, focusKey, fitKey: fitKey ?? '' };
 
         if (posChanged || focusChanged) {
-            // Gunung dipilih (cari / klik marker) → zoom ke gunung itu.
+                                                                        
             focusedRef.current = true;
             map.flyTo([lat, lng], zoom, { duration: 0.9 });
 
             return;
         }
 
-        // Sebelum pengguna fokus ke gunung mana pun: bila jumlah/posisi
-        // gempa berubah, sesuaikan jangkauan peta agar semua titik
-        // radar gempa terlihat bersama gunung aktif.
+                                                                        
+                                                                   
+                                                     
         if (fitChanged && !focusedRef.current) {
             const currentFit = fitRef.current;
 
@@ -806,15 +806,15 @@ function MapFly({
     return null;
 }
 
-/*
- * ==========================================
- * LIVE WAVE
- *
- * Lingkaran dibuat langsung sebagai
- * layer Leaflet sehingga selalu mengikuti
- * koordinat gunung.
- * ==========================================
- */
+  
+                                             
+            
+  
+                                    
+                                          
+                    
+                                             
+   
 
 function LivePulse({ position }: { position: [number, number] }) {
     const map = useMap();
@@ -822,12 +822,12 @@ function LivePulse({ position }: { position: [number, number] }) {
     useEffect(() => {
         const waves: L.Circle[] = [];
 
-        /*
-         * Buat 3 gelombang.
-         *
-         * Setiap gelombang akan menyebar
-         * dari titik gunung.
-         */
+          
+                            
+          
+                                         
+                             
+           
         const waveCount = 3;
 
         for (let i = 0; i < waveCount; i++) {
@@ -856,30 +856,30 @@ function LivePulse({ position }: { position: [number, number] }) {
             const elapsed = currentTime - startTime;
 
             waves.forEach((wave, index) => {
-                /*
-                 * Delay antar gelombang.
-                 */
+                  
+                                         
+                   
                 const delay = (index / waveCount) * duration;
 
                 let progress = (elapsed - delay) / duration;
 
-                /*
-                 * Loop animasi.
-                 */
+                  
+                                
+                   
                 progress = ((progress % 1) + 1) % 1;
 
-                /*
-                 * Radius awal sampai akhir.
-                 */
+                  
+                                            
+                   
                 const minRadius = 250;
                 const maxRadius = 4500;
 
                 const radius = minRadius + (maxRadius - minRadius) * progress;
 
-                /*
-                 * Semakin menyebar,
-                 * semakin transparan.
-                 */
+                  
+                                    
+                                      
+                   
                 const opacity = 0.75 * (1 - progress);
 
                 const fillOpacity = 0.1 * (1 - progress);
@@ -909,11 +909,11 @@ function LivePulse({ position }: { position: [number, number] }) {
     return null;
 }
 
-/*
- * ==========================================
- * DESTINATION POINT
- * ==========================================
- */
+  
+                                             
+                    
+                                             
+   
 
 function destinationPoint(
     latitude: number,
@@ -945,11 +945,11 @@ function destinationPoint(
     return [(lat2 * 180) / Math.PI, (lon2 * 180) / Math.PI];
 }
 
-/*
- * ==========================================
- * MAIN MAP
- * ==========================================
- */
+  
+                                             
+           
+                                             
+   
 
 export default function VolcanoMap({
     latitude = -6.102,
@@ -990,15 +990,15 @@ export default function VolcanoMap({
 
     const risk = riskLevel?.toLowerCase() ?? 'low';
 
-    /*
-     * ==========================================
-     * KAMERA: SESUAIKAN DENGAN SEMUA TITIK GEMPA
-     *
-     * Jika ada gempa pada peta, kamera menyesuaikan
-     * agar gunung terpilih DAN semua episenter
-     * terlihat — bukan hanya yang di dekat gunung.
-     * ==========================================
-     */
+      
+                                                 
+                                                 
+      
+                                                    
+                                               
+                                                   
+                                                 
+       
 
     const fitQuakes = useMemo(
         () =>
@@ -1018,11 +1018,11 @@ export default function VolcanoMap({
 
     const fitKey = fitQuakes.map((point) => point.join(',')).join('|');
 
-    /*
-     * ==========================================
-     * WARNA PLUME
-     * ==========================================
-     */
+      
+                                                 
+                  
+                                                 
+       
 
     const plumeColor =
         risk === 'extreme'
@@ -1035,16 +1035,16 @@ export default function VolcanoMap({
 
     const polygonColor = ashColor ?? plumeColor;
 
-    /*
-     * ==========================================
-     * DEDUPE MARKER GUNUNG
-     *
-     * Database punya baris ganda per gunung
-     * (mis. `Semeru` & `Gunung Semeru` dengan
-     * koordinat sama). Kelompokkan per titik dan
-     * prioritaskan baris yang sedang erupsi.
-     * ==========================================
-     */
+      
+                                                 
+                           
+      
+                                            
+                                              
+                                                 
+                                             
+                                                 
+       
 
     const markerVolcanoes = useMemo(() => {
         const groups = new Map<string, VolcanoMarkerInfo>();
@@ -1070,17 +1070,17 @@ export default function VolcanoMap({
         return [...groups.values()];
     }, [volcanoes, activeVolcanoIds]);
 
-    /*
-     * ==========================================
-     * TARGET FOKUS KAMERA
-     *
-     * Saat gunung dipilih / diklik, arahkan kamera
-     * langsung ke gunung itu dari daftar — jangan
-     * menunggu data monitoring terbaru turun dari
-     * server (yang baru selesai sesaat kemudian dan
-     * membuat kamera "lompat" dua kali).
-     * ==========================================
-     */
+      
+                                                 
+                          
+      
+                                                   
+                                                  
+                                                  
+                                                    
+                                         
+                                                 
+       
 
     const selectedVolcano = useMemo(
         () => markerVolcanoes.find((v) => v.id === selectedVolcanoId) ?? null,
@@ -1101,19 +1101,19 @@ export default function VolcanoMap({
               )
             : [];
 
-    /*
-     * ==========================================
-     * GEOJSON PLUME
-     * ==========================================
-     */
+      
+                                                 
+                    
+                                                 
+       
 
     const polygonPositions = toPolygonPositions(ashGeometry);
 
-    /*
-     * ==========================================
-     * ARAH PLUME
-     * ==========================================
-     */
+      
+                                                 
+                 
+                                                 
+       
 
     let arrowEnd: [number, number] | null = null;
 
@@ -1128,11 +1128,11 @@ export default function VolcanoMap({
         );
     }
 
-    /*
-     * ==========================================
-     * KEPALA PANAH
-     * ==========================================
-     */
+      
+                                                 
+                   
+                                                 
+       
 
     let arrowLeft: [number, number] | null = null;
 
@@ -1194,9 +1194,9 @@ export default function VolcanoMap({
 
                 <MapBridge onMap={setMapInstance} />
 
-                {/* ==================================
-                    SEMUA GUNUNG (IKON ALa MAGMA)
-                ================================== */}
+                {                                     
+                                                 
+                                                     }
 
                 {markerVolcanoes.map((volcano) => (
                     <VolcanoMarker
@@ -1222,9 +1222,9 @@ export default function VolcanoMap({
                     />
                 ))}
 
-                {/* ==================================
-                    LOKASI SAYA (GEOLOKASI)
-                ================================== */}
+                {                                     
+                                           
+                                                     }
 
                 {userLocation && (
                     <UserLocationMarker
@@ -1235,9 +1235,9 @@ export default function VolcanoMap({
                     />
                 )}
 
-                {/* ==================================
-                    GEMPA TERKINI (BMKG)
-                ================================== */}
+                {                                     
+                                        
+                                                     }
 
                 {(earthquakes ?? []).map((quake) => (
                     <EarthquakeMarker
@@ -1259,15 +1259,15 @@ export default function VolcanoMap({
                     focusKey={focusKey}
                 />
 
-                {/* ==================================
-                    LIVE WAVE
-                ================================== */}
+                {                                     
+                             
+                                                     }
 
                 <LivePulse position={position} />
 
-                {/* ==================================
-                    TITIK GUNUNG
-                ================================== */}
+                {                                     
+                                
+                                                     }
 
                 <CircleMarker
                     center={position}
@@ -1298,9 +1298,9 @@ export default function VolcanoMap({
                     </Popup>
                 </CircleMarker>
 
-                {/* ==================================
-                    PLUME / SEBARAN ABU
-                ================================== */}
+                {                                     
+                                       
+                                                     }
 
                 {ashLayers.length > 0
                     ? ashLayers.map((layer, layerIndex) => {
@@ -1379,9 +1379,9 @@ export default function VolcanoMap({
                           </Polygon>
                       )}
 
-                {/* ==================================
-                    GARIS ARAH ANGIN
-                ================================== */}
+                {                                     
+                                    
+                                                     }
 
                 {arrowEnd && (
                     <Polyline
@@ -1395,9 +1395,9 @@ export default function VolcanoMap({
                     />
                 )}
 
-                {/* ==================================
-                    KEPALA PANAH
-                ================================== */}
+                {                                     
+                                
+                                                     }
 
                 {arrowEnd && arrowLeft && (
                     <Polyline
@@ -1422,9 +1422,9 @@ export default function VolcanoMap({
                 )}
             </MapContainer>
 
-            {/* ==================================
-                SELURUH GUNUNG (ZOOM KELUAR)
-            ================================== */}
+            {                                     
+                                            
+                                                 }
 
             {mapInstance && markerVolcanoes.length > 1 && (
                 <button
@@ -1459,9 +1459,9 @@ export default function VolcanoMap({
                 </button>
             )}
 
-            {/* ==================================
-                LIVE LABEL
-            ================================== */}
+            {                                     
+                          
+                                                 }
 
             <div
                 style={{
@@ -1510,3 +1510,4 @@ export default function VolcanoMap({
         </div>
     );
 }
+

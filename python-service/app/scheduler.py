@@ -21,8 +21,8 @@ REQUEST_DELAY = 0.5
 
 WEATHER_SOURCE_PREFIX = "BMKG - "
 
-# Seberapa banyak request BMKG yang dijalankan bersamaan. Nilai kecil
-# agar tidak memicu rate limit (BMKG 429 di-retry otomatis).
+
+
 MAX_WEATHER_WORKERS = 4
 
 
@@ -52,7 +52,7 @@ def get_weather_sources():
 
 
 def fetch_forecast(source):
-    """Ambil & simpan forecast BMKG untuk satu gunung (dipanggil paralel)."""
+
 
     volcano_id = int(source.volcano_id)
 
@@ -78,7 +78,7 @@ def fetch_forecast(source):
 
 
 def run_prediction(volcano_id, location_name):
-    """Generate prediksi sebaran abu untuk satu gunung (paralel)."""
+
 
     try:
         print(
@@ -102,19 +102,19 @@ def run_all_jobs():
     print(f"Mulai      : {started:%Y-%m-%d %H:%M:%S}")
     print("=" * 60)
 
-    # 1. Ambil laporan aktivitas gunung (semua gunung)
+
     run_volcano_job()
 
-    # 2. Ambil advisory abu VAAC Darwin (maskapai, real-time)
+
     try:
         sync_vaac_advisories()
     except Exception as error:
         print(f"[VAAC ERROR] {error}")
 
-    # 3. Ambil forecast cuaca BMKG untuk semua gunung
-    #    yang sudah di-mapping di volcano_weather_sources.
-    #    Dijalankan paralel (worker terbatas) untuk memangkas
-    #    durasi siklus sehingga data lebih segar.
+
+
+
+
     sources = get_weather_sources()
 
     if not sources:
@@ -134,7 +134,7 @@ def run_all_jobs():
         for future in as_completed(futures):
             try:
                 volcano_id, error = future.result()
-            except Exception as error:  # pragma: no cover
+            except Exception as error: 
                 print(f"[WEATHER WORKER ERROR] {error}")
                 continue
 
@@ -144,24 +144,24 @@ def run_all_jobs():
                     f"{volcano_id}: {error}"
                 )
 
-            # Jeda kecil agar BMKG tidak dibanjiri sesaat.
+
             time.sleep(REQUEST_DELAY)
 
-    # 3b. Ambil kondisi cuaca saat ini (Open-Meteo / GFS-ICON)
-    #     untuk semua gunung yang punya koordinat.
+
+
     try:
         sync_current_weather()
     except Exception as error:
         print(f"[CURRENT WEATHER ERROR] {error}")
 
-    # 4. Buat prediksi sebaran abu untuk semua gunung
-    #    (setelah forecast BMKG selesai ditulis).
-    #
-    # CATATAN: sengaja tetap sekuensial. generate_prediction
-    # memakai DELETE + INSERT dalam satu transaksi pada tabel
-    # yang sama; bila dijalankan paralel memicu deadlock MySQL
-    # (error 1213). Prediksi cepat di database, jadi paralel
-    # tidak memberi banyak manfaat.
+
+
+
+
+
+
+
+
     for source in sources:
         try:
             volcano_id, error = run_prediction(
@@ -175,7 +175,7 @@ def run_all_jobs():
                     f"{volcano_id}: {error}"
                 )
 
-        except Exception as error:  # pragma: no cover
+        except Exception as error: 
             print(f"[PREDICTION WORKER ERROR] {error}")
 
     elapsed = (datetime.now() - started).total_seconds()

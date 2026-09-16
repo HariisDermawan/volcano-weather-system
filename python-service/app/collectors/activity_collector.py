@@ -95,35 +95,35 @@ def extract_section(
 
 
 def extract_ash_height(text_content):
-    """Ekstrak tinggi kolom abu/asap dari laporan MAGMA.
 
-    Hanya mencari di bagian pengamatan/observasi, bukan di
-    header gunung. "ketinggian N mdpl" pada header adalah
-    ELEVASI gunung, bukan tinggi kolom abu — jadi jangan
-    pernah menangkap satuan "mdpl" sebagai tinggi abu.
 
-    Format asli laporan MAGMA yang tertangkap, contoh:
-      "Teramati asap kawah utama berwarna putih dengan
-       intensitas tipis hingga sedang tinggi sekitar 50-100 m
-       di atas puncak"
-      "tinggi sekitar 5-10 meter dari puncak"
-      "kolom abu vulkanik ... 2500 meter di atas puncak"
 
-    Untuk nilai berbentuk rentang (mis. 50-100 m), dipakai
-    nilai TERBESAR karena menunjukkan puncak kolom abu.
-    """
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     if not text_content:
         return None
 
-    # Satuan: m/meter. "mdpl" SELALU elevasi -> tidak pernah
-    # dicocokkan di sini.
+
+
     unit = r"(?:m|meter)"
 
-    # Pola 1: "... tinggi/ketinggian [sekitar] N [- M] m/meter
-    #          di atas puncak / dari puncak"
-    # Frasa "di atas/dari puncak" adalah penanda abu yang
-    # kuat dan tidak pernah merujuk ke elevasi gunung.
+
+
+
+
     pattern_strong = (
         r"(?:se)?(?:tinggi|ketinggian|ketinggian asap)\s*"
         r"(?:sekitar|±|~|/-)?\s*"
@@ -133,8 +133,8 @@ def extract_ash_height(text_content):
         + r"\s+(?:di\s+atas\s+puncak|dari\s+puncak)"
     )
 
-    # Pola 2: "... kolom abu/asap ... N [- M] m/meter
-    #          di atas puncak" (angka tanpa kata "tinggi").
+
+
     pattern_number_first = (
         r"(\d{1,5}(?:[.,]\d+)?)\s*"
         r"(?:[-–]\s*(\d{1,5}(?:[.,]\d+)?))?\s*"
@@ -142,8 +142,8 @@ def extract_ash_height(text_content):
         + r"\s+(?:di\s+atas\s+puncak|dari\s+puncak)"
     )
 
-    # Pola 3: konteks asap/abu ... tinggi [sekitar] N [- M]
-    #         m/meter (tanpa frasa "puncak").
+
+
     pattern_context = (
         r"(?:teramati\s+)?"
         r"(?:asap|abu|kolom\s*(?:abu|asap)?)\s*"
@@ -180,7 +180,7 @@ def extract_ash_height(text_content):
             except ValueError:
                 value2 = value1
 
-        # Nilai terbesar = puncak kolom abu.
+
         return max(value1, value2)
 
     return None
@@ -357,9 +357,9 @@ def parse_volcano_detail(url):
         descriptions
     ) if descriptions else None
 
-    # Tinggi abu hanya dicari di bagian pengamatan/observasi.
-    # Header gunung mengandung "ketinggian N mdpl" (elevasi)
-    # yang TIDAK boleh dianggap sebagai tinggi kolom abu.
+
+
+
     observation_text = "\n".join(
         descriptions
     ) if descriptions else visual or text_content

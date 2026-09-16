@@ -9,16 +9,16 @@ from app.database.connection import SessionLocal
 from app.models.ash_model import generate_ash_plume
 
 
-# =========================================================
-# CONFIG
-# =========================================================
+
+
+
 
 FORECAST_LIMIT = 6
 
 
-# =========================================================
-# WIND DIRECTION
-# =========================================================
+
+
+
 
 WIND_DIRECTION_MAP = {
     "N": 0,
@@ -41,18 +41,18 @@ def wind_direction_to_degree(direction: str):
     )
 
 
-# =========================================================
-# FORECAST HOUR
-# =========================================================
+
+
+
 
 def calculate_forecast_hour(
     forecast_at,
     base_forecast_at,
 ):
-    """
-    Menghitung horizon forecast berdasarkan
-    forecast pertama sebagai +0 jam.
-    """
+
+
+
+
 
     difference = forecast_at - base_forecast_at
 
@@ -68,9 +68,9 @@ def calculate_forecast_hour(
     return max(0, forecast_hour)
 
 
-# =========================================================
-# GET WEATHER SOURCES
-# =========================================================
+
+
+
 
 def get_weather_sources():
     db = SessionLocal()
@@ -99,9 +99,9 @@ def get_weather_sources():
         db.close()
 
 
-# =========================================================
-# GENERATE PREDICTION
-# =========================================================
+
+
+
 
 def generate_prediction(volcano_id: int):
 
@@ -109,9 +109,9 @@ def generate_prediction(volcano_id: int):
 
     try:
 
-        # =================================================
-        # 1. AMBIL DATA GUNUNG
-        # =================================================
+
+
+
 
         volcano = db.execute(
             text(
@@ -140,9 +140,9 @@ def generate_prediction(volcano_id: int):
 
             return False
 
-        # =================================================
-        # 2. AMBIL CONFIG WEATHER DARI DATABASE
-        # =================================================
+
+
+
 
         weather_config = db.execute(
             text(
@@ -179,9 +179,9 @@ def generate_prediction(volcano_id: int):
             else "BMKG"
         )
 
-        # =================================================
-        # 3. AMBIL AKTIVITAS TERBARU
-        # =================================================
+
+
+
 
         activity = db.execute(
             text(
@@ -220,15 +220,15 @@ def generate_prediction(volcano_id: int):
                     activity["activity_level"]
                 )
 
-        # =================================================
-        # 4. WAKTU GENERATE
-        # =================================================
+
+
+
 
         generated_at = datetime.now()
 
-        # =================================================
-        # 5. AMBIL FORECAST BMKG
-        # =================================================
+
+
+
 
         forecasts = db.execute(
             text(
@@ -263,14 +263,14 @@ def generate_prediction(volcano_id: int):
             },
         ).mappings().all()
 
-        # =================================================
-        # FALLBACK
-        # =================================================
-        # Jika tidak ada forecast di masa depan (BMKG belum
-        # memperbarui), ambil forecast TERBARU yang tersedia
-        # (paling dekat dengan generated_at), bukan yang
-        # terlama. Ini mencegah penggunaan data berhari-hari
-        # usang untuk prediksi.
+
+
+
+
+
+
+
+
 
         if not forecasts:
 
@@ -324,15 +324,15 @@ def generate_prediction(volcano_id: int):
 
             return False
 
-        # =================================================
-        # 6. BASE FORECAST
-        # =================================================
+
+
+
 
         base_forecast_at = forecasts[0]["forecast_at"]
 
-        # =================================================
-        # 7. HAPUS PREDIKSI LAMA
-        # =================================================
+
+
+
 
         db.execute(
             text(
@@ -346,9 +346,9 @@ def generate_prediction(volcano_id: int):
             },
         )
 
-        # =================================================
-        # 8. LOG
-        # =================================================
+
+
+
 
         print()
 
@@ -396,9 +396,9 @@ def generate_prediction(volcano_id: int):
 
         skipped_count = 0
 
-        # =================================================
-        # 9. GENERATE SETIAP FORECAST
-        # =================================================
+
+
+
 
         for forecast in forecasts:
 
@@ -406,9 +406,9 @@ def generate_prediction(volcano_id: int):
                 "forecast_at"
             ]
 
-            # -------------------------------------------------
-            # Hitung horizon forecast
-            # -------------------------------------------------
+
+
+
 
             forecast_hour = (
                 calculate_forecast_hour(
@@ -428,9 +428,9 @@ def generate_prediction(volcano_id: int):
 
                 continue
 
-            # -------------------------------------------------
-            # Konversi arah angin
-            # -------------------------------------------------
+
+
+
 
             wind_direction = (
                 wind_direction_to_degree(
@@ -453,17 +453,17 @@ def generate_prediction(volcano_id: int):
 
                 continue
 
-            # -------------------------------------------------
-            # Kecepatan angin
-            # -------------------------------------------------
+
+
+
 
             wind_speed = float(
                 forecast["wind_speed"] or 0
             )
 
-            # -------------------------------------------------
-            # Generate plume
-            # -------------------------------------------------
+
+
+
 
             prediction = generate_ash_plume(
 
@@ -486,9 +486,9 @@ def generate_prediction(volcano_id: int):
                 activity_level=activity_level,
             )
 
-            # =================================================
-            # 10. SIMPAN PREDIKSI
-            # =================================================
+
+
+
 
             db.execute(
                 text(
@@ -568,9 +568,9 @@ def generate_prediction(volcano_id: int):
                 f"{prediction['risk_level']}"
             )
 
-        # =================================================
-        # 11. COMMIT
-        # =================================================
+
+
+
 
         db.commit()
 
@@ -634,9 +634,9 @@ def generate_prediction(volcano_id: int):
         db.close()
 
 
-# =========================================================
-# RUN ALL VOLCANOES
-# =========================================================
+
+
+
 
 if __name__ == "__main__":
 
