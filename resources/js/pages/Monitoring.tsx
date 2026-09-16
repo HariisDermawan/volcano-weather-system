@@ -198,6 +198,19 @@ interface WorkingCityWeather {
     apparent_temperature: number | null;
 }
 
+interface CityForecastSlot {
+    time: string;
+    temperature: number | null;
+    humidity: number | null;
+    wind_speed: number | null;
+    wind_direction_deg: number | null;
+    wind_direction_cardinal: string | null;
+    visibility: number | null;
+    visibility_text: string | null;
+    weather_code: number | null;
+    weather_desc: string | null;
+}
+
 interface MonitoringData {
     volcano: Volcano;
     activity: Activity | null;
@@ -297,6 +310,7 @@ interface CityData {
         plume_volcanoes: Array<string | null>;
     };
     weather?: CityWeather | null;
+    forecasts?: CityForecastSlot[] | null;
 }
 
 interface EarthquakeMarkerInfo {
@@ -1050,6 +1064,8 @@ export default function Monitoring() {
 
     const [bmkgWeather, setBmkgWeather] = useState<CityWeather | null>(null);
 
+    const [cityForecasts, setCityForecasts] = useState<CityForecastSlot[]>([]);
+
     const [geoError, setGeoError] = useState<string | null>(null);
 
     const selectedQuakeId = selectedGempa?.eventid ?? null;
@@ -1523,6 +1539,7 @@ export default function Monitoring() {
                 if (!cancelled) {
                     setCityData(result);
                     setBmkgWeather(result.weather ?? null);
+                    setCityForecasts(result.forecasts ?? []);
                     setGeoState('success');
                 }
             } catch {
@@ -1956,6 +1973,35 @@ export default function Monitoring() {
     }, [data, formatWIBLongDate]);
 
     const bmkgCurrent = bmkgForecasts[0]?.slots[0] ?? null;
+
+    const cityForecastDays = useMemo(() => {
+        const sorted = cityForecasts
+            .map((slot) => ({
+                slot,
+                ts: new Date(slot.time.replace(' ', 'T')).getTime(),
+            }))
+            .filter(({ ts }) => !Number.isNaN(ts))
+            .sort((a, b) => a.ts - b.ts)
+            .map(({ slot }) => slot);
+
+        const daysMap = new Map<string, typeof sorted>();
+
+        for (const slot of sorted) {
+            const key = formatWIBLongDate(slot.time.replace(' ', 'T'));
+            const day = daysMap.get(key) ?? [];
+
+            day.push(slot);
+
+            daysMap.set(key, day);
+        }
+
+        return [...daysMap.entries()].map(([label, slots]) => ({
+            label,
+            slots,
+        }));
+    }, [cityForecasts, formatWIBLongDate]);
+
+    const displayCityWeather = toDisplayWeather(bmkgWeather, userWeather);
 
     useEffect(() => {
         if (!timelinePlaying) {

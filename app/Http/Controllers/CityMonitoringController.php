@@ -19,6 +19,8 @@ class CityMonitoringController extends Controller
 
     private const BMKG_CACHE_TTL = 1800;
 
+    private const BMKG_CACHE_VERSION = 'v2';
+
     private const ADM4_CACHE_TTL = 604800;
 
     private const WILAYAH_DB_PATH = 'python-service/wilayah-adm4/locations.db';
@@ -126,7 +128,12 @@ class CityMonitoringController extends Controller
                     ->map(fn (int $id): ?string => $names[$id] ?? null)
                     ->values(),
             ],
-            'weather' => $weather,
+            'weather' => is_array($weather)
+                ? ($weather['weather'] ?? null)
+                : null,
+            'forecasts' => is_array($weather)
+                ? ($weather['forecasts'] ?? [])
+                : [],
         ]);
     }
 
@@ -185,7 +192,7 @@ class CityMonitoringController extends Controller
             return null;
         }
 
-        $cacheKey = 'bmkg:city:weather:v1:'.$code;
+        $cacheKey = 'bmkg:city:weather:'.self::BMKG_CACHE_VERSION.':'.$code;
 
         $cached = Cache::get($cacheKey);
 
@@ -367,7 +374,12 @@ class CityMonitoringController extends Controller
 
         $lokasi = is_array($json['lokasi'] ?? null) ? $json['lokasi'] : [];
 
-        return $this->buildCityWeather($adm4, $lokasi, $entry);
+        $forecasts = $this->buildCityForecasts($entries);
+
+        return [
+            'weather' => $this->buildCityWeather($adm4, $lokasi, $entry),
+            'forecasts' => $forecasts,
+        ];
     }
 
     /**
@@ -518,6 +530,85 @@ class CityMonitoringController extends Controller
                 ? $entry['weather_desc']
                 : null,
         ];
+    }
+
+    /**
+     * Susun daftar prakiraan kota per slot waktu (WIB).
+     *
+     * Urutkan ascending dari waktu terkini agar frontend menampilkan
+     * "hari ini" dulu lalu hari-hari berikutnya. Slot masa lalu dibuang.
+     *
+     * @param  list<array<string, mixed>>  $entries
+     * @return list<array<string, mixed>>
+     */
+    private function buildCityForecasts(array $entries): array
+    {
+        $now = new \DateTimeImmutable(
+            'now',
+            new \DateTimeZone('Asia/Jakarta'),
+        );
+
+        $slots = [];
+
+        foreach ($entries as $entry) {
+            $local = $entry['local_datetime'] ?? null;
+
+            if (! is_string($local)) {
+                continue;
+            }
+
+            try {
+                $date = new \DateTimeImmutable(
+                    $local,
+                    new \DateTimeZone('Asia/Jakarta'),
+                );
+            } catch (\Throwable) {
+                continue;
+            }
+
+            if ($date->getTimestamp() < $now->getTimestamp() - 3 * 3600) {
+                continue;
+            }
+
+            $slots[] = [
+                'time' => $local,
+                'temperature' => isset($entry['t'])
+                    ? round((float) $entry['t'], 1)
+                    : null,
+                'humidity' => isset($entry['hu'])
+                    ? round((float) $entry['hu'], 1)
+                    : null,
+                'wind_speed' => isset($entry['ws'])
+                    ? round((float) $entry['ws'], 1)
+                    : null,
+                'wind_direction_deg' => isset($entry['wd_deg'])
+                    ? (float) $entry['wd_deg']
+                    : null,
+                'wind_direction_cardinal' => is_string($entry['wd'] ?? null)
+                    ? $entry['wd']
+                    : null,
+                'visibility' => isset($entry['vs'])
+                    ? (float) $entry['vs']
+                    : null,
+                'visibility_text' => is_string($entry['vs_text'] ?? null)
+                    ? $entry['vs_text']
+                    : null,
+                'weather_code' => isset($entry['weather'])
+                    ? (int) $entry['weather']
+                    : null,
+                'weather_desc' => is_string($entry['weather_desc'] ?? null)
+                    ? $entry['weather_desc']
+                    : null,
+            ];
+        }
+
+        usort(
+            $slots,
+            fn (array $a, array $b): int => (strtotime($a['time'] ?? '') <=>
+                strtotime($b['time'] ?? '')) ?: 0,
+        );
+
+        return $slots;
     }
 
     /**
