@@ -30,7 +30,7 @@ class MagmaService
 
     private const VAR_CACHE_KEY = 'magma:var';
 
-    private const CACHE_TTL = 180;
+    private const CACHE_TTL = 600;
 
     private const INDONESIAN_MONTHS = [
         'Januari' => 1,

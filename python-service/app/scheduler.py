@@ -1,3 +1,5 @@
+import shutil
+import subprocess
 import time
 
 from concurrent.futures import (
@@ -5,6 +7,7 @@ from concurrent.futures import (
     as_completed,
 )
 from datetime import datetime
+from pathlib import Path
 
 from sqlalchemy import text
 
@@ -94,6 +97,23 @@ def run_prediction(volcano_id, location_name):
         return volcano_id, error
 
 
+def warm_laravel_cache():
+    project_root = Path(__file__).resolve().parents[2]
+    php = shutil.which("php")
+    artisan = project_root / "artisan"
+    if not php or not artisan.exists():
+        return
+    try:
+        subprocess.run(
+            [php, str(artisan), "volcano:cache-warm"],
+            cwd=str(project_root),
+            capture_output=True,
+            timeout=120,
+        )
+    except Exception as error:
+        print(f"[WARM CACHE ERROR] {error}")
+
+
 def run_all_jobs():
     started = datetime.now()
 
@@ -104,6 +124,9 @@ def run_all_jobs():
 
 
     run_volcano_job()
+
+
+    warm_laravel_cache()
 
 
     try:

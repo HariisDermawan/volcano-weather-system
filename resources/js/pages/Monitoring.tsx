@@ -310,12 +310,6 @@ interface EarthquakeMarkerInfo {
     felt: string | null;
 }
 
-  
-                                             
-                                  
-                                             
-   
-
 function PanelTitle({
     icon,
     children,
@@ -366,7 +360,8 @@ const PANEL_ITEMS = [
     { key: 'kota', label: 'Kota Saya', Icon: MapPin },
     { key: 'letusan', label: 'Informasi Letusan', Icon: VolcanoIcon },
     { key: 'status', label: 'Status Erupsi & PVMBG', Icon: Activity },
-    { key: 'cuaca', label: 'Cuaca & Sebaran Abu', Icon: CloudSun },
+    { key: 'cuaca', label: 'Cuaca', Icon: CloudSun },
+    { key: 'sebaran', label: 'Sebaran Abu', Icon: Wind },
     { key: 'advisory', label: 'Advisory Abu Vulkanik', Icon: Radio },
     { key: 'so2', label: 'Gas SO2 (Vulkanik)', Icon: So2Icon },
     { key: 'gempa', label: 'Gempa Terkini', Icon: Siren },
@@ -389,8 +384,6 @@ const LAYER_LABELS: Record<string, string> = {
     'hour-18': '+18 jam',
 };
 
-                                                   
-                                                     
 const LAYER_STYLE: Record<
     string,
     { fillOpacity: number; strokeDashArray?: string }
@@ -564,10 +557,6 @@ function bmkgConditionIcon(weather: string | null) {
     return { Icon: CloudSun, className: 'text-slate-400' };
 }
 
-   
-                                                          
-                                                              
-   
 function bmkgCondition(
     code: number | null,
     desc: string | null,
@@ -581,10 +570,6 @@ function bmkgCondition(
     return { ...bmkgConditionIcon(desc), label: desc };
 }
 
-   
-                                                              
-                                                     
-   
 function toDisplayWeather(
     bmkg: CityWeather | null | undefined,
     openMeteo: UserCityWeather | null,
@@ -904,10 +889,6 @@ function formatVisibility(visibility: number | null) {
 }
 
 export default function Monitoring() {
-                                                 
-                    
-                                                 
-
     const [volcanoes, setVolcanoes] = useState<Volcano[]>([]);
 
     const [selectedVolcanoId, setSelectedVolcanoId] = useState<number>(1);
@@ -915,10 +896,6 @@ export default function Monitoring() {
     const [volcanoLoading, setVolcanoLoading] = useState(true);
 
     const [volcanoError, setVolcanoError] = useState<string | null>(null);
-
-                                                 
-                      
-                                                 
 
     const [data, setData] = useState<MonitoringData | null>(null);
 
@@ -955,10 +932,6 @@ export default function Monitoring() {
 
     const [volcanoPhotoLoading, setVolcanoPhotoLoading] = useState(false);
 
-                                                 
-                                       
-                                                 
-
     const [gempa, setGempa] = useState<GempaData | null>(null);
 
     const [hasNewQuake, setHasNewQuake] = useState(false);
@@ -974,10 +947,6 @@ export default function Monitoring() {
     const quakeToastTimerRef = useRef<number | null>(null);
 
     const quakeNotifPromptedRef = useRef(false);
-
-                                                 
-                                                       
-                                                 
 
     useEffect(() => {
         if (!('Notification' in window) || quakeNotifPromptedRef.current) {
@@ -997,10 +966,6 @@ export default function Monitoring() {
 
         return () => window.removeEventListener('pointerdown', onFirstGesture);
     }, []);
-
-                                                 
-                                                           
-                                                 
 
     const notifyQuakeBrowser = (item: GempaItem) => {
         if (
@@ -1030,9 +995,7 @@ export default function Monitoring() {
                 setQuakeAlert(null);
                 setOpenPanel('gempa');
             };
-        } catch {
-                                                       
-        }
+        } catch {}
     };
 
     useEffect(() => {
@@ -1093,10 +1056,6 @@ export default function Monitoring() {
 
     const displayGempa = selectedGempa ?? gempa?.latest ?? null;
 
-                                                 
-                                
-                                                 
-
     useEffect(() => {
         const fetchVolcanoes = async () => {
             try {
@@ -1117,9 +1076,6 @@ export default function Monitoring() {
 
                 setVolcanoes(result);
 
-                                                                                   
-                                                                           
-                                                                        
                 setSelectedVolcanoId((currentId) => {
                     const siaga = result
                         .filter(
@@ -1145,8 +1101,6 @@ export default function Monitoring() {
                         return siaga.id;
                     }
 
-                                                             
-                                                       
                     const exists = result.some(
                         (volcano) => volcano.id === currentId,
                     );
@@ -1155,7 +1109,6 @@ export default function Monitoring() {
                         return currentId;
                     }
 
-                                                              
                     return result[0]?.id ?? 1;
                 });
             } catch (err) {
@@ -1171,10 +1124,6 @@ export default function Monitoring() {
 
         fetchVolcanoes();
     }, []);
-
-                                                 
-                                            
-                                                 
 
     useEffect(() => {
         let cancelled = false;
@@ -1226,8 +1175,6 @@ export default function Monitoring() {
 
                 lastEruptionKeysRef.current = eruptionKeys;
 
-                                               
-                                                   
                 if (
                     result.ash_predictions &&
                     result.ash_predictions.length > 0
@@ -1291,10 +1238,6 @@ export default function Monitoring() {
         };
     }, [selectedVolcanoId, refreshKey]);
 
-                                                 
-                                                       
-                                                 
-
     useEffect(() => {
         let cancelled = false;
 
@@ -1341,18 +1284,11 @@ export default function Monitoring() {
         };
     }, [selectedVolcanoId]);
 
-                                                     
-                                                          
     useEffect(() => {
         lastEruptionKeysRef.current = new Set();
         firstEruptionFetchRef.current = true;
         setHasNewEruption(false);
     }, [selectedVolcanoId]);
-
-                                                 
-                                          
-                                                    
-                                                 
 
     useEffect(() => {
         let cancelled = false;
@@ -1449,15 +1385,6 @@ export default function Monitoring() {
         };
     }, [refreshKey]);
 
-                                                 
-                               
-      
-                                                
-                                                  
-                                                 
-                              
-                                                 
-
     useEffect(() => {
         const interval = window.setInterval(() => {
             if (document.visibilityState === 'visible') {
@@ -1482,29 +1409,17 @@ export default function Monitoring() {
         };
     }, []);
 
-                                                 
-                                        
-                                                 
-
     useEffect(() => {
         const volcano = volcanoes.find((v) => v.id === selectedVolcanoId);
 
         setVolcanoQuery(volcano?.name ?? '');
     }, [selectedVolcanoId, volcanoes]);
 
-                                                 
-                                   
-                                                 
-
     const refreshNow = () => {
         setRefreshing(true);
         setRefreshKey((key) => key + 1);
         window.setTimeout(() => setRefreshing(false), 1200);
     };
-
-                                                 
-                                          
-                                                 
 
     const requestCityLocation = () => {
         if (!('geolocation' in navigator)) {
@@ -1517,7 +1432,6 @@ export default function Monitoring() {
         setGeoState('requesting');
         setGeoError(null);
 
-                                                                
         let retried = false;
 
         const attemptLocation = (
@@ -1565,8 +1479,6 @@ export default function Monitoring() {
                 (error.code === error.TIMEOUT ||
                     error.code === error.POSITION_UNAVAILABLE)
             ) {
-                                                                
-                                                                   
                 retried = true;
 
                 attemptLocation(false, storePosition, failFinal);
@@ -1580,9 +1492,6 @@ export default function Monitoring() {
         attemptLocation(true, storePosition, failWithFallback);
     };
 
-                                                                        
-                                                                    
-                                     
     useEffect(() => {
         requestCityLocation();
     }, []);
@@ -1629,10 +1538,6 @@ export default function Monitoring() {
             cancelled = true;
         };
     }, [cityCoords, refreshKey]);
-
-                                                 
-                                                              
-                                                 
 
     const [userWeather, setUserWeather] = useState<UserCityWeather | null>(
         null,
@@ -1701,15 +1606,9 @@ export default function Monitoring() {
         return km >= 10 ? String(Math.round(km)) : km.toFixed(1);
     };
 
-                                                 
-                                   
-                                                 
-
     const selectVolcanoById = (id: number) => {
         setVolcanoOpen(false);
 
-                                                                  
-                                            
         setVolcanoFocusKey((key) => key + 1);
 
         if (id === selectedVolcanoId) {
@@ -1729,15 +1628,8 @@ export default function Monitoring() {
             return true;
         }
 
-                                                                       
-                                                                      
-                                                                             
-                                                                         
-                                            
         const normQuery = query.replace(/^gunung\s*/i, '').trim();
 
-                                                                      
-                                                        
         if (normQuery === '') {
             return true;
         }
@@ -1759,10 +1651,6 @@ export default function Monitoring() {
     const ashDetectedCount = volcanoes.filter(
         (volcano) => volcano.ash_active,
     ).length;
-
-                                                 
-                          
-                                                 
 
     const gempaMarkers: EarthquakeMarkerInfo[] = (gempa?.list ?? [])
         .map((item, index) => ({
@@ -2037,10 +1925,6 @@ export default function Monitoring() {
         </>
     );
 
-                                                 
-                                              
-                                                 
-
     const bmkgForecasts = useMemo(() => {
         const sorted = (data?.weather_forecasts ?? [])
             .map((forecast) => ({
@@ -2072,10 +1956,6 @@ export default function Monitoring() {
     }, [data, formatWIBLongDate]);
 
     const bmkgCurrent = bmkgForecasts[0]?.slots[0] ?? null;
-
-                                                 
-                                     
-                                                 
 
     useEffect(() => {
         if (!timelinePlaying) {
@@ -2121,10 +2001,6 @@ export default function Monitoring() {
         setSelectedForecastId(prediction?.id ?? null);
     };
 
-                                                 
-                            
-                                                 
-
     if (volcanoLoading && volcanoes.length === 0) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
@@ -2145,10 +2021,6 @@ export default function Monitoring() {
         );
     }
 
-                                                 
-                          
-                                                 
-
     if (volcanoError && volcanoes.length === 0) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6">
@@ -2167,10 +2039,6 @@ export default function Monitoring() {
             </div>
         );
     }
-
-                                                 
-                                              
-                                                 
 
     if (loading && !data) {
         return (
@@ -2196,10 +2064,6 @@ export default function Monitoring() {
         );
     }
 
-                                                 
-                       
-                                                 
-
     if (error) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-[#05070a] px-6 text-[#eef1f5]">
@@ -2218,10 +2082,6 @@ export default function Monitoring() {
         );
     }
 
-                                                 
-                  
-                                                 
-
     if (!data) {
         return (
             <div className="flex min-h-screen items-center justify-center bg-[#05070a] text-slate-400">
@@ -2229,10 +2089,6 @@ export default function Monitoring() {
             </div>
         );
     }
-
-                                                 
-                 
-                                                 
 
     const formatWIB = (date: string) => {
         return new Intl.DateTimeFormat('id-ID', {
@@ -2247,10 +2103,6 @@ export default function Monitoring() {
         }).format(new Date(date));
     };
 
-                                                 
-                    
-                                                 
-
     const pvmbgLevelText = (() => {
         const parts = data.volcano.status.split(/[–—-]/);
 
@@ -2263,10 +2115,6 @@ export default function Monitoring() {
 
         return `${head} - ${level}`;
     })();
-
-                                                 
-                          
-                                                 
 
     const COMPASS_DEGREES: Record<string, number> = {
         N: 0,
@@ -2287,13 +2135,8 @@ export default function Monitoring() {
         NNW: 337.5,
     };
 
-                                                 
-                                       
-                                                 
-
     const ashActive = data.ash_active;
 
-                                                                   
     const erupting = data.volcano.erupting ?? false;
 
     const realTimeAsh =
@@ -2308,14 +2151,6 @@ export default function Monitoring() {
     const realTimeSpeed = realTimeAsh?.speed_kts
         ? Number(realTimeAsh.speed_kts) * 1.852
         : null;
-
-                                                 
-                                          
-      
-                                                
-                                                   
-                                            
-                                                 
 
     const advisoryFcstHours = data.ash_advisory?.fcst_geometries
         ? Object.keys(data.ash_advisory.fcst_geometries)
@@ -2350,20 +2185,12 @@ export default function Monitoring() {
             (data.ash_advisory?.fcst_geometries &&
                 Object.keys(data.ash_advisory.fcst_geometries).length > 0));
 
-                                                 
-                            
-                                                 
-
     const selectedForecast =
         effectivePredictions?.find(
             (prediction) => prediction.id === selectedForecastId,
         ) ??
         effectivePredictions?.[0] ??
         data.ash_prediction;
-
-                                                 
-                      
-                                                 
 
     const closestForecastByHour = (hour: number) => {
         const predictions = effectivePredictions ?? [];
@@ -2385,8 +2212,6 @@ export default function Monitoring() {
         return closest;
     };
 
-                                             
-                                              
     const bucketHourOf = (key: string): number =>
         key === 'observasi' ? 0 : Number(key.split('-')[1]);
 
@@ -2404,7 +2229,6 @@ export default function Monitoring() {
         const wasChecked = checkedLayers.includes(key);
 
         if (!wasChecked) {
-                                                                
             setCheckedLayers([...checkedLayers, key]);
 
             const prediction = forecastForLayer(key);
@@ -2418,7 +2242,6 @@ export default function Monitoring() {
             return;
         }
 
-                                                                  
         const nextLayers = checkedLayers.filter((layerKey) => layerKey !== key);
 
         setCheckedLayers(nextLayers);
@@ -2432,10 +2255,6 @@ export default function Monitoring() {
         setTimelineBucketKey(primaryKey ?? 'observasi');
     };
 
-                                                 
-                       
-                                                 
-
     const mapAshLayers = LAYER_ORDER.filter((key) =>
         checkedLayers.includes(key),
     )
@@ -2444,8 +2263,6 @@ export default function Monitoring() {
                 const observation = forecastForLayer(key);
 
                 return {
-                                                                      
-                                                                        
                     geometry:
                         realTimeAsh?.geometry ?? observation?.geometry ?? null,
                     color: LAYER_COLORS[key],
@@ -2460,8 +2277,6 @@ export default function Monitoring() {
             const forecastHour = Number(key.split('-')[1]);
 
             return {
-                                                                     
-                                                          
                 geometry:
                     realTimeAsh?.fcst_geometries?.[String(forecastHour)] ??
                     prediction?.geometry ??
@@ -2483,8 +2298,6 @@ export default function Monitoring() {
         })
         .filter((layer) => layer.geometry);
 
-                                                              
-                                                       
     const ashLayers = ashActive ? mapAshLayers : [];
 
     const observasiVisible = checkedLayers.includes('observasi') && realTimeAsh;
@@ -2503,10 +2316,6 @@ export default function Monitoring() {
           ? Number(selectedForecast.speed)
           : realTimeSpeed;
 
-                                                 
-                 
-                                                 
-
     const riskLevel = selectedForecast?.risk_level?.toLowerCase() ?? '';
     const riskClass =
         riskLevel === 'high'
@@ -2517,14 +2326,6 @@ export default function Monitoring() {
                 ? 'text-yellow-400'
                 : 'text-emerald-400';
 
-                                                 
-             
-                                                 
-
-                                                                    
-                                                               
-                                                                  
-                                    
     const statusPillText =
         data === null
             ? 'MEMUAT DATA'
@@ -2569,10 +2370,6 @@ export default function Monitoring() {
 
         return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
     })();
-
-                                                 
-                                           
-                                                 
 
     const ashHeightM = data.ash_advisory?.ash_height_m ?? null;
 
@@ -2656,14 +2453,6 @@ export default function Monitoring() {
                 ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
                 : 'border-slate-500/30 bg-slate-500/10 text-slate-300';
 
-                                                 
-                               
-      
-                                               
-                                             
-                                       
-                                                 
-
     const availPanels = PANEL_ITEMS;
 
     const active = availPanels.some((panel) => panel.key === openPanel)
@@ -2680,9 +2469,7 @@ export default function Monitoring() {
                 <meta name="robots" content="index, follow" />
             </Head>
 
-            {                                        
-                                             
-                                                 }
+            {}
 
             <div className="absolute inset-0 z-0">
                 <Suspense
@@ -2765,15 +2552,11 @@ export default function Monitoring() {
                 </Suspense>
             </div>
 
-            {                                        
-                                
-                                                 }
+            {}
 
             <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-72 bg-[radial-gradient(70%_100%_at_50%_0%,rgba(14,165,233,0.14),rgba(124,58,237,0.06)_60%,transparent)]" />
 
-            {                                        
-                          
-                                                 }
+            {}
 
             <header className="pointer-events-none absolute inset-x-0 top-0 z-[1200] px-2.5 pt-2.5 sm:px-3 sm:pt-3">
                 <div className="pointer-events-auto relative rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-3 py-2.5 shadow-2xl shadow-black/50 backdrop-blur-xl before:pointer-events-none before:absolute before:inset-x-8 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-sky-400/70 before:to-transparent sm:px-4 sm:py-3">
@@ -2807,7 +2590,7 @@ export default function Monitoring() {
                         </div>
 
                         <div className="flex shrink-0 items-center justify-end gap-1.5 sm:gap-2 lg:pl-3">
-                            {                 }
+                            {}
 
                             <span
                                 className={`hidden items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-extrabold tracking-wide uppercase sm:flex ${statusPillClass}`}
@@ -2821,7 +2604,7 @@ export default function Monitoring() {
                                 </span>
                             </span>
 
-                            {               }
+                            {}
 
                             <button
                                 type="button"
@@ -2856,7 +2639,7 @@ export default function Monitoring() {
                                 </span>
                             </button>
 
-                            {                      }
+                            {}
 
                             <button
                                 type="button"
@@ -2869,7 +2652,7 @@ export default function Monitoring() {
                                 <span className="hidden sm:inline">Layer</span>
                             </button>
 
-                            {                  }
+                            {}
 
                             <button
                                 type="button"
@@ -2885,7 +2668,7 @@ export default function Monitoring() {
                         </div>
                     </div>
 
-                    {                                                      }
+                    {}
 
                     {(eruptingCount > 0 || ashDetectedCount > 0) && (
                         <div className="mt-2 flex shrink-0 items-center gap-1.5 lg:hidden">
@@ -2911,7 +2694,7 @@ export default function Monitoring() {
                         </div>
                     )}
 
-                    {                          }
+                    {}
 
                     <div className="relative mt-2 sm:mt-2.5">
                         <div
@@ -3012,9 +2795,7 @@ export default function Monitoring() {
                 </div>
             </header>
 
-            {                                        
-                                         
-                                                 }
+            {}
 
             {quakeAlert && hasNewQuake && (
                 <div className="pointer-events-none absolute inset-x-0 top-[150px] z-[1260] flex justify-center px-4">
@@ -3065,9 +2846,7 @@ export default function Monitoring() {
                 </div>
             )}
 
-            {                                        
-                                                  
-                                                 }
+            {}
 
             {cityData?.summary.inside_plume && (
                 <div className="pointer-events-none absolute inset-x-0 top-[92px] z-[1250] flex justify-center px-4">
@@ -3082,12 +2861,10 @@ export default function Monitoring() {
                 </div>
             )}
 
-            {                                        
-                                       
-                                                 }
+            {}
 
             <aside className="pointer-events-auto absolute top-[190px] left-2 z-[1100] flex items-start gap-2 sm:left-3">
-                {                                   }
+                {}
 
                 <div className="flex min-h-0 w-14 flex-col items-center justify-center gap-2 rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 py-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
                     {availPanels.map(({ key, label, Icon }) => {
@@ -3150,7 +2927,7 @@ export default function Monitoring() {
                     })}
                 </div>
 
-                {                 }
+                {}
 
                 <div
                     className={`w-[308px] max-w-[calc(100vw-96px)] self-start overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e] to-[#0a0f1c] pt-3.5 pb-3.5 pl-3.5 shadow-2xl shadow-black/50 ${
@@ -3162,222 +2939,259 @@ export default function Monitoring() {
                         className="flex w-full min-w-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent] flex-col gap-3 overflow-x-hidden overflow-y-auto pr-2.5 [&::-webkit-scrollbar]:w-[4px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-track]:bg-transparent"
                         style={{ maxHeight: 'calc(100dvh - 280px)' }}
                     >
-                        {active === 'kota' && (
+                        {(active === 'kota' ||
+                            active === 'cuaca' ||
+                            active === 'sebaran') && (
                             <section>
                                 <PanelTitle
                                     icon={
                                         <MapPin size={11} strokeWidth={2.5} />
                                     }
                                 >
-                                    Kota Saya &amp; Sebaran Abu
+                                    {active === 'sebaran'
+                                        ? 'Sebaran Abu di Kota Anda'
+                                        : active === 'cuaca'
+                                          ? 'Cuaca Kota Saya'
+                                          : 'Kota Saya &amp; Sebaran Abu'}
                                 </PanelTitle>
 
-                                {geoState === 'idle' && !cityCoords && (
-                                    <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
-                                        Klik{' '}
-                                        <span className="font-bold text-sky-400">
-                                            Kota Saya
-                                        </span>{' '}
-                                        di bar atas untuk mendeteksi lokasi
-                                        Anda. Browser akan meminta izin
-                                        (Allow/Izinkan), lalu kota Anda dipantau
-                                        sebaran abu vulkanik dari sumber resmi.
-                                    </p>
-                                )}
+                                {active !== 'cuaca' &&
+                                    geoState === 'idle' &&
+                                    !cityCoords && (
+                                        <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+                                            Klik{' '}
+                                            <span className="font-bold text-sky-400">
+                                                Kota Saya
+                                            </span>{' '}
+                                            di bar atas untuk mendeteksi lokasi
+                                            Anda. Browser akan meminta izin
+                                            (Allow/Izinkan), lalu kota Anda
+                                            dipantau sebaran abu vulkanik dari
+                                            sumber resmi.
+                                        </p>
+                                    )}
 
-                                {geoState === 'requesting' && (
-                                    <p className="mt-2 flex items-center gap-2 text-[11px] text-sky-300">
-                                        <span className="h-2 w-2 animate-pulse rounded-full bg-sky-400" />
-                                        Meminta izin lokasi… Lihat popup
-                                        Allow/Izinkan di browser Anda.
-                                    </p>
-                                )}
+                                {active !== 'cuaca' &&
+                                    geoState === 'requesting' && (
+                                        <p className="mt-2 flex items-center gap-2 text-[11px] text-sky-300">
+                                            <span className="h-2 w-2 animate-pulse rounded-full bg-sky-400" />
+                                            Meminta izin lokasi… Lihat popup
+                                            Allow/Izinkan di browser Anda.
+                                        </p>
+                                    )}
 
-                                {geoState === 'denied' && geoError && (
-                                    <div className="mt-2 rounded-lg border border-red-500/25 bg-red-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-red-300">
-                                        {geoError}
-                                    </div>
-                                )}
+                                {active !== 'cuaca' &&
+                                    geoState === 'denied' &&
+                                    geoError && (
+                                        <div className="mt-2 rounded-lg border border-red-500/25 bg-red-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-red-300">
+                                            {geoError}
+                                        </div>
+                                    )}
 
-                                {geoState === 'error' && geoError && (
-                                    <div className="mt-2 rounded-lg border border-orange-500/25 bg-orange-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-orange-300">
-                                        {geoError}
-                                    </div>
-                                )}
+                                {active !== 'cuaca' &&
+                                    geoState === 'error' &&
+                                    geoError && (
+                                        <div className="mt-2 rounded-lg border border-orange-500/25 bg-orange-500/10 px-2.5 py-2 text-[11px] leading-relaxed text-orange-300">
+                                            {geoError}
+                                        </div>
+                                    )}
 
-                                {geoState === 'success' && cityData && (
-                                    <>
-                                        <div
-                                            className={`relative mt-2.5 overflow-hidden rounded-xl border px-3 pt-3 pb-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${
-                                                cityData.summary.inside_plume
-                                                    ? 'border-red-500/30 bg-gradient-to-br from-red-500/15 via-[#180b12] to-[#0a0f1c]'
-                                                    : 'border-sky-500/25 bg-gradient-to-br from-sky-500/15 via-[#0a1220] to-[#0a0f1c]'
-                                            }`}
-                                        >
-                                            <span
-                                                className={`pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full blur-2xl ${
+                                {active !== 'cuaca' &&
+                                    geoState === 'success' &&
+                                    cityData && (
+                                        <>
+                                            <div
+                                                className={`relative mt-2.5 overflow-hidden rounded-xl border px-3 pt-3 pb-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${
                                                     cityData.summary
                                                         .inside_plume
-                                                        ? 'bg-red-500/25'
-                                                        : 'bg-sky-500/25'
+                                                        ? 'border-red-500/30 bg-gradient-to-br from-red-500/15 via-[#180b12] to-[#0a0f1c]'
+                                                        : 'border-sky-500/25 bg-gradient-to-br from-sky-500/15 via-[#0a1220] to-[#0a0f1c]'
                                                 }`}
-                                            />
-
-                                            <div className="relative flex items-center gap-2">
+                                            >
                                                 <span
-                                                    className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border ${
+                                                    className={`pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full blur-2xl ${
                                                         cityData.summary
                                                             .inside_plume
-                                                            ? 'border-red-400/40 bg-red-500/15 shadow-[0_0_16px_rgba(255,59,59,0.4)]'
-                                                            : 'border-sky-400/30 bg-sky-500/15 shadow-[0_0_16px_rgba(14,165,233,0.35)]'
+                                                            ? 'bg-red-500/25'
+                                                            : 'bg-sky-500/25'
                                                     }`}
-                                                >
-                                                    {cityData.summary
-                                                        .inside_plume ? (
-                                                        <TriangleAlert
-                                                            size={15}
-                                                            strokeWidth={2.5}
-                                                            className="text-red-400"
-                                                        />
-                                                    ) : (
-                                                        <MapPin
-                                                            size={15}
-                                                            strokeWidth={2.5}
-                                                            className="text-sky-400"
-                                                        />
-                                                    )}
-                                                </span>
+                                                />
 
-                                                <div className="min-w-0 flex-1">
-                                                    <p className="truncate text-[14px] font-extrabold text-white">
-                                                        {cityLocationLabel ||
-                                                            `⌀ ${cityData.city.latitude.toFixed(2)}, ${cityData.city.longitude.toFixed(2)}`}
-                                                    </p>
-
-                                                    {cityData.summary
-                                                        .inside_plume && (
-                                                        <p className="flex animate-pulse items-center gap-1 text-[9px] font-extrabold text-red-400 uppercase">
-                                                            <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-                                                            Di dalam sebaran abu
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {cityData.summary.inside_plume ? (
-                                                <p className="relative mt-2 text-[15px] font-bold text-red-300">
-                                                    Di dalam area sebaran abu.
-                                                </p>
-                                            ) : cityData.summary.plume_volcanoes
-                                                  .length > 0 ? (
-                                                <p className="relative mt-2 flex items-baseline gap-1.5">
-                                                    <span className="text-[30px] leading-none font-black text-sky-300 tabular-nums drop-shadow-[0_0_18px_rgba(56,189,248,0.35)]">
-                                                        ≈{' '}
-                                                        {formatAshKm(
+                                                <div className="relative flex items-center gap-2">
+                                                    <span
+                                                        className={`grid h-8 w-8 shrink-0 place-items-center rounded-full border ${
                                                             cityData.summary
-                                                                .ash_edge_km ??
-                                                                0,
+                                                                .inside_plume
+                                                                ? 'border-red-400/40 bg-red-500/15 shadow-[0_0_16px_rgba(255,59,59,0.4)]'
+                                                                : 'border-sky-400/30 bg-sky-500/15 shadow-[0_0_16px_rgba(14,165,233,0.35)]'
+                                                        }`}
+                                                    >
+                                                        {cityData.summary
+                                                            .inside_plume ? (
+                                                            <TriangleAlert
+                                                                size={15}
+                                                                strokeWidth={
+                                                                    2.5
+                                                                }
+                                                                className="text-red-400"
+                                                            />
+                                                        ) : (
+                                                            <MapPin
+                                                                size={15}
+                                                                strokeWidth={
+                                                                    2.5
+                                                                }
+                                                                className="text-sky-400"
+                                                            />
                                                         )}
                                                     </span>
 
-                                                    <span className="text-[10px] font-semibold text-slate-400">
-                                                        km dari tepi abu
-                                                    </span>
-                                                </p>
-                                            ) : (
-                                                <p className="relative mt-2 text-[13px] font-bold text-emerald-300">
-                                                    Tidak ada sebaran abu aktif
-                                                </p>
-                                            )}
-                                        </div>
-                                    </>
-                                )}
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="truncate text-[14px] font-extrabold text-white">
+                                                            {cityLocationLabel ||
+                                                                `⌀ ${cityData.city.latitude.toFixed(2)}, ${cityData.city.longitude.toFixed(2)}`}
+                                                        </p>
 
-                                {                                 }
+                                                        {cityData.summary
+                                                            .inside_plume && (
+                                                            <p className="flex animate-pulse items-center gap-1 text-[9px] font-extrabold text-red-400 uppercase">
+                                                                <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                                                                Di dalam sebaran
+                                                                abu
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
 
-                                <section className="mt-4">
-                                    <PanelTitle
-                                        icon={
-                                            <MapPin
-                                                size={11}
-                                                strokeWidth={2.5}
-                                            />
-                                        }
-                                    >
-                                        Cuaca Kota Saya
-                                    </PanelTitle>
+                                                {cityData.summary
+                                                    .inside_plume ? (
+                                                    <p className="relative mt-2 text-[15px] font-bold text-red-300">
+                                                        Di dalam area sebaran
+                                                        abu.
+                                                    </p>
+                                                ) : cityData.summary
+                                                      .plume_volcanoes.length >
+                                                  0 ? (
+                                                    <p className="relative mt-2 flex items-baseline gap-1.5">
+                                                        <span className="text-[30px] leading-none font-black text-sky-300 tabular-nums drop-shadow-[0_0_18px_rgba(56,189,248,0.35)]">
+                                                            ≈{' '}
+                                                            {formatAshKm(
+                                                                cityData.summary
+                                                                    .ash_edge_km ??
+                                                                    0,
+                                                            )}
+                                                        </span>
 
-                                    {geoState === 'requesting' ||
-                                    geoState === 'idle' ? (
-                                        <p className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-500">
-                                            Mengakses lokasi Anda untuk
-                                            menampilkan cuaca…
-                                        </p>
-                                    ) : geoState === 'denied' ||
-                                      geoState === 'error' ? (
-                                        <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                            <p className="text-[11px] leading-relaxed text-slate-500">
-                                                {geoError ??
-                                                    'Lokasi tidak tersedia.'}
-                                            </p>
+                                                        <span className="text-[10px] font-semibold text-slate-400">
+                                                            km dari tepi abu
+                                                        </span>
+                                                    </p>
+                                                ) : (
+                                                    <p className="relative mt-2 text-[13px] font-bold text-emerald-300">
+                                                        Tidak ada sebaran abu
+                                                        aktif
+                                                    </p>
+                                                )}
+                                            </div>
+                                        </>
+                                    )}
 
-                                            <button
-                                                type="button"
-                                                onClick={() =>
-                                                    requestCityLocation()
+                                {}
+
+                                {active !== 'sebaran' && (
+                                    <section className="mt-4">
+                                        {active !== 'cuaca' && (
+                                            <PanelTitle
+                                                icon={
+                                                    <MapPin
+                                                        size={11}
+                                                        strokeWidth={2.5}
+                                                    />
                                                 }
-                                                className="mt-2 flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-400/10 px-2.5 py-1 text-[10px] font-bold text-sky-300"
                                             >
-                                                <MapPin
-                                                    size={10}
-                                                    strokeWidth={2.5}
-                                                />
-                                                Coba lagi
-                                            </button>
-                                        </div>
-                                    ) : !toDisplayWeather(
-                                          bmkgWeather,
-                                          userWeather,
-                                      ) ? (
-                                        <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
-                                            <p className="text-[11px] leading-relaxed text-slate-500">
-                                                {userWeatherLoading
-                                                    ? 'Memuat data cuaca…'
-                                                    : (userWeatherError ??
-                                                      'Menunggu data cuaca kota.')}
-                                            </p>
+                                                Cuaca Kota Saya
+                                            </PanelTitle>
+                                        )}
 
-                                            {userWeatherError && (
+                                        {geoState === 'requesting' ||
+                                        geoState === 'idle' ? (
+                                            <p className="rounded-xl border border-white/10 bg-white/5 p-2.5 text-[11px] leading-relaxed text-slate-500">
+                                                Mengakses lokasi Anda untuk
+                                                menampilkan cuaca…
+                                            </p>
+                                        ) : geoState === 'denied' ||
+                                          geoState === 'error' ? (
+                                            <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                                <p className="text-[11px] leading-relaxed text-slate-500">
+                                                    {geoError ??
+                                                        'Lokasi tidak tersedia.'}
+                                                </p>
+
                                                 <button
                                                     type="button"
                                                     onClick={() =>
-                                                        setUserWeatherKey(
-                                                            (key) => key + 1,
-                                                        )
+                                                        requestCityLocation()
                                                     }
                                                     className="mt-2 flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-400/10 px-2.5 py-1 text-[10px] font-bold text-sky-300"
                                                 >
-                                                    <RefreshCw
+                                                    <MapPin
                                                         size={10}
                                                         strokeWidth={2.5}
                                                     />
-                                                    Muat ulang
+                                                    Coba lagi
                                                 </button>
-                                            )}
-                                        </div>
-                                    ) : (
-                                        (() => {
-                                            const weather = toDisplayWeather(
-                                                bmkgWeather,
-                                                userWeather,
-                                            )!;
+                                            </div>
+                                        ) : !toDisplayWeather(
+                                              bmkgWeather,
+                                              userWeather,
+                                          ) ? (
+                                            <div className="rounded-xl border border-white/10 bg-white/5 p-2.5">
+                                                <p className="text-[11px] leading-relaxed text-slate-500">
+                                                    {userWeatherLoading
+                                                        ? 'Memuat data cuaca…'
+                                                        : (userWeatherError ??
+                                                          'Menunggu data cuaca kota.')}
+                                                </p>
 
-                                            const weatherTime = weather.time
-                                                ? weather.time.replace(' ', 'T')
-                                                : null;
+                                                {userWeatherError && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() =>
+                                                            setUserWeatherKey(
+                                                                (key) =>
+                                                                    key + 1,
+                                                            )
+                                                        }
+                                                        className="mt-2 flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-400/10 px-2.5 py-1 text-[10px] font-bold text-sky-300"
+                                                    >
+                                                        <RefreshCw
+                                                            size={10}
+                                                            strokeWidth={2.5}
+                                                        />
+                                                        Muat ulang
+                                                    </button>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            (() => {
+                                                const weather =
+                                                    toDisplayWeather(
+                                                        bmkgWeather,
+                                                        userWeather,
+                                                    )!;
 
-                                            const { Icon, className, label } =
-                                                weather.weather_desc
+                                                const weatherTime = weather.time
+                                                    ? weather.time.replace(
+                                                          ' ',
+                                                          'T',
+                                                      )
+                                                    : null;
+
+                                                const {
+                                                    Icon,
+                                                    className,
+                                                    label,
+                                                } = weather.weather_desc
                                                     ? bmkgCondition(
                                                           weather.weather_code,
                                                           weather.weather_desc,
@@ -3386,165 +3200,169 @@ export default function Monitoring() {
                                                           weather.weather_code,
                                                       );
 
-                                            const windLabel =
-                                                weather.wind_direction_cardinal
-                                                    ? bmkgWindDirectionLabel(
-                                                          weather.wind_direction_cardinal,
-                                                      )
-                                                    : (degreesToWindDirection(
-                                                          weather.wind_direction_deg,
-                                                      ) ?? '-');
+                                                const windLabel =
+                                                    weather.wind_direction_cardinal
+                                                        ? bmkgWindDirectionLabel(
+                                                              weather.wind_direction_cardinal,
+                                                          )
+                                                        : (degreesToWindDirection(
+                                                              weather.wind_direction_deg,
+                                                          ) ?? '-');
 
-                                            return (
-                                                <div className="rounded-xl border border-emerald-400/20 bg-gradient-to-b from-emerald-400/10 to-white/[0.03] p-3.5 pb-4">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-wider text-emerald-300 uppercase">
-                                                            <span className="relative flex h-1.5 w-1.5">
-                                                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                                                                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                                                return (
+                                                    <div className="rounded-xl border border-emerald-400/20 bg-gradient-to-b from-emerald-400/10 to-white/[0.03] p-3.5 pb-4">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-wider text-emerald-300 uppercase">
+                                                                <span className="relative flex h-1.5 w-1.5">
+                                                                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                                                                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                                                                </span>
+                                                                Terkini
                                                             </span>
-                                                            Terkini
-                                                        </span>
 
-                                                        <span className="text-[8.5px] text-slate-500">
-                                                            Pemutakhiran:{' '}
-                                                            {weatherTime
-                                                                ? formatNaiveDate(
-                                                                      weatherTime,
-                                                                  )
-                                                                : '-'}{' '}
-                                                            •{' '}
-                                                            {weatherTime
-                                                                ? formatNaiveTime(
-                                                                      weatherTime,
-                                                                  )
-                                                                : '-'}{' '}
-                                                            WIB
-                                                        </span>
-                                                    </div>
-
-                                                    <div className="mt-2 flex items-center gap-3">
-                                                        <Icon
-                                                            size={38}
-                                                            strokeWidth={2}
-                                                            className={`shrink-0 ${className}`}
-                                                        />
-
-                                                        <div>
-                                                            <p className="text-[30px] leading-none font-extrabold text-white">
-                                                                {bmkgNumber(
-                                                                    weather.temperature,
-                                                                )}
-                                                                °
-                                                            </p>
-
-                                                            <p className="mt-1 text-[11px] font-semibold text-slate-300">
-                                                                {label}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-
-                                                    <p className="mt-1.5 text-[9.5px] text-slate-500">
-                                                        di{' '}
-                                                        {cityLocationLabel ||
-                                                            'Lokasi Anda'}
-                                                    </p>
-
-                                                    <div className="mt-2.5 grid grid-cols-2 gap-1.5">
-                                                        <div className="rounded-lg bg-white/5 p-2">
-                                                            <p className="text-[8px] tracking-wide text-slate-500 uppercase">
-                                                                Kelembapan
-                                                            </p>
-
-                                                            <p className="mt-0.5 text-[12px] font-bold text-white">
-                                                                {bmkgNumber(
-                                                                    weather.humidity,
-                                                                )}
-                                                                %
-                                                            </p>
+                                                            <span className="text-[8.5px] text-slate-500">
+                                                                Pemutakhiran:{' '}
+                                                                {weatherTime
+                                                                    ? formatNaiveDate(
+                                                                          weatherTime,
+                                                                      )
+                                                                    : '-'}{' '}
+                                                                •{' '}
+                                                                {weatherTime
+                                                                    ? formatNaiveTime(
+                                                                          weatherTime,
+                                                                      )
+                                                                    : '-'}{' '}
+                                                                WIB
+                                                            </span>
                                                         </div>
 
-                                                        <div className="rounded-lg bg-white/5 p-2">
-                                                            <p className="text-[8px] tracking-wide text-slate-500 uppercase">
-                                                                Kecepatan Angin
-                                                            </p>
+                                                        <div className="mt-2 flex items-center gap-3">
+                                                            <Icon
+                                                                size={38}
+                                                                strokeWidth={2}
+                                                                className={`shrink-0 ${className}`}
+                                                            />
 
-                                                            <p className="mt-0.5 text-[12px] font-bold text-white">
-                                                                {bmkgNumber(
-                                                                    weather.wind_speed,
-                                                                )}{' '}
-                                                                km/jam
-                                                            </p>
-                                                        </div>
-
-                                                        <div className="rounded-lg bg-white/5 p-2">
-                                                            <p className="text-[8px] tracking-wide text-slate-500 uppercase">
-                                                                Arah Angin dari
-                                                            </p>
-
-                                                            <p className="mt-0.5 text-[12px] font-bold text-white">
-                                                                {windLabel}
-                                                            </p>
-                                                        </div>
-
-                                                        <div className="rounded-lg bg-white/5 p-2">
-                                                            <p className="text-[8px] tracking-wide text-slate-500 uppercase">
-                                                                Jarak Pandang
-                                                            </p>
-
-                                                            <p className="mt-0.5 text-[12px] font-bold text-white">
-                                                                {weather.visibility_text ??
-                                                                    formatVisibility(
-                                                                        weather.visibility,
+                                                            <div>
+                                                                <p className="text-[30px] leading-none font-extrabold text-white">
+                                                                    {bmkgNumber(
+                                                                        weather.temperature,
                                                                     )}
-                                                            </p>
+                                                                    °
+                                                                </p>
+
+                                                                <p className="mt-1 text-[11px] font-semibold text-slate-300">
+                                                                    {label}
+                                                                </p>
+                                                            </div>
                                                         </div>
+
+                                                        <p className="mt-1.5 text-[9.5px] text-slate-500">
+                                                            di{' '}
+                                                            {cityLocationLabel ||
+                                                                'Lokasi Anda'}
+                                                        </p>
+
+                                                        <div className="mt-2.5 grid grid-cols-2 gap-1.5">
+                                                            <div className="rounded-lg bg-white/5 p-2">
+                                                                <p className="text-[8px] tracking-wide text-slate-500 uppercase">
+                                                                    Kelembapan
+                                                                </p>
+
+                                                                <p className="mt-0.5 text-[12px] font-bold text-white">
+                                                                    {bmkgNumber(
+                                                                        weather.humidity,
+                                                                    )}
+                                                                    %
+                                                                </p>
+                                                            </div>
+
+                                                            <div className="rounded-lg bg-white/5 p-2">
+                                                                <p className="text-[8px] tracking-wide text-slate-500 uppercase">
+                                                                    Kecepatan
+                                                                    Angin
+                                                                </p>
+
+                                                                <p className="mt-0.5 text-[12px] font-bold text-white">
+                                                                    {bmkgNumber(
+                                                                        weather.wind_speed,
+                                                                    )}{' '}
+                                                                    km/jam
+                                                                </p>
+                                                            </div>
+
+                                                            <div className="rounded-lg bg-white/5 p-2">
+                                                                <p className="text-[8px] tracking-wide text-slate-500 uppercase">
+                                                                    Arah Angin
+                                                                    dari
+                                                                </p>
+
+                                                                <p className="mt-0.5 text-[12px] font-bold text-white">
+                                                                    {windLabel}
+                                                                </p>
+                                                            </div>
+
+                                                            <div className="rounded-lg bg-white/5 p-2">
+                                                                <p className="text-[8px] tracking-wide text-slate-500 uppercase">
+                                                                    Jarak
+                                                                    Pandang
+                                                                </p>
+
+                                                                <p className="mt-0.5 text-[12px] font-bold text-white">
+                                                                    {weather.visibility_text ??
+                                                                        formatVisibility(
+                                                                            weather.visibility,
+                                                                        )}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="mt-2 flex items-center justify-between border-t border-white/5 pt-1.5 text-[9px] text-slate-500">
+                                                            <span>
+                                                                {weather.pressure_msl !==
+                                                                null
+                                                                    ? `tekanan ${bmkgNumber(
+                                                                          weather.pressure_msl,
+                                                                      )} hPa`
+                                                                    : ''}
+                                                            </span>
+
+                                                            <span>
+                                                                {weather.wind_gust !==
+                                                                null
+                                                                    ? `hembusan ${bmkgNumber(
+                                                                          weather.wind_gust,
+                                                                      )} km/jam`
+                                                                    : ''}
+                                                            </span>
+
+                                                            <span>
+                                                                {weather.apparent_temperature !==
+                                                                null
+                                                                    ? `terasa ${bmkgNumber(
+                                                                          weather.apparent_temperature,
+                                                                      )}°C`
+                                                                    : ''}
+                                                            </span>
+                                                        </div>
+
+                                                        <p className="mt-2.5 text-[8.5px] leading-relaxed text-slate-600">
+                                                            {weather.source ===
+                                                            'BMKG'
+                                                                ? `Sumber: BMKG (prakiraan resmi)${weather.location ? ` • Prakiraan ${weather.location}` : ''} • Lokasi dari GPS perangkat`
+                                                                : 'Sumber: Open-Meteo (data meteorologi internasional, bukan data resmi BMKG) • Lokasi dari GPS perangkat'}
+                                                        </p>
                                                     </div>
-
-                                                    <div className="mt-2 flex items-center justify-between border-t border-white/5 pt-1.5 text-[9px] text-slate-500">
-                                                        <span>
-                                                            {weather.pressure_msl !==
-                                                            null
-                                                                ? `tekanan ${bmkgNumber(
-                                                                      weather.pressure_msl,
-                                                                  )} hPa`
-                                                                : ''}
-                                                        </span>
-
-                                                        <span>
-                                                            {weather.wind_gust !==
-                                                            null
-                                                                ? `hembusan ${bmkgNumber(
-                                                                      weather.wind_gust,
-                                                                  )} km/jam`
-                                                                : ''}
-                                                        </span>
-
-                                                        <span>
-                                                            {weather.apparent_temperature !==
-                                                            null
-                                                                ? `terasa ${bmkgNumber(
-                                                                      weather.apparent_temperature,
-                                                                  )}°C`
-                                                                : ''}
-                                                        </span>
-                                                    </div>
-
-                                                    <p className="mt-2.5 text-[8.5px] leading-relaxed text-slate-600">
-                                                        {weather.source ===
-                                                        'BMKG'
-                                                            ? `Sumber: BMKG (prakiraan resmi)${weather.location ? ` • Prakiraan ${weather.location}` : ''} • Lokasi dari GPS perangkat`
-                                                            : 'Sumber: Open-Meteo (data meteorologi internasional, bukan data resmi BMKG) • Lokasi dari GPS perangkat'}
-                                                    </p>
-                                                </div>
-                                            );
-                                        })()
-                                    )}
-                                </section>
+                                                );
+                                            })()
+                                        )}
+                                    </section>
+                                )}
                             </section>
                         )}
 
-                        {                                              }
+                        {}
 
                         {active === 'letusan' && (
                             <section>
@@ -3702,7 +3520,7 @@ export default function Monitoring() {
                             </section>
                         )}
 
-                        {                   }
+                        {}
 
                         {active === 'status' && (
                             <section>
@@ -3782,9 +3600,9 @@ export default function Monitoring() {
                             </section>
                         )}
 
-                        {                      }
+                        {}
 
-                        {active === 'cuaca' && hasTimelineData && (
+                        {active === 'sebaran' && hasTimelineData && (
                             <section>
                                 <PanelTitle
                                     icon={<Gauge size={11} strokeWidth={2.5} />}
@@ -3860,9 +3678,9 @@ export default function Monitoring() {
                             </section>
                         )}
 
-                        {                                      }
+                        {}
 
-                        {active === 'cuaca' && (
+                        {active === 'kota' && geoState !== 'success' && (
                             <section>
                                 <PanelTitle
                                     icon={
@@ -4315,7 +4133,7 @@ export default function Monitoring() {
                             </section>
                         )}
 
-                        {                           }
+                        {}
 
                         {active === 'advisory' && (
                             <section>
@@ -4500,9 +4318,9 @@ export default function Monitoring() {
                             </section>
                         )}
 
-                        {                          }
+                        {}
 
-                        {active === 'cuaca' &&
+                        {active === 'sebaran' &&
                             ashActive &&
                             selectedForecast && (
                                 <section>
@@ -4602,7 +4420,7 @@ export default function Monitoring() {
                                 </section>
                             )}
 
-                        {                        }
+                        {}
 
                         {active === 'so2' && (
                             <section>
@@ -4775,7 +4593,7 @@ export default function Monitoring() {
                             </section>
                         )}
 
-                        {                          }
+                        {}
 
                         {active === 'gempa' && (
                             <section>
@@ -4856,7 +4674,7 @@ export default function Monitoring() {
                             </section>
                         )}
 
-                        {                                 }
+                        {}
 
                         {active === 'gerakan' && (
                             <section>
@@ -4942,7 +4760,7 @@ export default function Monitoring() {
                             </section>
                         )}
 
-                        {          }
+                        {}
 
                         {active !== null && active !== 'advisory' && (
                             <div className="border-t border-white/10 pt-2.5 text-[10px] leading-relaxed text-slate-600">
@@ -4957,9 +4775,7 @@ export default function Monitoring() {
                 </div>
             </aside>
 
-            {                                        
-                                   
-                                                 }
+            {}
 
             <aside className="pointer-events-auto absolute top-[190px] right-2 z-[1100] hidden w-[230px] max-w-[40vw] rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e] to-[#0a0f1c] p-3.5 shadow-2xl shadow-black/50 lg:block">
                 <LegendPanel
@@ -4971,9 +4787,7 @@ export default function Monitoring() {
                 />
             </aside>
 
-            {                                        
-                                               
-                                                     }
+            {}
 
             {layerOpen && (
                 <div className="absolute inset-0 z-[1400] flex items-end justify-center lg:hidden">
@@ -4998,9 +4812,7 @@ export default function Monitoring() {
                 </div>
             )}
 
-            {                                        
-                          
-                                                     }
+            {}
 
             <footer className="pointer-events-none absolute inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-[1100] flex items-end justify-between gap-2">
                 <div className="pointer-events-auto rounded-xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-3 py-2 text-[10.5px] text-slate-500 backdrop-blur-xl">
@@ -5011,4 +4823,3 @@ export default function Monitoring() {
         </div>
     );
 }
-

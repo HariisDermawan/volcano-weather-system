@@ -15,7 +15,7 @@ class VaacDarwinService
 
     private const CACHE_KEY = 'vaac:darwin:advisories';
 
-    private const CACHE_TTL = 120;
+    private const CACHE_TTL = 600;
 
     /**
      * Volcano name aliases (mirrors python name_aliases.py).

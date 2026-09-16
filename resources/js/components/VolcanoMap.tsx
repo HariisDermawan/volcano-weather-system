@@ -89,12 +89,6 @@ interface VolcanoMapProps {
     userLocation?: { lat: number; lon: number } | null;
 }
 
-  
-                                             
-                                    
-                                             
-   
-
 function statusColor(status?: string | null): string {
     const value = status?.toLowerCase() ?? '';
 
@@ -113,12 +107,6 @@ function statusColor(status?: string | null): string {
     return '#22c55e';
 }
 
-  
-                                             
-                                          
-                                             
-   
-
 function renderVolcanoSvg(color: string): string {
     return `
         <svg xmlns="http://www.w3.org/2000/svg" width="30" height="38" viewBox="0 0 30 38">
@@ -128,15 +116,6 @@ function renderVolcanoSvg(color: string): string {
         </svg>
     `;
 }
-
-  
-                                             
-                        
-  
-                                      
-                             
-                                             
-   
 
 function eruptingImage(status?: string | null): string {
     return (status?.toLowerCase() ?? '').includes('waspada')
@@ -151,16 +130,6 @@ function renderEruptingHtml(src: string): string {
         </div>
     `;
 }
-
-  
-                                             
-                                      
-  
-                                                
-                                            
-                                              
-                                             
-   
 
 function earthquakeHtml(
     magnitude: number | null,
@@ -625,35 +594,11 @@ function VolcanoMarker({
                             </p>
                         </>
                     )}
-                    <div
-                        style={{
-                            marginTop: 4,
-                            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-                            paddingTop: 8,
-                            textAlign: 'center',
-                        }}
-                    >
-                        <span
-                            style={{
-                                color: '#38bdf8',
-                                fontWeight: 600,
-                                fontSize: 12.5,
-                            }}
-                        >
-                            Klik untuk pantau →
-                        </span>
-                    </div>
                 </div>
             </Popup>
         </Marker>
     );
 }
-
-  
-                                             
-                                                 
-                                             
-   
 
 function earthquakeColor(magnitude: number | null): string {
     if (magnitude === null) {
@@ -679,15 +624,6 @@ function earthquakeColor(magnitude: number | null): string {
     return '#a855f7';
 }
 
-  
-                                             
-             
-  
-                                             
-                                     
-                                             
-   
-
 function DarkTiles({ enabled }: { enabled: boolean }) {
     const map = useMap();
 
@@ -708,15 +644,6 @@ function DarkTiles({ enabled }: { enabled: boolean }) {
     return null;
 }
 
-  
-                                             
-             
-  
-                                       
-                                          
-                                             
-   
-
 function MapBridge({ onMap }: { onMap: (map: L.Map) => void }) {
     const map = useMap();
 
@@ -726,16 +653,6 @@ function MapBridge({ onMap }: { onMap: (map: L.Map) => void }) {
 
     return null;
 }
-
-  
-                                             
-          
-  
-                                         
-                                        
-                                        
-                                             
-   
 
 function MapFly({
     target,
@@ -780,16 +697,12 @@ function MapFly({
         prev.current = { lat, lng, focusKey, fitKey: fitKey ?? '' };
 
         if (posChanged || focusChanged) {
-                                                                        
             focusedRef.current = true;
             map.flyTo([lat, lng], zoom, { duration: 0.9 });
 
             return;
         }
 
-                                                                        
-                                                                   
-                                                     
         if (fitChanged && !focusedRef.current) {
             const currentFit = fitRef.current;
 
@@ -806,28 +719,12 @@ function MapFly({
     return null;
 }
 
-  
-                                             
-            
-  
-                                    
-                                          
-                    
-                                             
-   
-
 function LivePulse({ position }: { position: [number, number] }) {
     const map = useMap();
 
     useEffect(() => {
         const waves: L.Circle[] = [];
 
-          
-                            
-          
-                                         
-                             
-           
         const waveCount = 3;
 
         for (let i = 0; i < waveCount; i++) {
@@ -856,30 +753,17 @@ function LivePulse({ position }: { position: [number, number] }) {
             const elapsed = currentTime - startTime;
 
             waves.forEach((wave, index) => {
-                  
-                                         
-                   
                 const delay = (index / waveCount) * duration;
 
                 let progress = (elapsed - delay) / duration;
 
-                  
-                                
-                   
                 progress = ((progress % 1) + 1) % 1;
 
-                  
-                                            
-                   
                 const minRadius = 250;
                 const maxRadius = 4500;
 
                 const radius = minRadius + (maxRadius - minRadius) * progress;
 
-                  
-                                    
-                                      
-                   
                 const opacity = 0.75 * (1 - progress);
 
                 const fillOpacity = 0.1 * (1 - progress);
@@ -908,12 +792,6 @@ function LivePulse({ position }: { position: [number, number] }) {
 
     return null;
 }
-
-  
-                                             
-                    
-                                             
-   
 
 function destinationPoint(
     latitude: number,
@@ -944,12 +822,6 @@ function destinationPoint(
 
     return [(lat2 * 180) / Math.PI, (lon2 * 180) / Math.PI];
 }
-
-  
-                                             
-           
-                                             
-   
 
 export default function VolcanoMap({
     latitude = -6.102,
@@ -990,16 +862,6 @@ export default function VolcanoMap({
 
     const risk = riskLevel?.toLowerCase() ?? 'low';
 
-      
-                                                 
-                                                 
-      
-                                                    
-                                               
-                                                   
-                                                 
-       
-
     const fitQuakes = useMemo(
         () =>
             (earthquakes ?? [])
@@ -1018,12 +880,6 @@ export default function VolcanoMap({
 
     const fitKey = fitQuakes.map((point) => point.join(',')).join('|');
 
-      
-                                                 
-                  
-                                                 
-       
-
     const plumeColor =
         risk === 'extreme'
             ? '#ef4444'
@@ -1034,17 +890,6 @@ export default function VolcanoMap({
                 : '#22c55e';
 
     const polygonColor = ashColor ?? plumeColor;
-
-      
-                                                 
-                           
-      
-                                            
-                                              
-                                                 
-                                             
-                                                 
-       
 
     const markerVolcanoes = useMemo(() => {
         const groups = new Map<string, VolcanoMarkerInfo>();
@@ -1070,18 +915,6 @@ export default function VolcanoMap({
         return [...groups.values()];
     }, [volcanoes, activeVolcanoIds]);
 
-      
-                                                 
-                          
-      
-                                                   
-                                                  
-                                                  
-                                                    
-                                         
-                                                 
-       
-
     const selectedVolcano = useMemo(
         () => markerVolcanoes.find((v) => v.id === selectedVolcanoId) ?? null,
         [markerVolcanoes, selectedVolcanoId],
@@ -1101,19 +934,7 @@ export default function VolcanoMap({
               )
             : [];
 
-      
-                                                 
-                    
-                                                 
-       
-
     const polygonPositions = toPolygonPositions(ashGeometry);
-
-      
-                                                 
-                 
-                                                 
-       
 
     let arrowEnd: [number, number] | null = null;
 
@@ -1127,12 +948,6 @@ export default function VolcanoMap({
             distanceKm,
         );
     }
-
-      
-                                                 
-                   
-                                                 
-       
 
     let arrowLeft: [number, number] | null = null;
 
@@ -1194,9 +1009,7 @@ export default function VolcanoMap({
 
                 <MapBridge onMap={setMapInstance} />
 
-                {                                     
-                                                 
-                                                     }
+                {}
 
                 {markerVolcanoes.map((volcano) => (
                     <VolcanoMarker
@@ -1222,9 +1035,7 @@ export default function VolcanoMap({
                     />
                 ))}
 
-                {                                     
-                                           
-                                                     }
+                {}
 
                 {userLocation && (
                     <UserLocationMarker
@@ -1235,9 +1046,7 @@ export default function VolcanoMap({
                     />
                 )}
 
-                {                                     
-                                        
-                                                     }
+                {}
 
                 {(earthquakes ?? []).map((quake) => (
                     <EarthquakeMarker
@@ -1259,15 +1068,11 @@ export default function VolcanoMap({
                     focusKey={focusKey}
                 />
 
-                {                                     
-                             
-                                                     }
+                {}
 
                 <LivePulse position={position} />
 
-                {                                     
-                                
-                                                     }
+                {}
 
                 <CircleMarker
                     center={position}
@@ -1298,9 +1103,7 @@ export default function VolcanoMap({
                     </Popup>
                 </CircleMarker>
 
-                {                                     
-                                       
-                                                     }
+                {}
 
                 {ashLayers.length > 0
                     ? ashLayers.map((layer, layerIndex) => {
@@ -1379,9 +1182,7 @@ export default function VolcanoMap({
                           </Polygon>
                       )}
 
-                {                                     
-                                    
-                                                     }
+                {}
 
                 {arrowEnd && (
                     <Polyline
@@ -1395,9 +1196,7 @@ export default function VolcanoMap({
                     />
                 )}
 
-                {                                     
-                                
-                                                     }
+                {}
 
                 {arrowEnd && arrowLeft && (
                     <Polyline
@@ -1422,9 +1221,7 @@ export default function VolcanoMap({
                 )}
             </MapContainer>
 
-            {                                     
-                                            
-                                                 }
+            {}
 
             {mapInstance && markerVolcanoes.length > 1 && (
                 <button
@@ -1459,9 +1256,7 @@ export default function VolcanoMap({
                 </button>
             )}
 
-            {                                     
-                          
-                                                 }
+            {}
 
             <div
                 style={{
@@ -1510,4 +1305,3 @@ export default function VolcanoMap({
         </div>
     );
 }
-
