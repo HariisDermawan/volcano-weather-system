@@ -11,6 +11,7 @@
 /storage/*.key
 /storage/pail
 /vendor
+/python-service/wilayah-adm4
 .env
 .env.backup
 .env.production

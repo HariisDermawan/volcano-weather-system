@@ -1,6 +1,6 @@
 import 'leaflet/dist/leaflet.css';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import L from 'leaflet';
 
@@ -213,6 +213,9 @@ function EarthquakeMarker({
 }) {
     const color = earthquakeColor(quake.magnitude);
 
+    const markerLat = Number(quake.latitude);
+    const markerLng = Number(quake.longitude);
+
     const icon = useMemo(
         () =>
             L.divIcon({
@@ -224,6 +227,15 @@ function EarthquakeMarker({
             }),
         [color, quake.magnitude, selected],
     );
+
+    if (
+        quake.latitude == null ||
+        quake.longitude == null ||
+        !Number.isFinite(markerLat) ||
+        !Number.isFinite(markerLng)
+    ) {
+        return null;
+    }
 
     const formatWIBDate = (dateStr: string) => {
         const date = new Date(dateStr.replace(' ', 'T'));
@@ -263,7 +275,7 @@ function EarthquakeMarker({
 
     return (
         <Marker
-            position={[Number(quake.latitude), Number(quake.longitude)]}
+            position={[markerLat, markerLng]}
             icon={icon}
             eventHandlers={{ click: () => onSelect?.() }}
         >
@@ -648,16 +660,6 @@ function DarkTiles({ enabled }: { enabled: boolean }) {
     return null;
 }
 
-function MapBridge({ onMap }: { onMap: (map: L.Map) => void }) {
-    const map = useMap();
-
-    useEffect(() => {
-        onMap(map);
-    }, [map, onMap]);
-
-    return null;
-}
-
 function MapFly({
     target,
     zoom,
@@ -743,7 +745,7 @@ function MapFly({
                 });
             }
         }
-    }, [map, lat, lng, zoom, fitKey, focusKey]);
+    }, [map, lat, lng, zoom, fitKey, focusKey, quakeFocusKey, quakeFocus]);
 
     return null;
 }
@@ -882,9 +884,10 @@ export default function VolcanoMap({
     onSelectVolcano,
     onSelectEarthquake,
 }: VolcanoMapProps) {
-    const position: [number, number] = [Number(latitude), Number(longitude)];
-
-    const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
+    const position = useMemo<[number, number]>(
+        () => [Number(latitude), Number(longitude)],
+        [latitude, longitude],
+    );
 
     const direction = windDirection != null ? Number(windDirection) : null;
 
@@ -957,9 +960,16 @@ export default function VolcanoMap({
         [earthquakes, selectedQuakeId],
     );
 
-    const quakeFocus: [number, number] | null = selectedQuake
-        ? [Number(selectedQuake.latitude), Number(selectedQuake.longitude)]
-        : null;
+    const quakeFocus = useMemo<[number, number] | null>(
+        () =>
+            selectedQuake
+                ? [
+                      Number(selectedQuake.latitude),
+                      Number(selectedQuake.longitude),
+                  ]
+                : null,
+        [selectedQuake],
+    );
 
     const flyTarget: [number, number] = selectedVolcano
         ? [Number(selectedVolcano.latitude), Number(selectedVolcano.longitude)]
@@ -1047,8 +1057,6 @@ export default function VolcanoMap({
                 <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}" />
 
                 <DarkTiles enabled={dark} />
-
-                <MapBridge onMap={setMapInstance} />
 
                 {}
 

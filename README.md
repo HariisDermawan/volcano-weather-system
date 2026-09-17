@@ -186,7 +186,7 @@ resources/js/
 python-service/
 ├── app/
 │   ├── main.py              # FastAPI entry (port 8000)
-│   ├── scheduler.py         # run_all_jobs() tiap 10 menit
+│   ├── scheduler.py         # run_all_jobs() tiap 5 menit
 │   ├── collectors/          # vaac, activity, volcano, weather, openmeteo, wind
 │   ├── jobs/                # production jobs + helper scripts
 │   └── models/              # SQLAlchemy models (ash_model: simulasi plume)

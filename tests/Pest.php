@@ -5,6 +5,37 @@ use Tests\TestCase;
 
 /*
 |--------------------------------------------------------------------------
+| Database Guard
+|--------------------------------------------------------------------------
+|
+| A cached bootstrap/cache/config.php bakes in the real environment, so the
+| sqlite :memory: overrides in phpunit.xml are ignored and RefreshDatabase
+| runs migrate:fresh against the MySQL dev database. Abort the suite before
+| any test (and therefore any migration) runs when that happens.
+|
+*/
+
+$cachedConfigPath = __DIR__.'/../bootstrap/cache/config.php';
+
+if (is_file($cachedConfigPath)) {
+    $cachedConfig = require $cachedConfigPath;
+
+    $defaultConnection = $cachedConfig['database']['default'] ?? null;
+
+    if ($defaultConnection !== 'sqlite') {
+        fwrite(
+            STDERR,
+            PHP_EOL.'DANGER: cached config selects the "'
+            .$defaultConnection.'" connection. Run `php artisan config:clear` '
+            .'before testing or the dev database will be wiped.'.PHP_EOL
+        );
+
+        exit(1);
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
 | Test Case
 |--------------------------------------------------------------------------
 |
