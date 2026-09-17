@@ -462,7 +462,7 @@ function LegendPanel({
                 </span>
             </label>
 
-            <div className="mb-1.5 grid grid-cols-2 gap-x-2 gap-y-1 rounded-lg border border-white/5 bg-white/[0.03] px-2.5 py-2 text-[9px] text-slate-500">
+            <div className="mb-1.5 grid grid-cols-2 gap-x-2 gap-y-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-[9px] text-slate-500">
                 {[
                     ['#22c55e', 'M < 4'],
                     ['#eab308', 'M 4–5'],
@@ -554,7 +554,7 @@ function bmkgConditionIcon(weather: string | null) {
     }
 
     if (text.includes('kabut') || text.includes('kabur')) {
-        return { Icon: CloudFog, className: 'text-slate-400' };
+        return { Icon: CloudFog, className: 'text-slate-500' };
     }
 
     if (text.includes('berawan')) {
@@ -568,7 +568,7 @@ function bmkgConditionIcon(weather: string | null) {
         return { Icon: Sun, className: 'text-amber-300' };
     }
 
-    return { Icon: CloudSun, className: 'text-slate-400' };
+    return { Icon: CloudSun, className: 'text-slate-500' };
 }
 
 function bmkgCondition(
@@ -775,7 +775,7 @@ function openMeteoCondition(code: number | null): {
         case 48:
             return {
                 Icon: CloudFog,
-                className: 'text-slate-400',
+                className: 'text-slate-500',
                 label: 'Kabut',
             };
         case 51:
@@ -853,7 +853,7 @@ function openMeteoCondition(code: number | null): {
         default:
             return {
                 Icon: CloudSun,
-                className: 'text-slate-400',
+                className: 'text-slate-500',
                 label: 'Cuaca Beragam',
             };
     }
@@ -1906,7 +1906,7 @@ export default function Monitoring() {
             )}
 
             <dl className="mt-2.5 space-y-1.5 text-[11px]">
-                <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
                     <dt className="font-semibold text-slate-500">Magnitudo</dt>
 
                     <dd
@@ -1923,7 +1923,7 @@ export default function Monitoring() {
                     </dd>
                 </div>
 
-                <div className="flex items-center justify-between border-b border-white/5 pb-1.5">
+                <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
                     <dt className="font-semibold text-slate-500">Kedalaman</dt>
 
                     <dd className="font-semibold text-slate-300">
@@ -2088,7 +2088,7 @@ export default function Monitoring() {
 
     if (loading && !data) {
         return (
-            <div className="relative flex h-dvh w-screen items-center justify-center overflow-hidden bg-[#05070a] text-[#eef1f5]">
+            <div className="relative flex h-dvh w-screen items-center justify-center overflow-hidden bg-[#0c1425] text-[#e2e8f0]">
                 <div className="text-center">
                     <img
                         src="/logo/logoSi-thumb.webp"
@@ -2102,7 +2102,7 @@ export default function Monitoring() {
                         Memuat data monitoring…
                     </p>
 
-                    <p className="mt-1 text-[10px] font-semibold tracking-[0.25em] text-slate-600">
+                    <p className="mt-1 text-[10px] font-semibold tracking-[0.25em] text-slate-300">
                         Volcano Watch
                     </p>
                 </div>
@@ -2112,8 +2112,8 @@ export default function Monitoring() {
 
     if (error) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-[#05070a] px-6 text-[#eef1f5]">
-                <div className="w-full max-w-md rounded-2xl border border-red-500/20 bg-white/[0.05] p-6 text-center backdrop-blur-xl">
+            <div className="flex min-h-screen items-center justify-center bg-[#0c1425] px-6 text-[#eef1f5]">
+                <div className="w-full max-w-md rounded-2xl border border-red-500/20 bg-slate-950 p-6 text-center backdrop-blur-xl">
                     <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/15">
                         <AlertTriangle size={22} className="text-red-400" />
                     </div>
@@ -2122,7 +2122,7 @@ export default function Monitoring() {
                         Gagal memuat data monitoring
                     </h2>
 
-                    <p className="mt-2 text-xs text-slate-400">{error}</p>
+                    <p className="mt-2 text-xs text-slate-500">{error}</p>
                 </div>
             </div>
         );
@@ -2130,7 +2130,7 @@ export default function Monitoring() {
 
     if (!data) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-[#05070a] text-slate-400">
+            <div className="flex min-h-screen items-center justify-center bg-[#0c1425] text-slate-500">
                 Data monitoring tidak ditemukan.
             </div>
         );
@@ -2506,7 +2506,7 @@ export default function Monitoring() {
         : null;
 
     return (
-        <div className="relative h-dvh w-screen overflow-hidden bg-[#05070a] text-[#eef1f5]">
+        <div className="relative h-dvh w-screen overflow-hidden bg-[#0c1425] text-[#e2e8f0]">
             <Head title="Monitoring Gunung Berapi & Cuaca Indonesia">
                 <meta
                     name="description"
@@ -2600,12 +2600,12 @@ export default function Monitoring() {
 
             {}
 
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-72 bg-[radial-gradient(70%_100%_at_50%_0%,rgba(14,165,233,0.14),rgba(124,58,237,0.06)_60%,transparent)]" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-72 bg-[radial-gradient(70%_100%_at_50%_0%,rgba(14,165,233,0.10),rgba(124,58,237,0.04)_60%,transparent)]" />
 
             {}
 
-            <header className="pointer-events-none absolute inset-x-0 top-0 z-[1200] px-2.5 pt-2.5 sm:px-3 sm:pt-3">
-                <div className="pointer-events-auto relative rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-3 py-2.5 shadow-2xl shadow-black/50 backdrop-blur-xl before:pointer-events-none before:absolute before:inset-x-8 before:top-0 before:h-px before:bg-gradient-to-r before:from-transparent before:via-sky-400/70 before:to-transparent sm:px-4 sm:py-3">
+            <header className="pointer-events-none absolute inset-x-0 top-0 z-[1200]">
+                <div className="pointer-events-auto relative border-b border-white/10 bg-[#111b2e]/95 px-3 py-2.5 shadow-sm shadow-black/30 backdrop-blur-xl sm:px-4 sm:py-3">
                     <div className="flex items-center justify-between gap-x-2.5 sm:gap-x-3">
                         <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
                             <img
@@ -2665,7 +2665,7 @@ export default function Monitoring() {
                                     geoState === 'denied'
                                         ? 'border-red-500/40 bg-red-500/10 text-red-300'
                                         : geoState === 'requesting'
-                                          ? 'border-sky-500/40 bg-sky-500/10 text-sky-300'
+                                          ? 'border-sky-500/40 bg-sky-500/10 text-sky-400'
                                           : cityData?.summary.inside_plume
                                             ? 'border-red-500/40 bg-red-500/10 text-red-300 shadow-[0_0_18px_rgba(255,59,59,0.35)]'
                                             : 'border-white/10 bg-white/5 text-sky-400 hover:bg-white/10'
@@ -2767,7 +2767,7 @@ export default function Monitoring() {
                                     }
                                 }}
                                 placeholder="Cari gunung api..."
-                                className="w-full min-w-0 flex-1 bg-transparent text-xs font-semibold text-white outline-none placeholder:text-slate-600"
+                                className="w-full min-w-0 flex-1 bg-transparent text-xs font-semibold text-white outline-none placeholder:text-slate-300"
                             />
 
                             <button
@@ -2791,7 +2791,7 @@ export default function Monitoring() {
                                     className="fixed inset-0 z-0 cursor-default"
                                 />
 
-                                <div className="absolute top-full right-0 left-0 z-10 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-gradient-to-b from-[#111b2e]/98 to-[#0a0f1c]/98 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
+                                <div className="absolute top-full right-0 left-0 z-10 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
                                     {filteredVolcanoes.length > 0 ? (
                                         filteredVolcanoes.map((volcano) => (
                                             <button
@@ -2830,7 +2830,7 @@ export default function Monitoring() {
                                             </button>
                                         ))
                                     ) : (
-                                        <div className="px-3 py-2 text-center text-[11px] text-slate-600">
+                                        <div className="px-3 py-2 text-center text-[11px] text-slate-300">
                                             Gak ada hasil.
                                         </div>
                                     )}
@@ -2884,7 +2884,7 @@ export default function Monitoring() {
                                 setQuakeAlert(null);
                                 setHasNewQuake(false);
                             }}
-                            className="shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-red-200 hover:bg-red-500/20"
+                            className="shrink-0 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-red-300 hover:bg-red-500/20"
                         >
                             Tutup
                         </button>
@@ -2909,7 +2909,7 @@ export default function Monitoring() {
 
             {}
 
-            <aside className="pointer-events-auto absolute top-[178px] left-2 z-[1100] flex items-start gap-2 sm:top-[190px] sm:left-3">
+            <aside className="pointer-events-auto absolute top-[168px] left-2 z-[1100] flex items-start gap-2 sm:top-[190px] sm:left-3">
                 {}
 
                 <div className="flex min-h-0 w-14 flex-col items-center justify-center gap-2 rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 py-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
@@ -2944,11 +2944,11 @@ export default function Monitoring() {
                                 className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition ${
                                     isAlert
                                         ? isActive
-                                            ? 'border-red-400/60 bg-gradient-to-b from-[#111b2e] to-[#0a0f1c] text-red-400 shadow-[0_0_16px_rgba(239,68,68,0.45)]'
+                                            ? 'border-red-400/60 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 text-red-400 shadow-[0_0_16px_rgba(239,68,68,0.45)]'
                                             : 'border-red-400/40 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 text-red-400 hover:border-red-400/70 hover:text-red-300'
                                         : isActive
-                                          ? 'border-sky-400/60 bg-gradient-to-b from-[#111b2e] to-[#0a0f1c] text-sky-300 shadow-[0_0_14px_rgba(56,189,248,0.35)]'
-                                          : 'border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 text-slate-300 hover:border-sky-500/40 hover:text-sky-300'
+                                          ? 'border-sky-400/60 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 text-sky-400 shadow-[0_0_14px_rgba(56,189,248,0.35)]'
+                                          : 'border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 text-slate-300 hover:border-sky-500/40 hover:text-sky-400'
                                 }`}
                             >
                                 <span
@@ -2976,7 +2976,7 @@ export default function Monitoring() {
                 {}
 
                 <div
-                    className={`w-[308px] max-w-[calc(100vw-96px)] self-start overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e] to-[#0a0f1c] pt-3.5 pb-3.5 pl-3.5 shadow-2xl shadow-black/50 ${
+                    className={`w-[308px] max-w-[calc(100vw-96px)] self-start overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 pt-3.5 pb-3.5 pl-3.5 shadow-2xl shadow-black/50 ${
                         active !== null ? '' : 'hidden'
                     }`}
                     style={{ maxHeight: 'calc(100dvh - 280px)' }}
@@ -3004,7 +3004,7 @@ export default function Monitoring() {
                                 {active !== 'cuaca' &&
                                     geoState === 'idle' &&
                                     !cityCoords && (
-                                        <p className="mt-2 text-[11px] leading-relaxed text-slate-400">
+                                        <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
                                             Klik{' '}
                                             <span className="font-bold text-sky-400">
                                                 Kota Saya
@@ -3019,7 +3019,7 @@ export default function Monitoring() {
 
                                 {active !== 'cuaca' &&
                                     geoState === 'requesting' && (
-                                        <p className="mt-2 flex items-center gap-2 text-[11px] text-sky-300">
+                                        <p className="mt-2 flex items-center gap-2 text-[11px] text-sky-400">
                                             <span className="h-2 w-2 animate-pulse rounded-full bg-sky-400" />
                                             Meminta izin lokasi… Lihat popup
                                             Allow/Izinkan di browser Anda.
@@ -3119,7 +3119,7 @@ export default function Monitoring() {
                                                       .plume_volcanoes.length >
                                                   0 ? (
                                                     <p className="relative mt-2 flex items-baseline gap-1.5">
-                                                        <span className="text-[30px] leading-none font-black text-sky-300 tabular-nums drop-shadow-[0_0_18px_rgba(56,189,248,0.35)]">
+                                                        <span className="text-[30px] leading-none font-black text-sky-400 tabular-nums drop-shadow-[0_0_18px_rgba(56,189,248,0.35)]">
                                                             ≈{' '}
                                                             {formatAshKm(
                                                                 cityData.summary
@@ -3128,7 +3128,7 @@ export default function Monitoring() {
                                                             )}
                                                         </span>
 
-                                                        <span className="text-[10px] font-semibold text-slate-400">
+                                                        <span className="text-[10px] font-semibold text-slate-500">
                                                             km dari tepi abu
                                                         </span>
                                                     </p>
@@ -3178,7 +3178,7 @@ export default function Monitoring() {
                                                     onClick={() =>
                                                         requestCityLocation()
                                                     }
-                                                    className="mt-2 flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-400/10 px-2.5 py-1 text-[10px] font-bold text-sky-300"
+                                                    className="mt-2 flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-400/10 px-2.5 py-1 text-[10px] font-bold text-sky-400"
                                                 >
                                                     <MapPin
                                                         size={10}
@@ -3208,7 +3208,7 @@ export default function Monitoring() {
                                                                     key + 1,
                                                             )
                                                         }
-                                                        className="mt-2 flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-400/10 px-2.5 py-1 text-[10px] font-bold text-sky-300"
+                                                        className="mt-2 flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-400/10 px-2.5 py-1 text-[10px] font-bold text-sky-400"
                                                     >
                                                         <RefreshCw
                                                             size={10}
@@ -3364,7 +3364,7 @@ export default function Monitoring() {
                                                             </div>
                                                         </div>
 
-                                                        <div className="mt-2 flex items-center justify-between border-t border-white/5 pt-1.5 text-[9px] text-slate-500">
+                                                        <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-1.5 text-[9px] text-slate-500">
                                                             <span>
                                                                 {weather.pressure_msl !==
                                                                 null
@@ -3393,7 +3393,7 @@ export default function Monitoring() {
                                                             </span>
                                                         </div>
 
-                                                        <p className="mt-2.5 text-[8.5px] leading-relaxed text-slate-600">
+                                                        <p className="mt-2.5 text-[8.5px] leading-relaxed text-slate-300">
                                                             {weather.source ===
                                                             'BMKG'
                                                                 ? `Sumber: BMKG (prakiraan resmi)${weather.location ? ` • Prakiraan ${weather.location}` : ''} • Lokasi dari GPS perangkat`
@@ -3456,7 +3456,7 @@ export default function Monitoring() {
                                                             <div
                                                                 key={day.label}
                                                             >
-                                                                <p className="mb-1 flex items-center gap-1.5 text-[9.5px] font-extrabold tracking-wide text-slate-400 uppercase">
+                                                                <p className="mb-1 flex items-center gap-1.5 text-[9.5px] font-extrabold tracking-wide text-slate-500 uppercase">
                                                                     <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
                                                                     {day.label}
                                                                 </p>
@@ -3513,7 +3513,7 @@ export default function Monitoring() {
                                                                                         />
 
                                                                                         <span
-                                                                                            className="truncate text-[10px] text-slate-400"
+                                                                                            className="truncate text-[10px] text-slate-500"
                                                                                             title={
                                                                                                 slot.weather_desc ??
                                                                                                 '-'
@@ -3538,10 +3538,10 @@ export default function Monitoring() {
                                                                                         </span>
                                                                                     </span>
 
-                                                                                    <span className="col-span-3 flex items-center justify-between border-t border-white/5 pt-1 text-[9px] text-slate-500">
+                                                                                    <span className="col-span-3 flex items-center justify-between border-t border-white/10 pt-1 text-[9px] text-slate-500">
                                                                                         <span>
                                                                                             angin{' '}
-                                                                                            <b className="text-slate-400">
+                                                                                            <b className="text-slate-500">
                                                                                                 {slot.wind_speed ??
                                                                                                     '-'}{' '}
                                                                                                 km/j
@@ -3550,7 +3550,7 @@ export default function Monitoring() {
 
                                                                                         <span>
                                                                                             arah{' '}
-                                                                                            <b className="text-slate-400">
+                                                                                            <b className="text-slate-500">
                                                                                                 {
                                                                                                     windCardinal
                                                                                                 }
@@ -3599,7 +3599,7 @@ export default function Monitoring() {
                                                     }
                                                     className="rounded-xl border border-sky-400/25 border-l-sky-400/80 bg-sky-400/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
                                                 >
-                                                    <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-sky-300 uppercase">
+                                                    <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-sky-400 uppercase">
                                                         <VolcanoIcon
                                                             size={10}
                                                             strokeWidth={2.5}
@@ -3628,7 +3628,7 @@ export default function Monitoring() {
                                                     </p>
 
                                                     {eruption.author && (
-                                                        <p className="mt-1 text-[10.5px] text-slate-400">
+                                                        <p className="mt-1 text-[10.5px] text-slate-500">
                                                             Dibuat oleh{' '}
                                                             <span className="font-semibold text-slate-300">
                                                                 {
@@ -3671,7 +3671,7 @@ export default function Monitoring() {
                                     </div>
                                 ) : data.activity?.description ? (
                                     <div className="rounded-xl border border-sky-400/25 border-l-sky-400/80 bg-sky-400/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                                        <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-sky-300 uppercase">
+                                        <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-sky-400 uppercase">
                                             <VolcanoIcon
                                                 size={10}
                                                 strokeWidth={2.5}
@@ -3693,7 +3693,7 @@ export default function Monitoring() {
                                         </p>
 
                                         {data.activity.author && (
-                                            <p className="mt-1 text-[10.5px] text-slate-400">
+                                            <p className="mt-1 text-[10.5px] text-slate-500">
                                                 Dibuat oleh{' '}
                                                 <span className="font-semibold text-slate-300">
                                                     {data.activity.author}
@@ -3722,7 +3722,7 @@ export default function Monitoring() {
                                         )}
                                     </div>
                                 ) : (
-                                    <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-4 text-[11.5px] leading-relaxed text-slate-400">
+                                    <div className="rounded-xl border border-white/10 bg-white/5 px-3 py-4 text-[11.5px] leading-relaxed text-slate-500">
                                         Belum ada laporan letusan terbaru dari
                                         MAGMA.
                                     </div>
@@ -3743,7 +3743,7 @@ export default function Monitoring() {
                                 </PanelTitle>
 
                                 <div className="rounded-xl border border-sky-400/25 border-l-sky-400/80 bg-sky-400/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                                    <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-sky-300 uppercase">
+                                    <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-sky-400 uppercase">
                                         <Radio size={10} strokeWidth={2.5} />
                                         Status Erupsi
                                     </p>
@@ -3757,7 +3757,7 @@ export default function Monitoring() {
                                     </p>
                                 </div>
 
-                                <p className="mt-3 text-[9px] font-extrabold tracking-widest text-slate-400 uppercase">
+                                <p className="mt-3 text-[9px] font-extrabold tracking-widest text-slate-500 uppercase">
                                     Status Bahaya (GDACS)
                                 </p>
 
@@ -3780,7 +3780,7 @@ export default function Monitoring() {
                                     </span>
                                 </div>
 
-                                <p className="mt-3 text-[9px] font-extrabold tracking-widest text-slate-400 uppercase">
+                                <p className="mt-3 text-[9px] font-extrabold tracking-widest text-slate-500 uppercase">
                                     Status Resmi PVMBG
                                 </p>
 
@@ -3954,7 +3954,7 @@ export default function Monitoring() {
                                             return (
                                                 <div className="mt-2.5 rounded-xl border border-sky-400/20 bg-gradient-to-b from-sky-400/10 to-white/[0.03] p-3">
                                                     <div className="flex items-center justify-between">
-                                                        <p className="text-[10px] font-extrabold tracking-wide text-sky-300 uppercase">
+                                                        <p className="text-[10px] font-extrabold tracking-wide text-sky-400 uppercase">
                                                             Saat ini
                                                         </p>
 
@@ -4055,7 +4055,7 @@ export default function Monitoring() {
                                                     </div>
 
                                                     {hasExtras && (
-                                                        <div className="mt-2 flex items-center justify-between border-t border-white/5 pt-1.5 text-[9px] text-slate-500">
+                                                        <div className="mt-2 flex items-center justify-between border-t border-white/10 pt-1.5 text-[9px] text-slate-500">
                                                             <span>
                                                                 {pressure !==
                                                                 null
@@ -4077,7 +4077,7 @@ export default function Monitoring() {
                                                         </div>
                                                     )}
 
-                                                    <p className="mt-1.5 text-[8.5px] leading-relaxed text-slate-600">
+                                                    <p className="mt-1.5 text-[8.5px] leading-relaxed text-slate-300">
                                                         Sumber: BMKG (prakiraan
                                                         resmi) • Prakiraan{' '}
                                                         {data.weather_location ??
@@ -4108,7 +4108,7 @@ export default function Monitoring() {
                                         return (
                                             <div className="mt-2.5 rounded-xl border border-white/10 bg-white/5 p-3">
                                                 <div className="flex items-center justify-between">
-                                                    <p className="text-[10px] font-extrabold tracking-wide text-slate-400 uppercase">
+                                                    <p className="text-[10px] font-extrabold tracking-wide text-slate-500 uppercase">
                                                         Saat ini (pengukuran
                                                         langsung)
                                                     </p>
@@ -4126,7 +4126,7 @@ export default function Monitoring() {
                                                     <Gauge
                                                         size={38}
                                                         strokeWidth={2}
-                                                        className="shrink-0 text-slate-400"
+                                                        className="shrink-0 text-slate-500"
                                                     />
 
                                                     <div>
@@ -4252,7 +4252,7 @@ export default function Monitoring() {
                                     ) : (
                                         bmkgForecasts.map((day) => (
                                             <div key={day.label}>
-                                                <p className="mb-1 flex items-center gap-1.5 text-[9.5px] font-extrabold tracking-wide text-slate-400 uppercase">
+                                                <p className="mb-1 flex items-center gap-1.5 text-[9.5px] font-extrabold tracking-wide text-slate-500 uppercase">
                                                     <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
                                                     {day.label}
                                                 </p>
@@ -4289,7 +4289,7 @@ export default function Monitoring() {
                                                                     />
 
                                                                     <span
-                                                                        className="truncate text-[10px] text-slate-400"
+                                                                        className="truncate text-[10px] text-slate-500"
                                                                         title={
                                                                             slot.weather ??
                                                                             '-'
@@ -4314,10 +4314,10 @@ export default function Monitoring() {
                                                                     </span>
                                                                 </span>
 
-                                                                <span className="col-span-3 flex items-center justify-between border-t border-white/5 pt-1 text-[9px] text-slate-500">
+                                                                <span className="col-span-3 flex items-center justify-between border-t border-white/10 pt-1 text-[9px] text-slate-500">
                                                                     <span>
                                                                         angin{' '}
-                                                                        <b className="text-slate-400">
+                                                                        <b className="text-slate-500">
                                                                             {slot.wind_speed ??
                                                                                 '-'}{' '}
                                                                             km/j
@@ -4326,7 +4326,7 @@ export default function Monitoring() {
 
                                                                     <span>
                                                                         arah{' '}
-                                                                        <b className="text-slate-400">
+                                                                        <b className="text-slate-500">
                                                                             {slot.wind_direction ??
                                                                                 '-'}
                                                                         </b>
@@ -4414,7 +4414,7 @@ export default function Monitoring() {
                                                             data.volcano.name}
                                                     </p>
 
-                                                    <p className="mt-0.5 text-[9.5px] tracking-wider text-slate-400 uppercase">
+                                                    <p className="mt-0.5 text-[9.5px] tracking-wider text-slate-500 uppercase">
                                                         {ash.source ??
                                                             'VAAC Darwin (BOM)'}{' '}
                                                         — Advisory #
@@ -4458,7 +4458,7 @@ export default function Monitoring() {
                                                 ].map((stat) => (
                                                     <div
                                                         key={stat.label}
-                                                        className="rounded-lg border border-white/5 bg-white/[0.03] px-2.5 py-2"
+                                                        className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-2"
                                                     >
                                                         <p className="text-[8.5px] font-bold tracking-wider text-slate-500 uppercase">
                                                             {stat.label}
@@ -4490,7 +4490,7 @@ export default function Monitoring() {
                                             </div>
 
                                             {ash.eruption_detail && (
-                                                <div className="mt-1 border-t border-white/5 px-3 py-2">
+                                                <div className="mt-1 border-t border-white/10 px-3 py-2">
                                                     <p className="text-[8.5px] font-bold tracking-wider text-slate-500 uppercase">
                                                         Detil erupsi
                                                     </p>
@@ -4502,19 +4502,19 @@ export default function Monitoring() {
                                             )}
 
                                             {ash.remarks && (
-                                                <div className="border-t border-white/5 px-3 py-2">
+                                                <div className="border-t border-white/10 px-3 py-2">
                                                     <p className="text-[8.5px] font-bold tracking-wider text-slate-500 uppercase">
                                                         Catatan (RMK)
                                                     </p>
 
-                                                    <p className="mt-0.5 text-[10.5px] leading-relaxed text-slate-400">
+                                                    <p className="mt-0.5 text-[10.5px] leading-relaxed text-slate-500">
                                                         {ash.remarks}
                                                     </p>
                                                 </div>
                                             )}
 
                                             <div className="border-t border-white/10 bg-white/[0.02] px-3 py-2">
-                                                <p className="text-[9px] leading-relaxed text-slate-600 italic">
+                                                <p className="text-[9px] leading-relaxed text-slate-300 italic">
                                                     Sumber:{' '}
                                                     {ash.source ??
                                                         'VAAC Darwin (BOM)'}
@@ -4664,7 +4664,7 @@ export default function Monitoring() {
 
                                 <Suspense
                                     fallback={
-                                        <div className="h-[420px] w-full animate-pulse rounded-2xl bg-slate-900" />
+                                        <div className="h-[420px] w-full animate-pulse rounded-2xl bg-slate-800" />
                                     }
                                 >
                                     <WindyMap
@@ -4704,7 +4704,7 @@ export default function Monitoring() {
                                             href="https://pubs.usgs.gov/of/1995/0085/"
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="mt-auto inline-flex items-center gap-1 pt-2.5 text-[9px] font-semibold text-sky-400 transition hover:text-sky-300"
+                                            className="mt-auto inline-flex items-center gap-1 pt-2.5 text-[9px] font-semibold text-sky-400 transition hover:text-sky-400"
                                         >
                                             <ExternalLink
                                                 size={9}
@@ -4753,20 +4753,20 @@ export default function Monitoring() {
                                     </div>
                                 </div>
 
-                                <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
-                                    <div className="flex items-center gap-1.5 border-b border-white/5 bg-white/[0.03] px-3 py-2.5">
+                                <div className="mt-3 overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+                                    <div className="flex items-center gap-1.5 border-b border-white/10 bg-white/5 px-3 py-2.5">
                                         <Info
                                             size={10}
                                             strokeWidth={2.5}
                                             className="text-sky-400"
                                         />
 
-                                        <p className="text-[9.5px] font-extrabold tracking-wide text-slate-400 uppercase">
+                                        <p className="text-[9.5px] font-extrabold tracking-wide text-slate-500 uppercase">
                                             Sumber &amp; Keterbatasan
                                         </p>
                                     </div>
 
-                                    <ul className="flex flex-col gap-2.5 p-3 text-[10px] leading-relaxed text-slate-400">
+                                    <ul className="flex flex-col gap-2.5 p-3 text-[10px] leading-relaxed text-slate-500">
                                         <li className="flex gap-2">
                                             <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-sky-400" />
 
@@ -4817,7 +4817,7 @@ export default function Monitoring() {
                                     <button
                                         type="button"
                                         onClick={() => setSelectedGempa(null)}
-                                        className="mb-1.5 flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[9.5px] font-semibold text-slate-400 transition hover:border-sky-500/40 hover:text-white"
+                                        className="mb-1.5 flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[9.5px] font-semibold text-slate-500 transition hover:border-sky-500/40 hover:text-white"
                                     >
                                         <ArrowLeft
                                             size={10}
@@ -4840,7 +4840,7 @@ export default function Monitoring() {
                                         {!selectedGempa &&
                                             (gempa?.list.length ?? 0) > 1 && (
                                                 <div className="mt-2.5">
-                                                    <p className="mb-1 flex items-center gap-1.5 text-[9.5px] font-extrabold tracking-wide text-slate-400 uppercase">
+                                                    <p className="mb-1 flex items-center gap-1.5 text-[9.5px] font-extrabold tracking-wide text-slate-500 uppercase">
                                                         <Siren
                                                             size={9}
                                                             strokeWidth={2.5}
@@ -4863,7 +4863,7 @@ export default function Monitoring() {
                                                                             `gempa-${index}`
                                                                         }
                                                                     >
-                                                                        <div className="w-full rounded-lg border border-white/5 bg-white/[0.04] p-2.5 text-left text-[11px]">
+                                                                        <div className="w-full rounded-lg border border-white/10 bg-white/5 p-2.5 text-left text-[11px]">
                                                                             {renderGempaCard(
                                                                                 item,
                                                                             )}
@@ -4915,7 +4915,7 @@ export default function Monitoring() {
                                                         href={item.url ?? '#'}
                                                         target="_blank"
                                                         rel="noreferrer"
-                                                        className="group block overflow-hidden rounded-xl border border-white/10 bg-white/[0.04] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:border-sky-500/30 hover:bg-sky-500/10"
+                                                        className="group block overflow-hidden rounded-xl border border-white/10 bg-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:border-sky-500/30 hover:bg-sky-500/10"
                                                     >
                                                         {item.thumbnail && (
                                                             <div className="relative h-32 overflow-hidden border-b border-white/10">
@@ -4944,12 +4944,12 @@ export default function Monitoring() {
                                                                     strokeWidth={
                                                                         2.5
                                                                     }
-                                                                    className="mt-0.5 shrink-0 text-slate-600 group-hover:text-sky-400"
+                                                                    className="mt-0.5 shrink-0 text-slate-300 group-hover:text-sky-400"
                                                                 />
                                                             </span>
 
                                                             {item.date && (
-                                                                <span className="mt-1 block text-[9.5px] font-medium text-slate-600">
+                                                                <span className="mt-1 block text-[9.5px] font-medium text-slate-300">
                                                                     {formatWIB(
                                                                         item.date,
                                                                     )}
@@ -4973,7 +4973,7 @@ export default function Monitoring() {
                         {}
 
                         {active !== null && active !== 'advisory' && (
-                            <div className="border-t border-white/10 pt-2.5 text-[10px] leading-relaxed text-slate-600">
+                            <div className="border-t border-white/10 pt-2.5 text-[10px] leading-relaxed text-slate-300">
                                 <p>
                                     <b className="text-slate-500">Sumber:</b>{' '}
                                     VAAC Darwin (BOM Australia) •
@@ -4987,7 +4987,7 @@ export default function Monitoring() {
 
             {}
 
-            <aside className="pointer-events-auto absolute top-[190px] right-2 z-[1100] hidden w-[230px] max-w-[40vw] rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e] to-[#0a0f1c] p-3.5 shadow-2xl shadow-black/50 lg:block">
+            <aside className="pointer-events-auto absolute top-[190px] right-2 z-[1100] hidden w-[230px] max-w-[40vw] rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 p-3.5 shadow-2xl shadow-black/50 lg:block">
                 <LegendPanel
                     showGempaMarkers={showGempaMarkers}
                     onToggleGempa={() => setShowGempaMarkers((value) => !value)}
@@ -5008,7 +5008,7 @@ export default function Monitoring() {
                         className="absolute inset-0 z-0 cursor-default bg-black/50 backdrop-blur-sm"
                     />
 
-                    <div className="pointer-events-auto relative z-10 mx-3 mb-[max(6rem,calc(env(safe-area-inset-bottom)+5.5rem))] max-h-[60dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/98 to-[#0a0f1c]/98 p-3.5 shadow-2xl shadow-black/60 backdrop-blur-xl">
+                    <div className="pointer-events-auto relative z-10 mx-3 mb-[max(6rem,calc(env(safe-area-inset-bottom)+5.5rem))] max-h-[60dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 p-3.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
                         <LegendPanel
                             showGempaMarkers={showGempaMarkers}
                             onToggleGempa={() =>
@@ -5023,13 +5023,6 @@ export default function Monitoring() {
             )}
 
             {}
-
-            <footer className="pointer-events-none absolute inset-x-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-[1100] flex items-end justify-between gap-2">
-                <div className="pointer-events-auto rounded-xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-3 py-2 text-[10.5px] text-slate-500 backdrop-blur-xl">
-                    Volcano Watch by : Haris Darmawan | • BMKG / PVMBG / VAAC
-                    Darwin
-                </div>
-            </footer>
         </div>
     );
 }

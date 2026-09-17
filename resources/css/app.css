@@ -203,6 +203,9 @@
     72% {
         transform: rotate(-2deg);
     }
+    84% {
+        transform: rotate(1deg);
+    }
 }
 
 .wave-scan {

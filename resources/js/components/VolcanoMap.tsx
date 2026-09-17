@@ -266,7 +266,7 @@ function EarthquakeMarker({
             <Popup>
                 <div className="p-1">
                     {quake.datetime && (
-                        <p className="mb-2 text-[11px] font-semibold text-slate-300">
+                        <p className="mb-2 text-[11px] font-semibold text-slate-400">
                             {formatWIBDate(quake.datetime)}
                         </p>
                     )}
