@@ -16,6 +16,9 @@ import {
     Activity,
     AlertTriangle,
     ArrowLeft,
+    Atom,
+    Beaker,
+    BookOpen,
     ChevronDown,
     Cloud,
     CloudDrizzle,
@@ -25,7 +28,10 @@ import {
     CloudSnow,
     CloudSun,
     ExternalLink,
+    Eye,
+    FlaskConical,
     Gauge,
+    HeartPulse,
     Info,
     LandPlot,
     Layers,
@@ -37,6 +43,7 @@ import {
     Radio,
     RefreshCw,
     ShieldCheck,
+    ShieldAlert,
     Siren,
     Sun,
     TriangleAlert,
@@ -448,7 +455,6 @@ function LegendPanel({
                             <span className="absolute inset-0 animate-ping rounded-full border border-red-400/70" />
                             <span className="h-2 w-2 rounded-full border-2 border-red-400 bg-red-500/30" />
                         </span>
-
                         Gempa Terkini (BMKG)
                     </span>
 
@@ -536,7 +542,9 @@ function LegendPanel({
                                             <input
                                                 type="checkbox"
                                                 checked={isChecked}
-                                                onChange={() => onToggleLayer(key)}
+                                                onChange={() =>
+                                                    onToggleLayer(key)
+                                                }
                                                 className="peer sr-only"
                                             />
 
@@ -2955,14 +2963,12 @@ export default function Monitoring() {
                 {}
 
                 <div
-                    className={`flex w-[308px] max-w-[calc(100vw-96px)] self-start flex-col overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0f182b]/95 to-[#0a1220]/95 pt-3.5 pb-3.5 pl-3.5 shadow-2xl shadow-black/50 ${
+                    className={`flex w-[308px] max-w-[calc(100vw-96px)] flex-col self-start overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0f182b]/95 to-[#0a1220]/95 pt-3.5 pb-3.5 pl-3.5 shadow-2xl shadow-black/50 ${
                         active !== null ? '' : 'hidden'
                     }`}
                     style={{ maxHeight: 'calc(100dvh - 280px)' }}
                 >
-                    <div
-                        className="flex min-h-0 w-full min-w-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent] flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto pr-2.5 [&::-webkit-scrollbar]:w-[4px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-track]:bg-transparent"
-                    >
+                    <div className="flex min-h-0 w-full min-w-0 flex-1 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent] flex-col gap-3 overflow-x-hidden overflow-y-auto pr-2.5 [&::-webkit-scrollbar]:w-[4px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-track]:bg-transparent">
                         {(active === 'kota' ||
                             active === 'cuaca' ||
                             active === 'sebaran') && (
@@ -3361,20 +3367,20 @@ export default function Monitoring() {
                                                                     : ''}
                                                             </span>
 
-<span>
-                                                            {weather.apparent_temperature !==
-                                                            null
-                                                                ? `terasa ${bmkgNumber(
-                                                                      weather.apparent_temperature,
-                                                                  )}°C`
-                                                                : ''}
-                                                        </span>
+                                                            <span>
+                                                                {weather.apparent_temperature !==
+                                                                null
+                                                                    ? `terasa ${bmkgNumber(
+                                                                          weather.apparent_temperature,
+                                                                      )}°C`
+                                                                    : ''}
+                                                            </span>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })()
-                                    )}
-                                </section>
+                                                );
+                                            })()
+                                        )}
+                                    </section>
                                 )}
 
                                 {active === 'cuaca' &&
@@ -4556,17 +4562,13 @@ export default function Monitoring() {
 
                         {active === 'so2' && (
                             <section>
-                                <PanelTitle
-                                    icon={
-                                        <So2Icon size={11} strokeWidth={2.5} />
-                                    }
-                                >
-                                    Gas SO2 (Vulkanik)
+                                <PanelTitle icon={<So2Icon size={12} />}>
+                                    Gas SO₂ Vulkanik
                                 </PanelTitle>
 
                                 <Suspense
                                     fallback={
-                                        <div className="h-[420px] w-full animate-pulse rounded-2xl bg-slate-800" />
+                                        <div className="h-[380px] w-full animate-pulse rounded-2xl bg-slate-800" />
                                     }
                                 >
                                     <WindyMap
@@ -4576,70 +4578,324 @@ export default function Monitoring() {
                                     />
                                 </Suspense>
 
-                                <div className="mt-3 flex flex-col gap-2.5">
-                                    <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                                        <div className="flex items-center gap-2">
-                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-sky-400/20 bg-sky-400/10 text-sky-300">
-                                                <So2Icon
-                                                    size={12}
-                                                    strokeWidth={2.5}
-                                                />
-                                            </span>
-
-                                            <p className="text-[10px] font-extrabold tracking-wide text-slate-200 uppercase">
-                                                Apa itu SO2?
-                                            </p>
-                                        </div>
-
-                                        <p className="mt-2 text-[10.5px] leading-relaxed text-slate-300">
-                                            Sulfur dioksida (SO2) adalah salah
-                                            satu gas utama gunung berapi,
-                                            bersama uap air (H2O) dan karbon
-                                            dioksida (CO2).
+                                {/* Ringkasan cepat - 3 badge */}
+                                <div className="mt-3 grid grid-cols-3 gap-1.5">
+                                    <div className="rounded-xl border border-white/10 bg-white/[0.04] px-2 py-2 text-center">
+                                        <p className="text-[8px] font-bold tracking-widest text-slate-500 uppercase">
+                                            Gas
                                         </p>
-
-                                        <p className="mt-2.5 flex items-start gap-2 rounded-lg border border-sky-400/20 bg-sky-400/10 px-2.5 py-2 text-[10px] leading-relaxed text-sky-200">
-                                            <span className="mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full bg-sky-300" />
-                                            Naiknya SO2 menandakan magma naik
-                                            (degassing) atau mendahului
-                                            erupsi.
+                                        <p className="mt-0.5 flex items-center justify-center gap-1 text-[11px] font-black text-white">
+                                            <Beaker
+                                                size={11}
+                                                className="text-sky-300"
+                                            />
+                                            SO₂
+                                        </p>
+                                        <p className="text-[9px] text-slate-500">
+                                            Belerang
                                         </p>
                                     </div>
+                                    <div className="rounded-xl border border-white/10 bg-white/[0.04] px-2 py-2 text-center">
+                                        <p className="text-[8px] font-bold tracking-widest text-slate-500 uppercase">
+                                            Sumber
+                                        </p>
+                                        <p className="mt-0.5 text-[11px] font-black text-white">
+                                            Kawah
+                                        </p>
+                                        <p className="text-[9px] text-slate-500">
+                                            + degassing
+                                        </p>
+                                    </div>
+                                    <div className="rounded-xl border border-white/10 bg-white/[0.04] px-2 py-2 text-center">
+                                        <p className="text-[8px] font-bold tracking-widest text-slate-500 uppercase">
+                                            Tanda
+                                        </p>
+                                        <p className="mt-0.5 text-[11px] font-black text-white">
+                                            Bau tajam
+                                        </p>
+                                        <p className="text-[9px] text-slate-500">
+                                            pedas / menyengat
+                                        </p>
+                                    </div>
+                                </div>
 
+                                <div className="mt-3 flex flex-col gap-2.5">
+                                    {/* Apa itu SO2 - mudah dipahami */}
                                     <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
                                         <div className="flex items-center gap-2">
-                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-sky-400/20 bg-sky-400/10 text-sky-300">
-                                                <Gauge
-                                                    size={12}
-                                                    strokeWidth={2.5}
+                                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-sky-400/20 bg-sky-400/10 text-sky-300">
+                                                <Atom
+                                                    size={14}
+                                                    strokeWidth={2}
                                                 />
                                             </span>
-
-                                            <p className="text-[10px] font-extrabold tracking-wide text-slate-200 uppercase">
-                                                Skala Konsentrasi
-                                            </p>
-                                        </div>
-
-                                        <div className="mt-3">
-                                            <div
-                                                className="h-3 w-full overflow-hidden rounded-full ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]"
-                                                style={{
-                                                    background:
-                                                        'linear-gradient(90deg,#10b981,#84cc16,#eab308,#f97316,#ef4444,#a855f7)',
-                                                }}
-                                            />
-
-                                            <div className="mt-1.5 flex items-center justify-between text-[8px] font-bold tracking-widest text-slate-500 uppercase">
-                                                <span>Rendah</span>
-                                                <span>Tinggi</span>
+                                            <div>
+                                                <p className="text-[10px] font-extrabold tracking-wide text-slate-200 uppercase">
+                                                    Apa itu SO₂?
+                                                </p>
+                                                <p className="text-[9px] font-medium text-slate-500">
+                                                    Penjelasan sederhana
+                                                </p>
                                             </div>
                                         </div>
 
-                                        <p className="mt-2.5 text-[9.5px] leading-relaxed text-slate-500">
-                                            Konsentrasi total kolom SO2. Skala
-                                            &amp; satuan sesuai legenda peta
-                                            Windy.
+                                        <p className="mt-2.5 text-[10.5px] leading-relaxed text-slate-300">
+                                            Gas tidak berwarna hasil aktivitas
+                                            magma. Keluar dari kawah saat gunung
+                                            “bernapas” (<em>degassing</em>).
+                                            Bersamaan dengan uap air (H₂O) &amp;
+                                            CO₂.
                                         </p>
+
+                                        <ul className="mt-2.5 grid gap-1.5">
+                                            <li className="flex items-start gap-2 rounded-lg bg-white/[0.04] px-2.5 py-1.5 text-[10px] leading-relaxed text-slate-300">
+                                                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-300" />
+                                                <span>
+                                                    <b className="font-bold text-white">
+                                                        Tidak terlihat
+                                                    </b>{' '}
+                                                    — hanya terlihat di peta
+                                                    satelit / sensor
+                                                </span>
+                                            </li>
+                                            <li className="flex items-start gap-2 rounded-lg bg-sky-400/10 px-2.5 py-1.5 text-[10px] leading-relaxed text-sky-200">
+                                                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-300" />
+                                                <span>
+                                                    <b className="font-bold text-sky-100">
+                                                        Naik tiba-tiba
+                                                    </b>{' '}
+                                                    = magma naik, sering sebelum
+                                                    erupsi
+                                                </span>
+                                            </li>
+                                        </ul>
+                                    </div>
+
+                                    {/* Skala 5 level - visual & mudah */}
+                                    <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                                        <div className="flex items-center gap-2">
+                                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-amber-400/20 bg-amber-400/10 text-amber-300">
+                                                <Gauge
+                                                    size={14}
+                                                    strokeWidth={2}
+                                                />
+                                            </span>
+                                            <div>
+                                                <p className="text-[10px] font-extrabold tracking-wide text-slate-200 uppercase">
+                                                    Skala Warna — Mudah Baca
+                                                </p>
+                                                <p className="text-[9px] font-medium text-slate-500">
+                                                    Hijau aman → Ungu ekstrem
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Gradient bar dengan dot */}
+                                        <div className="relative mt-3">
+                                            <div
+                                                className="h-3 w-full overflow-hidden rounded-full shadow-[inset_0_1px_0_rgba(255,255,255,0.25)] ring-1 ring-white/10"
+                                                style={{
+                                                    background:
+                                                        'linear-gradient(90deg,#10b981 0%,#84cc16 20%,#eab308 40%,#f97316 60%,#ef4444 80%,#a855f7 100%)',
+                                                }}
+                                            />
+                                            <div className="absolute inset-0 flex items-center justify-between px-1">
+                                                <span className="h-2 w-2 rounded-full border border-white/40 bg-white shadow" />
+                                                <span className="h-2 w-2 rounded-full bg-white/90 shadow" />
+                                                <span className="h-2 w-2 rounded-full bg-white/90 shadow" />
+                                                <span className="h-2 w-2 rounded-full bg-white/90 shadow" />
+                                                <span className="h-2 w-2 rounded-full bg-white/90 shadow" />
+                                                <span className="h-2 w-2 rounded-full border border-white/40 bg-white shadow" />
+                                            </div>
+                                        </div>
+                                        <div className="mt-1 flex justify-between text-[7.5px] font-black tracking-widest text-slate-500 uppercase">
+                                            <span>Rendah</span>
+                                            <span>Sedang</span>
+                                            <span>Tinggi</span>
+                                        </div>
+
+                                        {/* 5 level list */}
+                                        <div className="mt-3 grid gap-1.5">
+                                            <div className="flex items-center gap-2 rounded-xl border border-emerald-400/15 bg-emerald-400/10 px-2.5 py-1.5">
+                                                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]" />
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-[10px] leading-none font-bold text-emerald-200">
+                                                        Latar / Normal
+                                                    </p>
+                                                    <p className="text-[9px] leading-tight text-emerald-300/70">
+                                                        Hijau — tidak
+                                                        terdeteksi, aman
+                                                    </p>
+                                                </div>
+                                                <Eye
+                                                    size={12}
+                                                    className="shrink-0 text-emerald-300/60"
+                                                />
+                                            </div>
+                                            <div className="flex items-center gap-2 rounded-xl border border-lime-400/15 bg-lime-400/10 px-2.5 py-1.5">
+                                                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-lime-400 shadow-[0_0_6px_rgba(132,204,22,0.6)]" />
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-[10px] leading-none font-bold text-lime-200">
+                                                        Ringan
+                                                    </p>
+                                                    <p className="text-[9px] leading-tight text-lime-300/70">
+                                                        Kuning-hijau — masih
+                                                        batas wajar
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 rounded-xl border border-amber-400/15 bg-amber-400/10 px-2.5 py-1.5">
+                                                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-[10px] leading-none font-bold text-amber-200">
+                                                        Sedang
+                                                    </p>
+                                                    <p className="text-[9px] leading-tight text-amber-300/70">
+                                                        Kuning — kurangi
+                                                        aktivitas luar
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 rounded-xl border border-orange-400/15 bg-orange-400/10 px-2.5 py-1.5">
+                                                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.6)]" />
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-[10px] leading-none font-bold text-orange-200">
+                                                        Tinggi
+                                                    </p>
+                                                    <p className="text-[9px] leading-tight text-orange-300/70">
+                                                        Oranye → Merah — pedih
+                                                        mata &amp; napas
+                                                    </p>
+                                                </div>
+                                                <HeartPulse
+                                                    size={12}
+                                                    className="shrink-0 text-orange-300/60"
+                                                />
+                                            </div>
+                                            <div className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-2.5 py-1.5">
+                                                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.7)]" />
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="text-[10px] leading-none font-bold text-red-200">
+                                                        Ekstrem
+                                                    </p>
+                                                    <p className="text-[9px] leading-tight text-red-300/70">
+                                                        Merah-ungu — bahaya,
+                                                        ikuti PVMBG
+                                                    </p>
+                                                </div>
+                                                <ShieldAlert
+                                                    size={12}
+                                                    className="shrink-0 text-red-300"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Cara baca peta - 3 langkah */}
+                                    <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                                        <div className="flex items-center gap-2">
+                                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-violet-400/20 bg-violet-400/10 text-violet-300">
+                                                <BookOpen
+                                                    size={14}
+                                                    strokeWidth={2}
+                                                />
+                                            </span>
+                                            <p className="text-[10px] font-extrabold tracking-wide text-slate-200 uppercase">
+                                                Cara Baca Peta (3 Langkah)
+                                            </p>
+                                        </div>
+
+                                        <ol className="mt-2.5 grid gap-2">
+                                            <li className="flex gap-2.5 rounded-xl bg-white/[0.04] px-2.5 py-2">
+                                                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-400 text-[11px] font-black text-[#0a1220]">
+                                                    1
+                                                </span>
+                                                <div>
+                                                    <p className="text-[10px] leading-none font-bold text-white">
+                                                        Cari warna di sekitar
+                                                        gunung
+                                                    </p>
+                                                    <p className="mt-1 text-[9.5px] leading-relaxed text-slate-400">
+                                                        Titik gunung ada pin
+                                                        merah. Lihat warna awan
+                                                        SO₂ di sekitarnya.
+                                                    </p>
+                                                </div>
+                                            </li>
+                                            <li className="flex gap-2.5 rounded-xl bg-white/[0.04] px-2.5 py-2">
+                                                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber-400 text-[11px] font-black text-[#0a1220]">
+                                                    2
+                                                </span>
+                                                <div>
+                                                    <p className="text-[10px] leading-none font-bold text-white">
+                                                        Bandingkan dengan skala
+                                                    </p>
+                                                    <p className="mt-1 text-[9.5px] leading-relaxed text-slate-400">
+                                                        Hijau = aman. Kuning →
+                                                        waspada. Merah/ungu =
+                                                        tinggi.
+                                                    </p>
+                                                </div>
+                                            </li>
+                                            <li className="flex gap-2.5 rounded-xl bg-white/[0.04] px-2.5 py-2">
+                                                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-400 text-[11px] font-black text-[#0a1220]">
+                                                    3
+                                                </span>
+                                                <div>
+                                                    <p className="text-[10px] leading-none font-bold text-white">
+                                                        Lihat arah sebaran
+                                                    </p>
+                                                    <p className="mt-1 text-[9.5px] leading-relaxed text-slate-400">
+                                                        Gerakkan waktu di Windy
+                                                        (play) untuk lihat
+                                                        kemana gas terbawa
+                                                        angin.
+                                                    </p>
+                                                </div>
+                                            </li>
+                                        </ol>
+                                    </div>
+
+                                    {/* Tips aman */}
+                                    <div className="overflow-hidden rounded-2xl border border-amber-400/20 bg-gradient-to-b from-amber-400/10 to-orange-500/5">
+                                        <div className="flex items-center gap-2 bg-amber-400/10 px-3 py-2.5">
+                                            <ShieldCheck
+                                                size={14}
+                                                className="text-amber-300"
+                                            />
+                                            <p className="text-[10px] font-extrabold tracking-wide text-amber-200 uppercase">
+                                                Tips Jika Warna Oranye / Merah
+                                            </p>
+                                        </div>
+                                        <ul className="flex flex-col gap-1.5 p-3 text-[10px] leading-relaxed text-amber-100/80">
+                                            <li className="flex gap-2">
+                                                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" />
+                                                <span>
+                                                    Pakai masker, tutup jendela,
+                                                    kurangi aktivitas luar dekat
+                                                    kawah
+                                                </span>
+                                            </li>
+                                            <li className="flex gap-2">
+                                                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" />
+                                                <span>
+                                                    Jika mata pedih / sesak,
+                                                    segera menjauh &amp; cari
+                                                    udara bersih
+                                                </span>
+                                            </li>
+                                            <li className="flex gap-2">
+                                                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" />
+                                                <span>
+                                                    Ikuti info resmi{' '}
+                                                    <b className="text-amber-200">
+                                                        PVMBG / MAGMA Indonesia
+                                                    </b>{' '}
+                                                    — jangan panik karena
+                                                    background rendah itu normal
+                                                </span>
+                                            </li>
+                                        </ul>
                                     </div>
                                 </div>
 
@@ -4663,7 +4919,7 @@ export default function Monitoring() {
                                             <span>
                                                 Data prakiraan CAMS
                                                 (Copernicus/ECMWF) via Windy —
-                                                konsentrasi kolom SO2 atmosfer,
+                                                konsentrasi kolom SO₂ atmosfer,
                                                 bukan pengukuran langsung di
                                                 kawah.
                                             </span>
@@ -4873,7 +5129,6 @@ export default function Monitoring() {
                         )}
 
                         {}
-
                     </div>
                 </div>
             </aside>
