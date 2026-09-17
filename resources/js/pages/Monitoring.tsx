@@ -2955,14 +2955,13 @@ export default function Monitoring() {
                 {}
 
                 <div
-                    className={`w-[308px] max-w-[calc(100vw-96px)] self-start overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0f182b]/95 to-[#0a1220]/95 pt-3.5 pb-3.5 pl-3.5 shadow-2xl shadow-black/50 ${
+                    className={`flex w-[308px] max-w-[calc(100vw-96px)] self-start flex-col overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0f182b]/95 to-[#0a1220]/95 pt-3.5 pb-3.5 pl-3.5 shadow-2xl shadow-black/50 ${
                         active !== null ? '' : 'hidden'
                     }`}
                     style={{ maxHeight: 'calc(100dvh - 280px)' }}
                 >
                     <div
-                        className="flex w-full min-w-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent] flex-col gap-3 overflow-x-hidden overflow-y-auto pr-2.5 [&::-webkit-scrollbar]:w-[4px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-track]:bg-transparent"
-                        style={{ maxHeight: 'calc(100dvh - 280px)' }}
+                        className="flex min-h-0 w-full min-w-0 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.18)_transparent] flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto pr-2.5 [&::-webkit-scrollbar]:w-[4px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-white/20 [&::-webkit-scrollbar-track]:bg-transparent"
                     >
                         {(active === 'kota' ||
                             active === 'cuaca' ||
@@ -3373,7 +3372,7 @@ export default function Monitoring() {
                                                     </div>
                                                 </div>
                                             );
-                                        })()}
+                                        })()
                                     )}
                                 </section>
                                 )}
@@ -4565,26 +4564,6 @@ export default function Monitoring() {
                                     Gas SO2 (Vulkanik)
                                 </PanelTitle>
 
-                                <div className="mb-3 flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
-                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-300/25 bg-sky-300/10">
-                                        <MapPin
-                                            size={13}
-                                            strokeWidth={2.5}
-                                            className="text-slate-300"
-                                        />
-                                    </span>
-
-                                    <div className="min-w-0">
-                                        <p className="truncate text-[11.5px] font-bold text-white">
-                                            {data.volcano.name}
-                                        </p>
-
-                                        <p className="text-[9.5px] text-slate-500">
-                                            Pusat pemantauan konsentrasi gas SO2
-                                        </p>
-                                    </div>
-                                </div>
-
                                 <Suspense
                                     fallback={
                                         <div className="h-[420px] w-full animate-pulse rounded-2xl bg-slate-800" />
@@ -4597,17 +4576,17 @@ export default function Monitoring() {
                                     />
                                 </Suspense>
 
-                                <div className="mt-4 grid grid-cols-2 gap-3">
-                                    <div className="flex flex-col rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="flex h-5 w-5 items-center justify-center rounded-md border border-white/10 bg-white/5">
+                                <div className="mt-3 flex flex-col gap-2.5">
+                                    <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                                        <div className="flex items-center gap-2">
+                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-sky-400/20 bg-sky-400/10 text-sky-300">
                                                 <So2Icon
-                                                    size={11}
+                                                    size={12}
                                                     strokeWidth={2.5}
                                                 />
                                             </span>
 
-                                            <p className="text-[9.5px] font-bold tracking-wide text-slate-300 uppercase">
+                                            <p className="text-[10px] font-extrabold tracking-wide text-slate-200 uppercase">
                                                 Apa itu SO2?
                                             </p>
                                         </div>
@@ -4616,46 +4595,47 @@ export default function Monitoring() {
                                             Sulfur dioksida (SO2) adalah salah
                                             satu gas utama gunung berapi,
                                             bersama uap air (H2O) dan karbon
-                                            dioksida (CO2). Perubahan emisi gas
-                                            ini mencerminkan kondisi magmatik:
-                                            meningkatnya SO2 menandakan magma
-                                            naik (degassing) atau mendahului
+                                            dioksida (CO2).
+                                        </p>
+
+                                        <p className="mt-2.5 flex items-start gap-2 rounded-lg border border-sky-400/20 bg-sky-400/10 px-2.5 py-2 text-[10px] leading-relaxed text-sky-200">
+                                            <span className="mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full bg-sky-300" />
+                                            Naiknya SO2 menandakan magma naik
+                                            (degassing) atau mendahului
                                             erupsi.
                                         </p>
                                     </div>
 
-                                    <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="flex h-5 w-5 items-center justify-center rounded-md border border-white/10 bg-white/5">
+                                    <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                                        <div className="flex items-center gap-2">
+                                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-sky-400/20 bg-sky-400/10 text-sky-300">
                                                 <Gauge
-                                                    size={11}
+                                                    size={12}
                                                     strokeWidth={2.5}
-                                                    className="text-slate-300"
                                                 />
                                             </span>
 
-                                            <p className="text-[9.5px] font-bold tracking-wide text-slate-300 uppercase">
-                                                Baca warna
+                                            <p className="text-[10px] font-extrabold tracking-wide text-slate-200 uppercase">
+                                                Skala Konsentrasi
                                             </p>
                                         </div>
 
-                                        <div className="mt-2.5">
-                                            <div className="flex h-2.5 w-full items-stretch overflow-hidden rounded-full">
-                                                <span className="flex-1 bg-emerald-500/80" />
-                                                <span className="flex-1 bg-lime-400/80" />
-                                                <span className="flex-1 bg-yellow-400/80" />
-                                                <span className="flex-1 bg-orange-500/80" />
-                                                <span className="flex-1 bg-red-500/80" />
-                                                <span className="flex-1 bg-purple-500/80" />
-                                            </div>
+                                        <div className="mt-3">
+                                            <div
+                                                className="h-3 w-full overflow-hidden rounded-full ring-1 ring-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]"
+                                                style={{
+                                                    background:
+                                                        'linear-gradient(90deg,#10b981,#84cc16,#eab308,#f97316,#ef4444,#a855f7)',
+                                                }}
+                                            />
 
-                                            <div className="mt-1 flex items-center justify-between text-[8px] font-bold tracking-wide text-slate-500 uppercase">
+                                            <div className="mt-1.5 flex items-center justify-between text-[8px] font-bold tracking-widest text-slate-500 uppercase">
                                                 <span>Rendah</span>
                                                 <span>Tinggi</span>
                                             </div>
                                         </div>
 
-                                        <p className="mt-2 text-[9.5px] leading-relaxed text-slate-500">
+                                        <p className="mt-2.5 text-[9.5px] leading-relaxed text-slate-500">
                                             Konsentrasi total kolom SO2. Skala
                                             &amp; satuan sesuai legenda peta
                                             Windy.
