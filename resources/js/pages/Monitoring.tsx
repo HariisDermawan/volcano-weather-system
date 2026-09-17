@@ -333,10 +333,10 @@ function PanelTitle({
 }) {
     return (
         <p className="mb-2.5 flex items-center gap-2 text-[10.5px] font-extrabold tracking-[1px] text-slate-300 uppercase">
-            <span className="h-3 w-[3px] shrink-0 rounded-full bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.7)]" />
+            <span className="h-3 w-[3px] shrink-0 rounded-full bg-sky-300 shadow-[0_0_8px_rgba(125,211,252,0.7)]" />
 
             {icon && (
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-[10.5px] text-sky-400">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 text-[10.5px] text-slate-300">
                     {icon}
                 </span>
             )}
@@ -481,7 +481,7 @@ function LegendPanel({
             </div>
 
             <div className="mb-1 flex items-center gap-1.5 border-b border-white/10 pb-2 text-[9.5px] font-semibold tracking-widest text-slate-500 uppercase">
-                <span className="h-2 w-2 rounded-full bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,1)]" />
+                <span className="h-2 w-2 rounded-full bg-sky-300 shadow-[0_0_8px_rgba(125,211,252,1)]" />
                 Sebaran Abu Vulkanik {ashActive ? '' : '(tidak ada)'}
             </div>
 
@@ -521,7 +521,7 @@ function LegendPanel({
                                         className="peer sr-only"
                                     />
 
-                                    <span className="absolute inset-0 rounded-full bg-white/15 transition peer-checked:bg-sky-500" />
+                                    <span className="absolute inset-0 rounded-full bg-white/15 transition peer-checked:bg-sky-300" />
 
                                     <span className="absolute top-[2.5px] left-[2.5px] h-[14px] w-[14px] rounded-full bg-white transition peer-checked:translate-x-[15px]" />
                                 </span>
@@ -549,7 +549,7 @@ function bmkgConditionIcon(weather: string | null) {
     if (text.includes('hujan')) {
         return {
             Icon: text.includes('ringan') ? CloudDrizzle : CloudRain,
-            className: 'text-sky-400',
+            className: 'text-slate-300',
         };
     }
 
@@ -783,14 +783,14 @@ function openMeteoCondition(code: number | null): {
         case 55:
             return {
                 Icon: CloudDrizzle,
-                className: 'text-sky-400',
+                className: 'text-slate-300',
                 label: 'Gerimis',
             };
         case 56:
         case 57:
             return {
                 Icon: CloudDrizzle,
-                className: 'text-sky-400',
+                className: 'text-slate-300',
                 label: 'Gerimis Dingin',
             };
         case 61:
@@ -798,14 +798,14 @@ function openMeteoCondition(code: number | null): {
         case 65:
             return {
                 Icon: CloudRain,
-                className: 'text-sky-400',
+                className: 'text-slate-300',
                 label: 'Hujan',
             };
         case 66:
         case 67:
             return {
                 Icon: CloudRain,
-                className: 'text-sky-400',
+                className: 'text-slate-300',
                 label: 'Hujan Es',
             };
         case 71:
@@ -827,7 +827,7 @@ function openMeteoCondition(code: number | null): {
         case 82:
             return {
                 Icon: CloudRain,
-                className: 'text-sky-400',
+                className: 'text-slate-300',
                 label: 'Hujan Deras',
             };
         case 85:
@@ -2056,7 +2056,7 @@ export default function Monitoring() {
                         alt="Volcano Watch"
                         width={120}
                         height={129}
-                        className="mx-auto mb-4 h-14 w-14 animate-pulse object-contain drop-shadow-[0_0_20px_rgba(14,165,233,0.6)]"
+                        className="mx-auto mb-4 h-14 w-14 animate-pulse object-contain drop-shadow-[0_0_20px_rgba(125,211,252,0.6)]"
                     />
 
                     <p className="text-sm font-semibold text-slate-300">
@@ -2088,14 +2088,14 @@ export default function Monitoring() {
 
     if (loading && !data) {
         return (
-            <div className="relative flex h-dvh w-screen items-center justify-center overflow-hidden bg-[#0c1425] text-[#e2e8f0]">
+            <div className="relative flex h-dvh w-screen items-center justify-center overflow-hidden bg-[#101a30] text-[#e2e8f0]">
                 <div className="text-center">
                     <img
                         src="/logo/logoSi-thumb.webp"
                         alt="Volcano Watch"
                         width={120}
                         height={129}
-                        className="mx-auto mb-4 h-16 w-16 animate-pulse object-contain drop-shadow-[0_0_20px_rgba(14,165,233,0.6)]"
+                        className="mx-auto mb-4 h-16 w-16 animate-pulse object-contain drop-shadow-[0_0_20px_rgba(125,211,252,0.6)]"
                     />
 
                     <p className="text-sm font-semibold text-slate-300">
@@ -2112,7 +2112,7 @@ export default function Monitoring() {
 
     if (error) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-[#0c1425] px-6 text-[#eef1f5]">
+            <div className="flex min-h-screen items-center justify-center bg-[#101a30] px-6 text-[#eef1f5]">
                 <div className="w-full max-w-md rounded-2xl border border-red-500/20 bg-slate-950 p-6 text-center backdrop-blur-xl">
                     <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/15">
                         <AlertTriangle size={22} className="text-red-400" />
@@ -2130,7 +2130,7 @@ export default function Monitoring() {
 
     if (!data) {
         return (
-            <div className="flex min-h-screen items-center justify-center bg-[#0c1425] text-slate-500">
+            <div className="flex min-h-screen items-center justify-center bg-[#101a30] text-slate-500">
                 Data monitoring tidak ditemukan.
             </div>
         );
@@ -2506,7 +2506,7 @@ export default function Monitoring() {
         : null;
 
     return (
-        <div className="relative h-dvh w-screen overflow-hidden bg-[#0c1425] text-[#e2e8f0]">
+        <div className="relative h-dvh w-screen overflow-hidden bg-[#101a30] text-[#e2e8f0]">
             <Head title="Monitoring Gunung Berapi & Cuaca Indonesia">
                 <meta
                     name="description"
@@ -2520,7 +2520,7 @@ export default function Monitoring() {
             <div className="absolute inset-0 z-0">
                 <Suspense
                     fallback={
-                        <div className="h-full w-full bg-[#12263e] [background-image:linear-gradient(135deg,rgba(14,165,233,0.08)_25%,transparent_25%),linear-gradient(315deg,rgba(14,165,233,0.08)_25%,transparent_25%),linear-gradient(45deg,rgba(14,165,233,0.08)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,rgba(14,165,233,0.08)_75%)] [background-size:40px_40px]" />
+                        <div className="h-full w-full bg-[#1e2c4c] [background-image:linear-gradient(135deg,rgba(125,211,252,0.08)_25%,transparent_25%),linear-gradient(315deg,rgba(125,211,252,0.08)_25%,transparent_25%),linear-gradient(45deg,rgba(125,211,252,0.08)_25%,transparent_25%),linear-gradient(45deg,transparent_75%,rgba(125,211,252,0.08)_75%)] [background-size:40px_40px]" />
                     }
                 >
                     <VolcanoMap
@@ -2600,12 +2600,12 @@ export default function Monitoring() {
 
             {}
 
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-72 bg-[radial-gradient(70%_100%_at_50%_0%,rgba(14,165,233,0.10),rgba(124,58,237,0.04)_60%,transparent)]" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-72 bg-[radial-gradient(70%_100%_at_50%_0%,rgba(125,211,252,0.10),rgba(125,211,252,0.04)_60%,transparent)]" />
 
             {}
 
             <header className="pointer-events-none absolute inset-x-0 top-0 z-[1200]">
-                <div className="pointer-events-auto relative border-b border-white/10 bg-[#111b2e]/95 px-3 py-2.5 shadow-sm shadow-black/30 backdrop-blur-xl sm:px-4 sm:py-3">
+                <div className="pointer-events-auto relative border-b border-white/10 bg-[#1b2947]/95 px-3 py-2.5 shadow-sm shadow-black/30 backdrop-blur-xl sm:px-4 sm:py-3">
                     <div className="flex items-center justify-between gap-x-2.5 sm:gap-x-3">
                         <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
                             <img
@@ -2614,7 +2614,7 @@ export default function Monitoring() {
                                 width={72}
                                 height={77}
                                 fetchPriority="high"
-                                className="h-7 w-auto shrink-0 object-contain drop-shadow-[0_0_14px_rgba(14,165,233,0.5)] sm:h-10"
+                                className="h-7 w-auto shrink-0 object-contain drop-shadow-[0_0_14px_rgba(125,211,252,0.5)] sm:h-10"
                             />
 
                             <div className="min-w-0">
@@ -2624,11 +2624,11 @@ export default function Monitoring() {
 
                                 <p className="mt-0.5 flex items-center gap-1.5">
                                     <span className="relative flex h-1.5 w-1.5">
-                                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75" />
-                                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-sky-400" />
+                                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-300 opacity-75" />
+                                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-sky-300" />
                                     </span>
 
-                                    <span className="truncate text-[8px] font-extrabold tracking-[2px] text-sky-400/90 uppercase sm:text-[9px]">
+                                    <span className="truncate text-[8px] font-extrabold tracking-[2px] text-slate-300/90 uppercase sm:text-[9px]">
                                         Live Monitoring · 24 Jam
                                     </span>
                                 </p>
@@ -2665,10 +2665,10 @@ export default function Monitoring() {
                                     geoState === 'denied'
                                         ? 'border-red-500/40 bg-red-500/10 text-red-300'
                                         : geoState === 'requesting'
-                                          ? 'border-sky-500/40 bg-sky-500/10 text-sky-400'
+                                          ? 'border-slate-300/40 bg-sky-300/10 text-slate-300'
                                           : cityData?.summary.inside_plume
                                             ? 'border-red-500/40 bg-red-500/10 text-red-300 shadow-[0_0_18px_rgba(255,59,59,0.35)]'
-                                            : 'border-white/10 bg-white/5 text-sky-400 hover:bg-white/10'
+                                            : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
                                 }`}
                             >
                                 {cityData?.summary.inside_plume ? (
@@ -2705,7 +2705,7 @@ export default function Monitoring() {
                                 onClick={refreshNow}
                                 title="Tarik data sekarang"
                                 aria-label="Tarik data sekarang"
-                                className={`flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm text-sky-400 transition hover:bg-white/10 ${
+                                className={`flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm text-slate-300 transition hover:bg-white/10 ${
                                     refreshing ? 'animate-spin' : ''
                                 }`}
                             >
@@ -2746,7 +2746,7 @@ export default function Monitoring() {
                         <div
                             className={`flex items-center gap-2 rounded-xl border px-3 py-2 transition ${
                                 volcanoOpen
-                                    ? 'border-sky-500/50 bg-white/10'
+                                    ? 'border-slate-300/50 bg-white/10'
                                     : 'border-white/10 bg-white/5'
                             }`}
                         >
@@ -2791,7 +2791,7 @@ export default function Monitoring() {
                                     className="fixed inset-0 z-0 cursor-default"
                                 />
 
-                                <div className="absolute top-full right-0 left-0 z-10 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
+                                <div className="absolute top-full right-0 left-0 z-10 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
                                     {filteredVolcanoes.length > 0 ? (
                                         filteredVolcanoes.map((volcano) => (
                                             <button
@@ -2802,10 +2802,10 @@ export default function Monitoring() {
                                                         volcano.id,
                                                     )
                                                 }
-                                                className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs transition hover:bg-sky-500/15 ${
+                                                className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-xs transition hover:bg-sky-300/15 ${
                                                     volcano.id ===
                                                     selectedVolcanoId
-                                                        ? 'bg-sky-500/15'
+                                                        ? 'bg-sky-300/15'
                                                         : ''
                                                 }`}
                                             >
@@ -2912,7 +2912,7 @@ export default function Monitoring() {
             <aside className="pointer-events-auto absolute top-[168px] left-2 z-[1100] flex items-start gap-2 sm:top-[190px] sm:left-3">
                 {}
 
-                <div className="flex min-h-0 w-14 flex-col items-center justify-center gap-2 rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 py-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
+                <div className="flex min-h-0 w-14 flex-col items-center justify-center gap-2 rounded-2xl border border-white/10 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 py-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
                     {availPanels.map(({ key, label, Icon }) => {
                         const isActive = active === key;
 
@@ -2944,11 +2944,11 @@ export default function Monitoring() {
                                 className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition ${
                                     isAlert
                                         ? isActive
-                                            ? 'border-red-400/60 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 text-red-400 shadow-[0_0_16px_rgba(239,68,68,0.45)]'
-                                            : 'border-red-400/40 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 text-red-400 hover:border-red-400/70 hover:text-red-300'
+                                            ? 'border-red-400/60 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 text-red-400 shadow-[0_0_16px_rgba(239,68,68,0.45)]'
+                                            : 'border-red-400/40 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 text-red-400 hover:border-red-400/70 hover:text-red-300'
                                         : isActive
-                                          ? 'border-sky-400/60 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 text-sky-400 shadow-[0_0_14px_rgba(56,189,248,0.35)]'
-                                          : 'border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 text-slate-300 hover:border-sky-500/40 hover:text-sky-400'
+                                          ? 'border-slate-300/60 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 text-slate-300 shadow-[0_0_14px_rgba(125,211,252,0.35)]'
+                                          : 'border-white/10 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 text-slate-300 hover:border-slate-300/40 hover:text-slate-300'
                                 }`}
                             >
                                 <span
@@ -2976,7 +2976,7 @@ export default function Monitoring() {
                 {}
 
                 <div
-                    className={`w-[308px] max-w-[calc(100vw-96px)] self-start overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 pt-3.5 pb-3.5 pl-3.5 shadow-2xl shadow-black/50 ${
+                    className={`w-[308px] max-w-[calc(100vw-96px)] self-start overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 pt-3.5 pb-3.5 pl-3.5 shadow-2xl shadow-black/50 ${
                         active !== null ? '' : 'hidden'
                     }`}
                     style={{ maxHeight: 'calc(100dvh - 280px)' }}
@@ -3006,7 +3006,7 @@ export default function Monitoring() {
                                     !cityCoords && (
                                         <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
                                             Klik{' '}
-                                            <span className="font-bold text-sky-400">
+                                            <span className="font-bold text-slate-300">
                                                 Kota Saya
                                             </span>{' '}
                                             di bar atas untuk mendeteksi lokasi
@@ -3019,8 +3019,8 @@ export default function Monitoring() {
 
                                 {active !== 'cuaca' &&
                                     geoState === 'requesting' && (
-                                        <p className="mt-2 flex items-center gap-2 text-[11px] text-sky-400">
-                                            <span className="h-2 w-2 animate-pulse rounded-full bg-sky-400" />
+                                        <p className="mt-2 flex items-center gap-2 text-[11px] text-slate-300">
+                                            <span className="h-2 w-2 animate-pulse rounded-full bg-sky-300" />
                                             Meminta izin lokasi… Lihat popup
                                             Allow/Izinkan di browser Anda.
                                         </p>
@@ -3050,8 +3050,8 @@ export default function Monitoring() {
                                                 className={`relative mt-2.5 overflow-hidden rounded-xl border px-3 pt-3 pb-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${
                                                     cityData.summary
                                                         .inside_plume
-                                                        ? 'border-red-500/30 bg-gradient-to-br from-red-500/15 via-[#180b12] to-[#0a0f1c]'
-                                                        : 'border-sky-500/25 bg-gradient-to-br from-sky-500/15 via-[#0a1220] to-[#0a0f1c]'
+                                                        ? 'border-red-500/30 bg-gradient-to-br from-red-500/15 via-[#10182a] to-[#0a1220]'
+                                                        : 'border-slate-300/25 bg-gradient-to-br from-slate-300/15 via-[#111a2e] to-[#0a1220]'
                                                 }`}
                                             >
                                                 <span
@@ -3059,7 +3059,7 @@ export default function Monitoring() {
                                                         cityData.summary
                                                             .inside_plume
                                                             ? 'bg-red-500/25'
-                                                            : 'bg-sky-500/25'
+                                                            : 'bg-sky-300/25'
                                                     }`}
                                                 />
 
@@ -3069,7 +3069,7 @@ export default function Monitoring() {
                                                             cityData.summary
                                                                 .inside_plume
                                                                 ? 'border-red-400/40 bg-red-500/15 shadow-[0_0_16px_rgba(255,59,59,0.4)]'
-                                                                : 'border-sky-400/30 bg-sky-500/15 shadow-[0_0_16px_rgba(14,165,233,0.35)]'
+                                                                : 'border-slate-300/30 bg-sky-300/15 shadow-[0_0_16px_rgba(125,211,252,0.35)]'
                                                         }`}
                                                     >
                                                         {cityData.summary
@@ -3087,7 +3087,7 @@ export default function Monitoring() {
                                                                 strokeWidth={
                                                                     2.5
                                                                 }
-                                                                className="text-sky-400"
+                                                                className="text-slate-300"
                                                             />
                                                         )}
                                                     </span>
@@ -3119,7 +3119,7 @@ export default function Monitoring() {
                                                       .plume_volcanoes.length >
                                                   0 ? (
                                                     <p className="relative mt-2 flex items-baseline gap-1.5">
-                                                        <span className="text-[30px] leading-none font-black text-sky-400 tabular-nums drop-shadow-[0_0_18px_rgba(56,189,248,0.35)]">
+                                                        <span className="text-[30px] leading-none font-black text-slate-300 tabular-nums drop-shadow-[0_0_18px_rgba(125,211,252,0.35)]">
                                                             ≈{' '}
                                                             {formatAshKm(
                                                                 cityData.summary
@@ -3178,7 +3178,7 @@ export default function Monitoring() {
                                                     onClick={() =>
                                                         requestCityLocation()
                                                     }
-                                                    className="mt-2 flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-400/10 px-2.5 py-1 text-[10px] font-bold text-sky-400"
+                                                    className="mt-2 flex items-center gap-1.5 rounded-lg border border-slate-300/30 bg-sky-300/10 px-2.5 py-1 text-[10px] font-bold text-slate-300"
                                                 >
                                                     <MapPin
                                                         size={10}
@@ -3208,7 +3208,7 @@ export default function Monitoring() {
                                                                     key + 1,
                                                             )
                                                         }
-                                                        className="mt-2 flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-400/10 px-2.5 py-1 text-[10px] font-bold text-sky-400"
+                                                        className="mt-2 flex items-center gap-1.5 rounded-lg border border-slate-300/30 bg-sky-300/10 px-2.5 py-1 text-[10px] font-bold text-slate-300"
                                                     >
                                                         <RefreshCw
                                                             size={10}
@@ -3422,11 +3422,11 @@ export default function Monitoring() {
                                             </PanelTitle>
 
                                             <div className="flex items-center gap-2">
-                                                <span className="flex h-5 w-5 items-center justify-center rounded-full border border-sky-500/30 bg-sky-500/10">
+                                                <span className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-300/30 bg-sky-300/10">
                                                     <MapPin
                                                         size={10}
                                                         strokeWidth={2.5}
-                                                        className="text-sky-400"
+                                                        className="text-slate-300"
                                                     />
                                                 </span>
 
@@ -3457,7 +3457,7 @@ export default function Monitoring() {
                                                                 key={day.label}
                                                             >
                                                                 <p className="mb-1 flex items-center gap-1.5 text-[9.5px] font-extrabold tracking-wide text-slate-500 uppercase">
-                                                                    <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+                                                                    <span className="h-1.5 w-1.5 rounded-full bg-sky-300" />
                                                                     {day.label}
                                                                 </p>
 
@@ -3531,7 +3531,7 @@ export default function Monitoring() {
                                                                                             °
                                                                                         </span>
 
-                                                                                        <span className="text-[9px] text-sky-400">
+                                                                                        <span className="text-[9px] text-slate-300">
                                                                                             {slot.humidity ??
                                                                                                 '-'}
                                                                                             %
@@ -3597,9 +3597,9 @@ export default function Monitoring() {
                                                             ? `${eruption.occurred_at}-${index}`
                                                             : `${eruption.name}-${index}`
                                                     }
-                                                    className="rounded-xl border border-sky-400/25 border-l-sky-400/80 bg-sky-400/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                                                    className="rounded-xl border border-slate-300/25 border-l-slate-300/80 bg-sky-300/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
                                                 >
-                                                    <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-sky-400 uppercase">
+                                                    <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-slate-300 uppercase">
                                                         <VolcanoIcon
                                                             size={10}
                                                             strokeWidth={2.5}
@@ -3670,8 +3670,8 @@ export default function Monitoring() {
                                         )}
                                     </div>
                                 ) : data.activity?.description ? (
-                                    <div className="rounded-xl border border-sky-400/25 border-l-sky-400/80 bg-sky-400/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                                        <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-sky-400 uppercase">
+                                    <div className="rounded-xl border border-slate-300/25 border-l-slate-300/80 bg-sky-300/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                                        <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-slate-300 uppercase">
                                             <VolcanoIcon
                                                 size={10}
                                                 strokeWidth={2.5}
@@ -3742,8 +3742,8 @@ export default function Monitoring() {
                                     Status Erupsi
                                 </PanelTitle>
 
-                                <div className="rounded-xl border border-sky-400/25 border-l-sky-400/80 bg-sky-400/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                                    <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-sky-400 uppercase">
+                                <div className="rounded-xl border border-slate-300/25 border-l-slate-300/80 bg-sky-300/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                                    <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-slate-300 uppercase">
                                         <Radio size={10} strokeWidth={2.5} />
                                         Status Erupsi
                                     </p>
@@ -3863,8 +3863,8 @@ export default function Monitoring() {
                                                         <span
                                                             className={`z-10 flex h-[18px] w-[18px] items-center justify-center rounded-full border-2 transition ${
                                                                 active
-                                                                    ? 'scale-125 border-sky-500 bg-sky-500/40 shadow-[0_0_12px_#38bdf8]'
-                                                                    : 'border-white/20 bg-[#141821]'
+                                                                    ? 'scale-125 border-slate-300 bg-sky-300/40 shadow-[0_0_12px_#7dd3fc]'
+                                                                    : 'border-white/20 bg-[#182136]'
                                                             }`}
                                                         />
 
@@ -3901,11 +3901,11 @@ export default function Monitoring() {
                                 </PanelTitle>
 
                                 <div className="flex items-center gap-2">
-                                    <span className="flex h-5 w-5 items-center justify-center rounded-full border border-sky-500/30 bg-sky-500/10">
+                                    <span className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-300/30 bg-sky-300/10">
                                         <MapPin
                                             size={10}
                                             strokeWidth={2.5}
-                                            className="text-sky-400"
+                                            className="text-slate-300"
                                         />
                                     </span>
 
@@ -3952,9 +3952,9 @@ export default function Monitoring() {
                                                     : null);
 
                                             return (
-                                                <div className="mt-2.5 rounded-xl border border-sky-400/20 bg-gradient-to-b from-sky-400/10 to-white/[0.03] p-3">
+                                                <div className="mt-2.5 rounded-xl border border-slate-300/20 bg-gradient-to-b from-slate-300/10 to-white/[0.03] p-3">
                                                     <div className="flex items-center justify-between">
-                                                        <p className="text-[10px] font-extrabold tracking-wide text-sky-400 uppercase">
+                                                        <p className="text-[10px] font-extrabold tracking-wide text-slate-300 uppercase">
                                                             Saat ini
                                                         </p>
 
@@ -4253,7 +4253,7 @@ export default function Monitoring() {
                                         bmkgForecasts.map((day) => (
                                             <div key={day.label}>
                                                 <p className="mb-1 flex items-center gap-1.5 text-[9.5px] font-extrabold tracking-wide text-slate-500 uppercase">
-                                                    <span className="h-1.5 w-1.5 rounded-full bg-sky-400" />
+                                                    <span className="h-1.5 w-1.5 rounded-full bg-sky-300" />
                                                     {day.label}
                                                 </p>
 
@@ -4307,7 +4307,7 @@ export default function Monitoring() {
                                                                         °
                                                                     </span>
 
-                                                                    <span className="text-[9px] text-sky-400">
+                                                                    <span className="text-[9px] text-slate-300">
                                                                         {slot.humidity ??
                                                                             '-'}
                                                                         %
@@ -4643,11 +4643,11 @@ export default function Monitoring() {
                                 </PanelTitle>
 
                                 <div className="mb-3 flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
-                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-sky-500/25 bg-sky-500/10">
+                                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-300/25 bg-sky-300/10">
                                         <MapPin
                                             size={13}
                                             strokeWidth={2.5}
-                                            className="text-sky-400"
+                                            className="text-slate-300"
                                         />
                                     </span>
 
@@ -4704,7 +4704,7 @@ export default function Monitoring() {
                                             href="https://pubs.usgs.gov/of/1995/0085/"
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="mt-auto inline-flex items-center gap-1 pt-2.5 text-[9px] font-semibold text-sky-400 transition hover:text-sky-400"
+                                            className="mt-auto inline-flex items-center gap-1 pt-2.5 text-[9px] font-semibold text-slate-300 transition hover:text-slate-300"
                                         >
                                             <ExternalLink
                                                 size={9}
@@ -4720,7 +4720,7 @@ export default function Monitoring() {
                                                 <Gauge
                                                     size={11}
                                                     strokeWidth={2.5}
-                                                    className="text-sky-400"
+                                                    className="text-slate-300"
                                                 />
                                             </span>
 
@@ -4758,7 +4758,7 @@ export default function Monitoring() {
                                         <Info
                                             size={10}
                                             strokeWidth={2.5}
-                                            className="text-sky-400"
+                                            className="text-slate-300"
                                         />
 
                                         <p className="text-[9.5px] font-extrabold tracking-wide text-slate-500 uppercase">
@@ -4768,7 +4768,7 @@ export default function Monitoring() {
 
                                     <ul className="flex flex-col gap-2.5 p-3 text-[10px] leading-relaxed text-slate-500">
                                         <li className="flex gap-2">
-                                            <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-sky-400" />
+                                            <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-sky-300" />
 
                                             <span>
                                                 Data prakiraan CAMS
@@ -4780,7 +4780,7 @@ export default function Monitoring() {
                                         </li>
 
                                         <li className="flex gap-2">
-                                            <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-sky-400" />
+                                            <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-sky-300" />
 
                                             <span>
                                                 Nilai rendah/latar (background)
@@ -4790,7 +4790,7 @@ export default function Monitoring() {
                                         </li>
 
                                         <li className="flex gap-2">
-                                            <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-sky-400" />
+                                            <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full bg-sky-300" />
 
                                             <span>
                                                 Status &amp; rekomendasi resmi
@@ -4817,7 +4817,7 @@ export default function Monitoring() {
                                     <button
                                         type="button"
                                         onClick={() => setSelectedGempa(null)}
-                                        className="mb-1.5 flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[9.5px] font-semibold text-slate-500 transition hover:border-sky-500/40 hover:text-white"
+                                        className="mb-1.5 flex items-center gap-1 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-[9.5px] font-semibold text-slate-500 transition hover:border-slate-300/40 hover:text-white"
                                     >
                                         <ArrowLeft
                                             size={10}
@@ -4915,7 +4915,7 @@ export default function Monitoring() {
                                                         href={item.url ?? '#'}
                                                         target="_blank"
                                                         rel="noreferrer"
-                                                        className="group block overflow-hidden rounded-xl border border-white/10 bg-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:border-sky-500/30 hover:bg-sky-500/10"
+                                                        className="group block overflow-hidden rounded-xl border border-white/10 bg-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition hover:border-slate-300/30 hover:bg-sky-300/10"
                                                     >
                                                         {item.thumbnail && (
                                                             <div className="relative h-32 overflow-hidden border-b border-white/10">
@@ -4944,7 +4944,7 @@ export default function Monitoring() {
                                                                     strokeWidth={
                                                                         2.5
                                                                     }
-                                                                    className="mt-0.5 shrink-0 text-slate-300 group-hover:text-sky-400"
+                                                                    className="mt-0.5 shrink-0 text-slate-300 group-hover:text-slate-300"
                                                                 />
                                                             </span>
 
@@ -4977,7 +4977,7 @@ export default function Monitoring() {
                                 <p>
                                     <b className="text-slate-500">Sumber:</b>{' '}
                                     VAAC Darwin (BOM Australia) •
-                                    PVMBG/MAGMA-VSI • BMKG
+                                    PVMBG/MAGMA-VSI • BMKG • Open-Meteo
                                 </p>
                             </div>
                         )}
@@ -4987,7 +4987,7 @@ export default function Monitoring() {
 
             {}
 
-            <aside className="pointer-events-auto absolute top-[190px] right-2 z-[1100] hidden w-[230px] max-w-[40vw] rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 p-3.5 shadow-2xl shadow-black/50 lg:block">
+            <aside className="pointer-events-auto absolute top-[190px] right-2 z-[1100] hidden w-[230px] max-w-[40vw] rounded-2xl border border-white/10 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 p-3.5 shadow-2xl shadow-black/50 lg:block">
                 <LegendPanel
                     showGempaMarkers={showGempaMarkers}
                     onToggleGempa={() => setShowGempaMarkers((value) => !value)}
@@ -5008,7 +5008,7 @@ export default function Monitoring() {
                         className="absolute inset-0 z-0 cursor-default bg-black/50 backdrop-blur-sm"
                     />
 
-                    <div className="pointer-events-auto relative z-10 mx-3 mb-[max(6rem,calc(env(safe-area-inset-bottom)+5.5rem))] max-h-[60dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 p-3.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
+                    <div className="pointer-events-auto relative z-10 mx-3 mb-[max(6rem,calc(env(safe-area-inset-bottom)+5.5rem))] max-h-[60dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 p-3.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
                         <LegendPanel
                             showGempaMarkers={showGempaMarkers}
                             onToggleGempa={() =>

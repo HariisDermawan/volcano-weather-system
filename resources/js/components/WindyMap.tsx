@@ -40,7 +40,7 @@ export default function WindyMap({
     return (
         <div className="w-full overflow-hidden rounded-2xl border border-white/10 bg-slate-950">
             <div className="flex items-center gap-2.5 border-b border-white/10 bg-white/[0.04] px-3 py-2.5">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-sky-500/25 bg-sky-500/10">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-slate-300/25 bg-slate-300/10">
                     <span className="text-[13px]">🌋</span>
                 </span>
 

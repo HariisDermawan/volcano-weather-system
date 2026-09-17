@@ -2,8 +2,6 @@ import 'leaflet/dist/leaflet.css';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { Maximize2 } from 'lucide-react';
-
 import L from 'leaflet';
 
 import {
@@ -177,7 +175,7 @@ function UserLocationMarker({ position }: { position: [number, number] }) {
         () =>
             L.divIcon({
                 className: '',
-                html: `<div class="vg-user-loc-wrap"><span class="vg-user-loc-ring"></span><span class="vg-user-loc-ring vg-user-loc-ring-2"></span><svg class="vg-user-loc-pin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" fill="#38bdf8" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="10" r="3" fill="#0b1220"/></svg></div>`,
+                html: `<div class="vg-user-loc-wrap"><span class="vg-user-loc-ring"></span><span class="vg-user-loc-ring vg-user-loc-ring-2"></span><svg class="vg-user-loc-pin" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" fill="#7dd3fc" stroke="#ffffff" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="10" r="3" fill="#131c30"/></svg></div>`,
                 iconSize: [34, 38],
                 iconAnchor: [17, 31],
             }),
@@ -402,7 +400,7 @@ function VolcanoMarker({
                                 justifyContent: 'center',
                                 gap: 6,
                                 background:
-                                    'linear-gradient(160deg, #16233c, #0d1526)',
+                                    'linear-gradient(160deg, #1e2c4c, #131c30)',
                                 border: '1px dashed rgba(255, 255, 255, 0.16)',
                                 marginBottom: 2,
                                 color: '#7e8ba1',
@@ -1223,38 +1221,10 @@ export default function VolcanoMap({
 
             {}
 
-            {mapInstance && markerVolcanoes.length > 1 && (
-                <button
-                    type="button"
-                    onClick={() => {
-                        const latLngs = markerVolcanoes.map((volcano) =>
-                            L.latLng(
-                                Number(volcano.latitude),
-                                Number(volcano.longitude),
-                            ),
-                        );
-
-                        const bounds = L.latLngBounds(latLngs).pad(0.12);
-
-                        const northEast = bounds.getNorthEast();
-
-                        mapInstance.fitBounds(
-                            L.latLngBounds(bounds.getSouthWest(), [
-                                northEast.lat + 0.2,
-                                northEast.lng,
-                            ]),
-                            {
-                                duration: 0.9,
-                            },
-                        );
-                    }}
-                    title="Tampilkan semua gunung api"
-                    className="absolute bottom-[14px] left-[14px] z-[1000] flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-gradient-to-b from-[#111b2e]/95 to-[#0a0f1c]/95 px-3 py-1.5 text-[11px] font-bold text-slate-200 shadow-xl shadow-black/50 backdrop-blur-xl transition hover:bg-white/10"
-                >
-                    <Maximize2 size={12} strokeWidth={2.5} />
-                    Seluruh Gunung
-                </button>
-            )}
+            <div className="pointer-events-none absolute bottom-[14px] left-[14px] z-[1000] rounded-full border border-white/10 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 px-3 py-1.5 text-[10px] leading-relaxed font-medium text-slate-300 shadow-xl shadow-black/50 backdrop-blur-xl">
+                Sumber data: VAAC Darwin (BOM Australia) • PVMBG/MAGMA-VSI •
+                BMKG • Open-Meteo
+            </div>
 
             {}
 
