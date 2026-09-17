@@ -1,4 +1,4 @@
-![Volcano Watch](https://github.com/HariisDermawan/volcano-weather-system/blob/main/public/gambar/gam.png)
+![Volcano Watch](https://github.com/HariisDermawan/volcano-weather-system/blob/main/public/logo/geovis.png)
 
 # Volcano Watch
 

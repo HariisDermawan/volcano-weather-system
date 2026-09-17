@@ -436,107 +436,126 @@ function LegendPanel({
     ashActive: boolean;
 }) {
     return (
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-3">
             <PanelTitle icon={<Layers size={11} strokeWidth={2.5} />}>
-                Legenda &amp; Layer
+                Layer Peta
             </PanelTitle>
 
-            <label className="flex w-full cursor-pointer items-center justify-between py-1.5 text-xs">
-                <span className="flex items-center gap-2">
-                    <span className="relative grid h-[18px] w-[18px] shrink-0 place-items-center">
-                        <span className="absolute inset-0 animate-ping rounded-full border border-red-400/70" />
-                        <span className="h-[9px] w-[9px] rounded-full border-2 border-red-400 bg-red-500/30" />
+            <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
+                <label className="flex w-full cursor-pointer items-center justify-between gap-3 px-3.5 py-3">
+                    <span className="flex items-center gap-2.5 text-xs font-semibold text-slate-200">
+                        <span className="relative grid h-4 w-4 shrink-0 place-items-center">
+                            <span className="absolute inset-0 animate-ping rounded-full border border-red-400/70" />
+                            <span className="h-2 w-2 rounded-full border-2 border-red-400 bg-red-500/30" />
+                        </span>
+
+                        Gempa Terkini (BMKG)
                     </span>
-                    Gempa Terkini (BMKG)
-                </span>
 
-                <span className="relative inline-flex h-[19px] w-[34px] shrink-0 items-center">
-                    <input
-                        type="checkbox"
-                        checked={showGempaMarkers}
-                        onChange={onToggleGempa}
-                        className="peer sr-only"
-                    />
-
-                    <span className="absolute inset-0 rounded-full bg-white/15 transition peer-checked:bg-red-500" />
-
-                    <span className="absolute top-[2.5px] left-[2.5px] h-[14px] w-[14px] rounded-full bg-white transition peer-checked:translate-x-[15px]" />
-                </span>
-            </label>
-
-            <div className="mb-1.5 grid grid-cols-2 gap-x-2 gap-y-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-[9px] text-slate-500">
-                {[
-                    ['#22c55e', 'M < 4'],
-                    ['#eab308', 'M 4–5'],
-                    ['#f97316', 'M 5–6'],
-                    ['#ef4444', 'M 6–7'],
-                    ['#a855f7', 'M ≥ 7'],
-                ].map(([color, labelKey]) => (
-                    <span key={labelKey} className="flex items-center gap-1.5">
-                        <span
-                            className="h-2.5 w-2.5 shrink-0 rounded-full border border-white/30"
-                            style={{ background: color }}
+                    <span className="relative inline-flex h-[19px] w-[34px] shrink-0 items-center">
+                        <input
+                            type="checkbox"
+                            checked={showGempaMarkers}
+                            onChange={onToggleGempa}
+                            className="peer sr-only"
                         />
-                        {labelKey}
+
+                        <span className="absolute inset-0 rounded-full bg-white/15 transition peer-checked:bg-red-500" />
+
+                        <span className="absolute top-[2.5px] left-[2.5px] h-[14px] w-[14px] rounded-full bg-white transition peer-checked:translate-x-[15px]" />
                     </span>
-                ))}
+                </label>
+
+                <div className="grid grid-cols-2 gap-1.5 px-3.5 pb-3.5">
+                    {[
+                        ['#22c55e', 'M < 4'],
+                        ['#eab308', 'M 4–5'],
+                        ['#f97316', 'M 5–6'],
+                        ['#ef4444', 'M 6–7'],
+                        ['#a855f7', 'M ≥ 7'],
+                    ].map(([color, labelKey]) => (
+                        <span
+                            key={labelKey}
+                            className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-black/30 px-2 py-1.5 text-[10px] font-semibold text-slate-300"
+                        >
+                            <span
+                                className="h-2 w-2 shrink-0 rounded-full border border-white/30"
+                                style={{ background: color }}
+                            />
+                            {labelKey}
+                        </span>
+                    ))}
+                </div>
             </div>
 
-            <div className="mb-1 flex items-center gap-1.5 border-b border-white/10 pb-2 text-[9.5px] font-semibold tracking-widest text-slate-500 uppercase">
-                <span className="h-2 w-2 rounded-full bg-sky-300 shadow-[0_0_8px_rgba(125,211,252,1)]" />
-                Sebaran Abu Vulkanik {ashActive ? '' : '(tidak ada)'}
+            <div className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
+                <div className="flex items-center justify-between gap-3 px-3.5 py-3">
+                    <span className="flex items-center gap-2.5 text-xs font-semibold text-slate-200">
+                        <span className="h-2 w-2 rounded-full bg-sky-300 shadow-[0_0_8px_rgba(125,211,252,1)]" />
+                        Sebaran Abu Vulkanik
+                    </span>
+
+                    {!ashActive && (
+                        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[9px] font-bold tracking-wider text-slate-400 uppercase">
+                            Tidak ada
+                        </span>
+                    )}
+                </div>
+
+                <div className="px-3.5 pb-3.5">
+                    {ashActive ? (
+                        <div className="flex flex-col gap-1">
+                            {LAYER_ORDER.map((key) => {
+                                const isChecked = checkedLayers.includes(key);
+
+                                const layerStyle = LAYER_STYLE[key];
+
+                                return (
+                                    <label
+                                        key={key}
+                                        className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-lg px-2 py-1.5 text-xs transition hover:bg-white/5"
+                                    >
+                                        <span className="flex items-center gap-2.5">
+                                            <span
+                                                className="w-5 rounded-[3px]"
+                                                style={{
+                                                    borderTop: `3px solid ${LAYER_COLORS[key]}`,
+                                                    borderTopStyle:
+                                                        layerStyle.strokeDashArray
+                                                            ? 'dashed'
+                                                            : 'solid',
+                                                }}
+                                            />
+
+                                            <span className="font-medium text-slate-300">
+                                                {LAYER_LABELS[key]}
+                                            </span>
+                                        </span>
+
+                                        <span className="relative inline-flex h-[19px] w-[34px] shrink-0 items-center">
+                                            <input
+                                                type="checkbox"
+                                                checked={isChecked}
+                                                onChange={() => onToggleLayer(key)}
+                                                className="peer sr-only"
+                                            />
+
+                                            <span className="absolute inset-0 rounded-full bg-white/15 transition peer-checked:bg-sky-300" />
+
+                                            <span className="absolute top-[2.5px] left-[2.5px] h-[14px] w-[14px] rounded-full bg-white transition peer-checked:translate-x-[15px]" />
+                                        </span>
+                                    </label>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <p className="flex items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2.5 text-[11px] font-medium text-emerald-300">
+                            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                            Tidak terdeteksi sebaran abu
+                        </p>
+                    )}
+                </div>
             </div>
-
-            {ashActive ? (
-                <>
-                    {LAYER_ORDER.map((key) => {
-                        const isChecked = checkedLayers.includes(key);
-
-                        const layerStyle = LAYER_STYLE[key];
-
-                        return (
-                            <label
-                                key={key}
-                                className="flex w-full cursor-pointer items-center justify-between py-1.5 text-xs"
-                            >
-                                <span className="flex items-center gap-2">
-                                    <span
-                                        className="w-[18px]"
-                                        style={{
-                                            borderTop: `3px solid ${LAYER_COLORS[key]}`,
-                                            borderTopStyle:
-                                                layerStyle.strokeDashArray
-                                                    ? 'dashed'
-                                                    : 'solid',
-                                            borderRadius: 2,
-                                        }}
-                                    />
-
-                                    {LAYER_LABELS[key]}
-                                </span>
-
-                                <span className="relative inline-flex h-[19px] w-[34px] shrink-0 items-center">
-                                    <input
-                                        type="checkbox"
-                                        checked={isChecked}
-                                        onChange={() => onToggleLayer(key)}
-                                        className="peer sr-only"
-                                    />
-
-                                    <span className="absolute inset-0 rounded-full bg-white/15 transition peer-checked:bg-sky-300" />
-
-                                    <span className="absolute top-[2.5px] left-[2.5px] h-[14px] w-[14px] rounded-full bg-white transition peer-checked:translate-x-[15px]" />
-                                </span>
-                            </label>
-                        );
-                    })}
-                </>
-            ) : (
-                <p className="mt-1 flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-[11px] font-medium text-emerald-300">
-                    <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
-                    tidak terdeteksi sebaran abu
-                </p>
-            )}
         </div>
     );
 }
@@ -2082,16 +2101,12 @@ export default function Monitoring() {
             <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
                 <div className="text-center">
                     <img
-                        src="/logo/logoSi-thumb.webp"
-                        alt="Volcano Watch"
-                        width={120}
-                        height={129}
-                        className="mx-auto mb-4 h-14 w-14 animate-pulse object-contain drop-shadow-[0_0_20px_rgba(125,211,252,0.6)]"
+                        src="/logo/geovis.png"
+                        alt="Loading"
+                        width={180}
+                        height={90}
+                        className="mx-auto h-24 w-auto animate-pulse object-contain"
                     />
-
-                    <p className="text-sm font-semibold text-slate-300">
-                        Memuat daftar gunung...
-                    </p>
                 </div>
             </div>
         );
@@ -2121,20 +2136,12 @@ export default function Monitoring() {
             <div className="relative flex h-dvh w-screen items-center justify-center overflow-hidden bg-[#101a30] text-[#e2e8f0]">
                 <div className="text-center">
                     <img
-                        src="/logo/logoSi-thumb.webp"
-                        alt="Volcano Watch"
-                        width={120}
-                        height={129}
-                        className="mx-auto mb-4 h-16 w-16 animate-pulse object-contain drop-shadow-[0_0_20px_rgba(125,211,252,0.6)]"
+                        src="/logo/geovis.png"
+                        alt="Loading"
+                        width={180}
+                        height={90}
+                        className="mx-auto h-28 w-auto animate-pulse object-contain"
                     />
-
-                    <p className="text-sm font-semibold text-slate-300">
-                        Memuat data monitoring…
-                    </p>
-
-                    <p className="mt-1 text-[10px] font-semibold tracking-[0.25em] text-slate-300">
-                        Volcano Watch
-                    </p>
                 </div>
             </div>
         );
@@ -2591,33 +2598,18 @@ export default function Monitoring() {
             {}
 
             <header className="pointer-events-none absolute inset-x-0 top-0 z-[1200]">
-                <div className="pointer-events-auto relative border-b border-white/10 bg-[#1b2947]/95 px-3 py-2.5 shadow-sm shadow-black/30 backdrop-blur-xl sm:px-4 sm:py-3">
+                <div className="pointer-events-auto relative border-b border-white/10 bg-[#0f182b]/95 px-3 py-2.5 shadow-sm shadow-black/30 backdrop-blur-xl sm:px-4 sm:py-3">
                     <div className="flex items-center justify-between gap-x-2.5 sm:gap-x-3">
                         <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-2.5">
-                            <img
-                                src="/logo/logoSi-nav.webp"
-                                alt="Volcano Watch"
-                                width={72}
-                                height={77}
-                                fetchPriority="high"
-                                className="h-7 w-auto shrink-0 object-contain drop-shadow-[0_0_14px_rgba(125,211,252,0.5)] sm:h-10"
-                            />
-
-                            <div className="min-w-0">
-                                <p className="truncate bg-gradient-to-r from-white via-sky-100 to-sky-300 bg-clip-text text-sm leading-tight font-black tracking-tight text-transparent sm:text-[15px]">
-                                    Volcano Watch
-                                </p>
-
-                                <p className="mt-0.5 flex items-center gap-1.5">
-                                    <span className="relative flex h-1.5 w-1.5">
-                                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-300 opacity-75" />
-                                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-sky-300" />
-                                    </span>
-
-                                    <span className="truncate text-[8px] font-extrabold tracking-[2px] text-slate-300/90 uppercase sm:text-[9px]">
-                                        Live Monitoring · 24 Jam
-                                    </span>
-                                </p>
+                            <div className="flex flex-col items-center gap-0.5">
+                                <img
+                                    src="/logo/geovis.png"
+                                    alt="Volcano Watch"
+                                    width={140}
+                                    height={70}
+                                    fetchPriority="high"
+                                    className="h-10 w-auto shrink-0 object-contain drop-shadow-[0_0_14px_rgba(125,211,252,0.5)] sm:h-14"
+                                />
                             </div>
                         </div>
 
@@ -2777,7 +2769,7 @@ export default function Monitoring() {
                                     className="fixed inset-0 z-0 cursor-default"
                                 />
 
-                                <div className="absolute top-full right-0 left-0 z-10 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
+                                <div className="absolute top-full right-0 left-0 z-10 mt-1.5 max-h-64 overflow-y-auto rounded-xl border border-white/10 bg-gradient-to-b from-[#0f182b]/95 to-[#0a1220]/95 p-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
                                     {filteredVolcanoes.length > 0 ? (
                                         filteredVolcanoes.map((volcano) => (
                                             <button
@@ -2899,7 +2891,7 @@ export default function Monitoring() {
             <aside className="pointer-events-auto absolute top-[168px] left-2 z-[1100] flex items-start gap-2 sm:top-[190px] sm:left-3">
                 {}
 
-                <div className="flex min-h-0 w-14 flex-col items-center justify-center gap-2 rounded-2xl border border-white/10 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 py-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
+                <div className="flex min-h-0 w-14 flex-col items-center justify-center gap-2 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0f182b]/95 to-[#0a1220]/95 py-1.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
                     {availPanels.map(({ key, label, Icon }) => {
                         const isActive = active === key;
 
@@ -2931,11 +2923,11 @@ export default function Monitoring() {
                                 className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition ${
                                     isAlert
                                         ? isActive
-                                            ? 'border-red-400/60 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 text-red-400 shadow-[0_0_16px_rgba(239,68,68,0.45)]'
-                                            : 'border-red-400/40 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 text-red-400 hover:border-red-400/70 hover:text-red-300'
+                                            ? 'border-red-400/60 bg-gradient-to-b from-[#0f182b]/95 to-[#0a1220]/95 text-red-400 shadow-[0_0_16px_rgba(239,68,68,0.45)]'
+                                            : 'border-red-400/40 bg-gradient-to-b from-[#0f182b]/95 to-[#0a1220]/95 text-red-400 hover:border-red-400/70 hover:text-red-300'
                                         : isActive
-                                          ? 'border-slate-300/60 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 text-slate-300 shadow-[0_0_14px_rgba(125,211,252,0.35)]'
-                                          : 'border-white/10 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 text-slate-300 hover:border-slate-300/40 hover:text-slate-300'
+                                          ? 'border-slate-300/60 bg-gradient-to-b from-[#0f182b]/95 to-[#0a1220]/95 text-slate-300 shadow-[0_0_14px_rgba(125,211,252,0.35)]'
+                                          : 'border-white/10 bg-gradient-to-b from-[#0f182b]/95 to-[#0a1220]/95 text-slate-300 hover:border-slate-300/40 hover:text-slate-300'
                                 }`}
                             >
                                 <span
@@ -2963,7 +2955,7 @@ export default function Monitoring() {
                 {}
 
                 <div
-                    className={`w-[308px] max-w-[calc(100vw-96px)] self-start overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 pt-3.5 pb-3.5 pl-3.5 shadow-2xl shadow-black/50 ${
+                    className={`w-[308px] max-w-[calc(100vw-96px)] self-start overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-[#0f182b]/95 to-[#0a1220]/95 pt-3.5 pb-3.5 pl-3.5 shadow-2xl shadow-black/50 ${
                         active !== null ? '' : 'hidden'
                     }`}
                     style={{ maxHeight: 'calc(100dvh - 280px)' }}
@@ -3037,8 +3029,8 @@ export default function Monitoring() {
                                                 className={`relative mt-2.5 overflow-hidden rounded-xl border px-3 pt-3 pb-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${
                                                     cityData.summary
                                                         .inside_plume
-                                                        ? 'border-red-500/30 bg-gradient-to-br from-red-500/15 via-[#10182a] to-[#0a1220]'
-                                                        : 'border-slate-300/25 bg-gradient-to-br from-slate-300/15 via-[#111a2e] to-[#0a1220]'
+                                                        ? 'border-red-500/30 bg-gradient-to-br from-red-500/15 via-[#0a101e] to-[#0a1220]'
+                                                        : 'border-slate-300/25 bg-gradient-to-br from-slate-300/15 via-[#0b1220] to-[#0a1220]'
                                                 }`}
                                             >
                                                 <span
@@ -3370,27 +3362,20 @@ export default function Monitoring() {
                                                                     : ''}
                                                             </span>
 
-                                                            <span>
-                                                                {weather.apparent_temperature !==
-                                                                null
-                                                                    ? `terasa ${bmkgNumber(
-                                                                          weather.apparent_temperature,
-                                                                      )}°C`
-                                                                    : ''}
-                                                            </span>
-                                                        </div>
-
-                                                        <p className="mt-2.5 text-[8.5px] leading-relaxed text-slate-300">
-                                                            {weather.source ===
-                                                            'BMKG'
-                                                                ? `Sumber: BMKG (prakiraan resmi)${weather.location ? ` • Prakiraan ${weather.location}` : ''} • Lokasi dari GPS perangkat`
-                                                                : 'Sumber: Open-Meteo (data meteorologi internasional, bukan data resmi BMKG) • Lokasi dari GPS perangkat'}
-                                                        </p>
+<span>
+                                                            {weather.apparent_temperature !==
+                                                            null
+                                                                ? `terasa ${bmkgNumber(
+                                                                      weather.apparent_temperature,
+                                                                  )}°C`
+                                                                : ''}
+                                                        </span>
                                                     </div>
-                                                );
-                                            })()
-                                        )}
-                                    </section>
+                                                </div>
+                                            );
+                                        })()}
+                                    )}
+                                </section>
                                 )}
 
                                 {active === 'cuaca' &&
@@ -3423,11 +3408,6 @@ export default function Monitoring() {
                                                         'wilayah Anda'}
                                                 </p>
                                             </div>
-
-                                            <p className="mt-0.5 text-[9.5px] text-slate-500">
-                                                Sumber: BMKG • Prakiraan setiap
-                                                3 jam di kota Anda
-                                            </p>
 
                                             <div className="mt-2.5 flex flex-col gap-3">
                                                 {cityForecastDays.length ===
@@ -3765,12 +3745,6 @@ export default function Monitoring() {
                                         {pvmbgLevelText}
                                     </span>
                                 </div>
-
-                                <p className="mt-1 text-[9px] text-slate-500">
-                                    {data.volcano.status_source === 'live'
-                                        ? 'Sumber: PVMBG (MAGMA)'
-                                        : 'status tersimpan (fallback)'}
-                                </p>
                             </section>
                         )}
 
@@ -3878,11 +3852,6 @@ export default function Monitoring() {
                                             data.volcano.name}
                                     </p>
                                 </div>
-
-                                <p className="mt-0.5 text-[9.5px] text-slate-500">
-                                    Sumber: BMKG • Prakiraan setiap 3 jam di
-                                    sekitar gunung
-                                </p>
 
                                 {bmkgCurrent ? (
                                     <>
@@ -4040,13 +4009,6 @@ export default function Monitoring() {
                                                             </span>
                                                         </div>
                                                     )}
-
-                                                    <p className="mt-1.5 text-[8.5px] leading-relaxed text-slate-300">
-                                                        Sumber: BMKG (prakiraan
-                                                        resmi) • Prakiraan{' '}
-                                                        {data.weather_location ??
-                                                            data.volcano.name}
-                                                    </p>
                                                 </div>
                                             );
                                         })()}
@@ -4479,10 +4441,7 @@ export default function Monitoring() {
 
                                             <div className="border-t border-white/10 bg-white/[0.02] px-3 py-2">
                                                 <p className="text-[9px] leading-relaxed text-slate-300 italic">
-                                                    Sumber:{' '}
-                                                    {ash.source ??
-                                                        'VAAC Darwin (BOM)'}
-                                                    . Gunakan bersama info resmi
+                                                    Gunakan bersama info resmi
                                                     PVMBG / BPBD.
                                                 </p>
                                             </div>
@@ -4663,19 +4622,6 @@ export default function Monitoring() {
                                             naik (degassing) atau mendahului
                                             erupsi.
                                         </p>
-
-                                        <a
-                                            href="https://pubs.usgs.gov/of/1995/0085/"
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="mt-auto inline-flex items-center gap-1 pt-2.5 text-[9px] font-semibold text-slate-300 transition hover:text-slate-300"
-                                        >
-                                            <ExternalLink
-                                                size={9}
-                                                strokeWidth={2.5}
-                                            />
-                                            Sumber: USGS — Volcanic Gas
-                                        </a>
                                     </div>
 
                                     <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
@@ -4948,22 +4894,13 @@ export default function Monitoring() {
 
                         {}
 
-                        {active !== null && active !== 'advisory' && (
-                            <div className="border-t border-white/10 pt-2.5 text-[10px] leading-relaxed text-slate-300">
-                                <p>
-                                    <b className="text-slate-500">Sumber:</b>{' '}
-                                    VAAC Darwin (BOM Australia) •
-                                    PVMBG/MAGMA-VSI • BMKG • Open-Meteo
-                                </p>
-                            </div>
-                        )}
                     </div>
                 </div>
             </aside>
 
             {}
 
-            <aside className="pointer-events-auto absolute top-[190px] right-2 z-[1100] hidden w-[230px] max-w-[40vw] rounded-2xl border border-white/10 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 p-3.5 shadow-2xl shadow-black/50 lg:block">
+            <aside className="pointer-events-auto absolute top-[190px] right-2 z-[1100] hidden w-[230px] max-w-[40vw] rounded-2xl border border-white/10 bg-gradient-to-b from-[#0f182b]/95 to-[#0a1220]/95 p-3.5 shadow-2xl shadow-black/50 lg:block">
                 <LegendPanel
                     showGempaMarkers={showGempaMarkers}
                     onToggleGempa={() => setShowGempaMarkers((value) => !value)}
@@ -4984,7 +4921,7 @@ export default function Monitoring() {
                         className="absolute inset-0 z-0 cursor-default bg-black/50 backdrop-blur-sm"
                     />
 
-                    <div className="pointer-events-auto relative z-10 mx-3 mb-[max(6rem,calc(env(safe-area-inset-bottom)+5.5rem))] max-h-[60dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 p-3.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
+                    <div className="pointer-events-auto relative z-10 mx-3 mb-[max(6rem,calc(env(safe-area-inset-bottom)+5.5rem))] max-h-[60dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/10 bg-gradient-to-b from-[#0f182b]/95 to-[#0a1220]/95 p-3.5 shadow-2xl shadow-black/50 backdrop-blur-xl">
                         <LegendPanel
                             showGempaMarkers={showGempaMarkers}
                             onToggleGempa={() =>

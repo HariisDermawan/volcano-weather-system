@@ -1283,13 +1283,6 @@ export default function VolcanoMap({
 
             {}
 
-            <div className="pointer-events-none absolute bottom-[14px] left-[14px] z-[1000] rounded-full border border-white/10 bg-gradient-to-b from-[#1b2947]/95 to-[#0a1220]/95 px-3 py-1.5 text-[10px] leading-relaxed font-medium text-slate-300 shadow-xl shadow-black/50 backdrop-blur-xl">
-                Sumber data: VAAC Darwin (BOM Australia) • PVMBG/MAGMA-VSI •
-                BMKG • Open-Meteo
-            </div>
-
-            {}
-
             <div
                 style={{
                     position: 'absolute',

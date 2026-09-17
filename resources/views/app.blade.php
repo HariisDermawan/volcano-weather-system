@@ -6,9 +6,8 @@
         <meta name="theme-color" content="#0a1220">
         <meta http-equiv="X-UA-Compatible" content="ie=edge">
 
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-        <link rel="icon" href="/favicon.ico" type="image/x-icon">
-        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+        <link rel="icon" href="/logo/geovis.png" type="image/png">
+        <link rel="apple-touch-icon" href="/logo/geovis.png">
 
         @fonts
 
@@ -29,11 +28,11 @@
             <meta property="og:url" content="{{ url()->current() }}">
             <meta property="og:site_name" content="{{ config('app.name', 'Volcano Watch') }}">
             <meta property="og:locale" content="id_ID">
-            <meta property="og:image" content="{{ asset('logo/sig.png') }}">
+            <meta property="og:image" content="{{ asset('logo/geovis.png') }}">
             <meta name="twitter:card" content="summary_large_image">
             <meta name="twitter:title" content="{{ config('app.name', 'Volcano Watch') }} - Monitoring Gunung Berapi Indonesia">
             <meta name="twitter:description" content="Pantau status aktivitas gunung berapi Indonesia secara real-time: erupsi, gempa, prakiraan cuaca, dan sebaran abu vulkanik.">
-            <meta name="twitter:image" content="{{ asset('logo/sig.png') }}">
+            <meta name="twitter:image" content="{{ asset('logo/geovis.png') }}">
             <script type="application/ld+json">
                 {
                     "@@context": "https://schema.org",
