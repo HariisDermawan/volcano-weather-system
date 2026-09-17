@@ -34,6 +34,29 @@ class VolcanoController extends Controller
         ]);
     }
 
+    /**
+     * Rincian laporan MAGMA untuk satu gunung (lazy-loaded).
+     */
+    public function report(
+        Volcano $volcano,
+        MagmaService $magma,
+    ): JsonResponse {
+        $data = $magma->getVarData($volcano->name);
+
+        return response()->json([
+            'id' => $volcano->id,
+            'name' => $volcano->name,
+            'foto' => $data['foto'] ?? null,
+            'lokasi' => $data['lokasi'] ?? null,
+            'periode_text' => $data['periode_text'] ?? null,
+            'klimatologi' => $data['klimatologi'] ?? null,
+            'visual' => $data['visual'] ?? null,
+            'visual_lainnya' => $data['visual_lainnya'] ?? null,
+            'rekomendasi' => $data['rekomendasi'] ?? null,
+            'grafik_gempa' => $data['grafik_gempa'] ?? null,
+        ]);
+    }
+
     public function index(
         VaacDarwinService $vaac,
         MagmaService $magma,
@@ -115,43 +138,6 @@ class VolcanoController extends Controller
                 if (isset($meta['elevation'])) {
                     $volcano->setAttribute('elevation', $meta['elevation']);
                 }
-
-                $report = $magma->getVarData((string) $volcano->name);
-
-                $volcano->setAttribute(
-                    'periode_text',
-                    $report['periode_text'] ?? null,
-                );
-
-                $volcano->setAttribute(
-                    'lokasi',
-                    $report['lokasi'] ?? null,
-                );
-
-                $volcano->setAttribute(
-                    'klimatologi',
-                    $report['klimatologi'] ?? null,
-                );
-
-                $volcano->setAttribute(
-                    'visual',
-                    $report['visual'] ?? null,
-                );
-
-                $volcano->setAttribute(
-                    'visual_lainnya',
-                    $report['visual_lainnya'] ?? null,
-                );
-
-                $volcano->setAttribute(
-                    'rekomendasi',
-                    $report['rekomendasi'] ?? null,
-                );
-
-                $volcano->setAttribute(
-                    'grafik_gempa',
-                    $report['grafik_gempa'] ?? null,
-                );
 
                 $eruptionWhen = $latestEruptionAt[$key] ?? null;
 

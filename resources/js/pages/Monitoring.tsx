@@ -78,6 +78,19 @@ interface VolcanoPhoto {
     source: 'photo' | 'cctv' | 'ven' | null;
 }
 
+interface VolcanoReport {
+    id: number;
+    name: string;
+    foto?: string | null;
+    lokasi?: string | null;
+    periode_text?: string | null;
+    klimatologi?: string | null;
+    visual?: string | null;
+    visual_lainnya?: string | null;
+    rekomendasi?: string | null;
+    grafik_gempa?: string | null;
+}
+
 interface Weather {
     forecast_at: string;
     temperature: number | null;
@@ -935,6 +948,10 @@ export default function Monitoring() {
 
     const [volcanoPhotoLoading, setVolcanoPhotoLoading] = useState(false);
 
+    const [volcanoReport, setVolcanoReport] = useState<VolcanoReport | null>(
+        null,
+    );
+
     const [gempa, setGempa] = useState<GempaData | null>(null);
 
     const [hasNewQuake, setHasNewQuake] = useState(false);
@@ -1248,6 +1265,7 @@ export default function Monitoring() {
 
         setVolcanoPhoto({ image: null, source: null });
         setVolcanoPhotoLoading(true);
+        setVolcanoReport(null);
 
         fetch(`/api/volcano/cctv/${selectedVolcanoId}`, {
             headers: {
@@ -1281,6 +1299,25 @@ export default function Monitoring() {
             .finally(() => {
                 if (!cancelled) {
                     setVolcanoPhotoLoading(false);
+                }
+            });
+
+        fetch(`/api/volcanoes/${selectedVolcanoId}/report`, {
+            headers: {
+                Accept: 'application/json',
+            },
+        })
+            .then((response) => (response.ok ? response.json() : null))
+            .then((result: VolcanoReport | null) => {
+                if (cancelled) {
+                    return;
+                }
+
+                setVolcanoReport(result);
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setVolcanoReport(null);
                 }
             });
 
@@ -2492,6 +2529,7 @@ export default function Monitoring() {
                         focusKey={volcanoFocusKey}
                         volcanoImage={volcanoPhoto.image}
                         volcanoImageLoading={volcanoPhotoLoading}
+                        volcanoReport={volcanoReport}
                         userLocation={
                             cityCoords
                                 ? {

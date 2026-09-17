@@ -191,6 +191,8 @@ class MagmaService
      * dengan popup magma.esdm.go.id/v1.
      *
      * Di-cache 10 menit per ga_code agar tidak membobol rate-limit.
+     * Saat MAGMA gagal/tidak menjawab, hasil null tetap di-cache
+     * (sentinel) agar halaman tidak memukul ulang setiap request.
      *
      * @return array<string, mixed>|null
      */
@@ -202,13 +204,15 @@ class MagmaService
             return null;
         }
 
-        return Cache::remember(
+        $raw = Cache::remember(
             self::VAR_CACHE_KEY.':'.mb_strtolower($gaCode),
             600,
-            function () use ($gaCode): ?array {
-                return $this->fetchVarData($gaCode);
+            function () use ($gaCode): array {
+                return $this->fetchVarData($gaCode) ?? ['__missing' => true];
             },
         );
+
+        return isset($raw['__missing']) ? null : $raw;
     }
 
     /**

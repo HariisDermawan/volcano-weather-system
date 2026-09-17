@@ -13,6 +13,7 @@ Route::get('/user', function (Request $request) {
 
 Route::get('/monitoring/volcano/{volcano}', [MonitoringController::class, 'show']);
 Route::get('/volcanoes', [VolcanoController::class, 'index']);
+Route::get('/volcanoes/{volcano}/report', [VolcanoController::class, 'report']);
 Route::get('/volcano/cctv/{volcano}', [VolcanoController::class, 'cctv']);
 
 Route::get('/gempa', [GeoHazardController::class, 'gempa']);

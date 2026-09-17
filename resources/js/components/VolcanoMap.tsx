@@ -84,6 +84,12 @@ interface VolcanoMapProps {
     volcanoImage?: string | null;
     volcanoImageLoading?: boolean;
     volcanoImageSource?: 'photo' | 'cctv' | 'ven' | null;
+    volcanoReport?: {
+        lokasi?: string | null;
+        periode_text?: string | null;
+        visual?: string | null;
+        visual_lainnya?: string | null;
+    } | null;
     userLocation?: { lat: number; lon: number } | null;
 }
 
@@ -871,6 +877,7 @@ export default function VolcanoMap({
     volcanoImage = null,
     volcanoImageLoading = false,
     volcanoImageSource = null,
+    volcanoReport = null,
     userLocation = null,
     onSelectVolcano,
     onSelectEarthquake,
@@ -1045,29 +1052,38 @@ export default function VolcanoMap({
 
                 {}
 
-                {markerVolcanoes.map((volcano) => (
-                    <VolcanoMarker
-                        key={volcano.id}
-                        volcano={volcano}
-                        isSelected={volcano.id === selectedVolcanoId}
-                        active={activeVolcanoIds.includes(volcano.id)}
-                        image={
-                            volcano.id === selectedVolcanoId
-                                ? volcanoImage
-                                : null
-                        }
-                        imageLoading={
-                            volcano.id === selectedVolcanoId &&
-                            volcanoImageLoading
-                        }
-                        imageSource={
-                            volcano.id === selectedVolcanoId
-                                ? volcanoImageSource
-                                : null
-                        }
-                        onSelect={onSelectVolcano}
-                    />
-                ))}
+                {markerVolcanoes.map((volcano) => {
+                    const report =
+                        volcano.id === selectedVolcanoId && volcanoReport
+                            ? volcanoReport
+                            : null;
+
+                    return (
+                        <VolcanoMarker
+                            key={volcano.id}
+                            volcano={
+                                report ? { ...volcano, ...report } : volcano
+                            }
+                            isSelected={volcano.id === selectedVolcanoId}
+                            active={activeVolcanoIds.includes(volcano.id)}
+                            image={
+                                volcano.id === selectedVolcanoId
+                                    ? volcanoImage
+                                    : null
+                            }
+                            imageLoading={
+                                volcano.id === selectedVolcanoId &&
+                                volcanoImageLoading
+                            }
+                            imageSource={
+                                volcano.id === selectedVolcanoId
+                                    ? volcanoImageSource
+                                    : null
+                            }
+                            onSelect={onSelectVolcano}
+                        />
+                    );
+                })}
 
                 {}
 
