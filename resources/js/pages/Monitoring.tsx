@@ -2305,6 +2305,73 @@ export default function Monitoring() {
     const bucketHourOf = (key: string): number =>
         key === 'observasi' ? 0 : Number(key.split('-')[1]);
 
+    const isCityInAshGeometry = (
+        cityLat: number,
+        cityLon: number,
+        geometry: unknown,
+    ): boolean => {
+        try {
+            if (!geometry || typeof geometry !== 'object') return false;
+            const g = geometry as { type?: string; coordinates?: unknown };
+            if (g.type !== 'Polygon') return false;
+            const coords = g.coordinates as unknown;
+            if (!Array.isArray(coords) || !Array.isArray(coords[0]))
+                return false;
+            const ring = coords[0] as unknown[];
+            if (ring.length < 3) return false;
+            let inside = false;
+            for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+                const a = ring[i] as unknown;
+                const b = ring[j] as unknown;
+                if (!Array.isArray(a) || !Array.isArray(b)) continue;
+                const xi = a[0];
+                const yi = a[1];
+                const xj = b[0];
+                const yj = b[1];
+                if (
+                    typeof xi !== 'number' ||
+                    typeof yi !== 'number' ||
+                    typeof xj !== 'number' ||
+                    typeof yj !== 'number'
+                )
+                    continue;
+                if (yj === yi) continue;
+                const intersect =
+                    yi > cityLat !== yj > cityLat &&
+                    cityLon < ((xj - xi) * (cityLat - yi)) / (yj - yi) + xi;
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        } catch {
+            return false;
+        }
+    };
+
+    const cityAshHits = (() => {
+        try {
+            if (!cityCoords) return [];
+            const preds = effectivePredictions ?? [];
+            if (preds.length === 0) return [];
+            return preds
+                .filter((p) => {
+                    try {
+                        return isCityInAshGeometry(
+                            cityCoords.lat,
+                            cityCoords.lon,
+                            p.geometry as unknown,
+                        );
+                    } catch {
+                        return false;
+                    }
+                })
+                .sort((a, b) => a.forecast_hour - b.forecast_hour);
+        } catch {
+            return [];
+        }
+    })();
+
+    const nextCityAshHit = cityAshHits[0] ?? null;
+
     const forecastForLayer = (key: string): AshPrediction | null => {
         if (key === 'observasi') {
             return closestForecastByHour(0);
@@ -2459,6 +2526,64 @@ export default function Monitoring() {
         }
 
         return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300';
+    })();
+
+    const so2StatusMeta = (() => {
+        const s = (data.volcano.status ?? '').toLowerCase();
+
+        if (s.includes('awas')) {
+            return {
+                level: 'Tinggi–Ekstrem',
+                dot: 'bg-red-500',
+                border: 'border-red-500/30',
+                bg: 'bg-red-500/10',
+                text: 'text-red-200',
+                subtext: 'text-red-300/80',
+                title: 'Awas — SO₂ Tinggi–Ekstrem',
+                desc: `Gunung ${data.volcano.name} status Awas. Degassing sangat kuat / erupsi berlangsung. Di peta SO₂ biasanya terlihat oranye–merah–ungu di sekitar kawah dan terbawa angin.`,
+                highlight: 4,
+            };
+        }
+
+        if (s.includes('siaga')) {
+            return {
+                level: 'Sedang–Tinggi',
+                dot: 'bg-orange-500',
+                border: 'border-orange-500/30',
+                bg: 'bg-orange-500/10',
+                text: 'text-orange-200',
+                subtext: 'text-orange-300/80',
+                title: 'Siaga — SO₂ Sedang–Tinggi',
+                desc: `Gunung ${data.volcano.name} status Siaga. Aktivitas meningkat, potensi erupsi. SO₂ cenderung kuning–oranye. Kurangi aktivitas di sekitar kawah dan pantau harian.`,
+                highlight: 3,
+            };
+        }
+
+        if (s.includes('waspada')) {
+            return {
+                level: 'Ringan–Sedang',
+                dot: 'bg-amber-400',
+                border: 'border-amber-400/30',
+                bg: 'bg-amber-400/10',
+                text: 'text-amber-200',
+                subtext: 'text-amber-300/80',
+                title: 'Waspada — SO₂ Ringan–Sedang',
+                desc: `Gunung ${data.volcano.name} status Waspada. Ada kenaikan aktivitas. SO₂ biasanya hijau–kuning. Tetap waspada, cek update PVMBG tiap hari.`,
+                highlight: 2,
+            };
+        }
+
+        return {
+            level: 'Latar–Ringan',
+            dot: 'bg-emerald-400',
+            border: 'border-emerald-400/30',
+            bg: 'bg-emerald-400/10',
+            text: 'text-emerald-200',
+            subtext: 'text-emerald-300/80',
+            title: 'Normal — SO₂ Latar (Aman)',
+            desc: `Gunung ${data.volcano.name} status Normal. Aktivitas latar. Peta SO₂ biasanya hijau (rendah) — ini normal, bukan tanda vulkanik. Tetap ikuti info PVMBG.`,
+            highlight: 0,
+        };
     })();
 
     const ashHeightM = data.ash_advisory?.ash_height_m ?? null;
@@ -3122,6 +3247,52 @@ export default function Monitoring() {
                                                     </p>
                                                 )}
                                             </div>
+
+                                            {active === 'kota' &&
+                                                cityCoords && (
+                                                    <div
+                                                        className={`mt-2.5 rounded-2xl border px-3 py-3 ${nextCityAshHit ? 'border-amber-400/30 bg-amber-400/10' : 'border-emerald-500/30 bg-emerald-500/15'}`}
+                                                    >
+                                                        <p
+                                                            className={`text-[9px] font-bold tracking-widest uppercase ${nextCityAshHit ? 'text-amber-300' : 'text-emerald-300'}`}
+                                                        >
+                                                            Sebaran Abu di
+                                                            Kotamu —{' '}
+                                                            {data.volcano.name}
+                                                        </p>
+                                                        {(effectivePredictions?.length ??
+                                                            0) > 0 ? (
+                                                            <>
+                                                                <p
+                                                                    className={`mt-1 text-[11px] leading-tight font-bold ${nextCityAshHit ? 'text-amber-100' : 'text-emerald-100'}`}
+                                                                >
+                                                                    {nextCityAshHit
+                                                                        ? `Abu diprediksi sampai di kotamu dalam ${nextCityAshHit.forecast_hour} jam`
+                                                                        : `Kotamu aman dari sebaran abu ${data.volcano.name}`}
+                                                                </p>
+                                                                <p
+                                                                    className={`mt-1 text-[9px] leading-relaxed ${nextCityAshHit ? 'text-amber-200/80' : 'text-emerald-200/80'}`}
+                                                                >
+                                                                    {nextCityAshHit
+                                                                        ? 'Poligon prediksi melewati lokasimu — siapkan masker.'
+                                                                        : 'Prediksi sistem tidak melewati kotamu.'}
+                                                                </p>
+                                                            </>
+                                                        ) : (
+                                                            <p className="mt-1 text-[10px] leading-relaxed font-bold text-emerald-200">
+                                                                Kotamu aman
+                                                                untuk{' '}
+                                                                {
+                                                                    data.volcano
+                                                                        .name
+                                                                }{' '}
+                                                                — tidak ada
+                                                                prediksi sebaran
+                                                                aktif.
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                )}
                                         </>
                                     )}
 
@@ -4557,6 +4728,55 @@ export default function Monitoring() {
                                 </section>
                             )}
 
+                        {active === 'sebaran' && (
+                            <section>
+                                <PanelTitle
+                                    icon={
+                                        <MapPin size={11} strokeWidth={2.5} />
+                                    }
+                                >
+                                    Sebaran Abu di Kotamu
+                                </PanelTitle>
+                                {cityCoords ? (
+                                    <div
+                                        className={`rounded-xl border px-2.5 py-2.5 ${nextCityAshHit ? 'border-amber-400/30 bg-amber-400/10' : 'border-emerald-500/30 bg-emerald-500/15'}`}
+                                    >
+                                        <p
+                                            className={`text-[9px] font-bold tracking-widest uppercase ${nextCityAshHit ? 'text-amber-300' : 'text-emerald-300'}`}
+                                        >
+                                            Dampak ke Kotamu —{' '}
+                                            {data.volcano.name}
+                                        </p>
+                                        <p
+                                            className={`mt-1 text-[11px] leading-tight font-bold ${nextCityAshHit ? 'text-amber-100' : 'text-emerald-100'}`}
+                                        >
+                                            {nextCityAshHit
+                                                ? `Abu diprediksi sampai di kotamu dalam ${nextCityAshHit.forecast_hour} jam`
+                                                : `Kotamu aman dari sebaran abu ${data.volcano.name}`}
+                                        </p>
+                                        <p
+                                            className={`mt-1 text-[9px] leading-relaxed ${nextCityAshHit ? 'text-amber-200/80' : 'text-emerald-200/80'}`}
+                                        >
+                                            {nextCityAshHit
+                                                ? 'Poligon prediksi melewati lokasimu — klik gunung lain untuk cek.'
+                                                : ashActive
+                                                  ? 'Prediksi sistem tidak melewati kotamu.'
+                                                  : `Gunung ${data.volcano.name} tidak ada sebaran aktif.`}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <p className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-2 text-[9.5px] leading-relaxed text-slate-500">
+                                        Aktifkan{' '}
+                                        <b className="text-slate-300">
+                                            Kota Saya
+                                        </b>{' '}
+                                        untuk cek apakah abu gunung ini sampai
+                                        ke lokasimu (klik gunung di peta).
+                                    </p>
+                                )}
+                            </section>
+                        )}
+
                         {}
 
                         {active === 'so2' && (
@@ -4578,6 +4798,41 @@ export default function Monitoring() {
                                 </Suspense>
 
                                 <div className="mt-3 flex flex-col gap-2.5">
+                                    {/* Status-aware SO2 header - nyambung ke PVMBG */}
+                                    <div
+                                        className={`rounded-2xl border p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${so2StatusMeta.border} ${so2StatusMeta.bg}`}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span
+                                                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border bg-white/5 ${so2StatusMeta.border} ${so2StatusMeta.text}`}
+                                            >
+                                                <ShieldAlert
+                                                    size={14}
+                                                    strokeWidth={2}
+                                                />
+                                            </span>
+                                            <div className="min-w-0 flex-1">
+                                                <p
+                                                    className={`text-[10px] font-extrabold tracking-wide uppercase ${so2StatusMeta.text}`}
+                                                >
+                                                    {so2StatusMeta.title}
+                                                </p>
+                                                <p className="text-[9px] font-medium text-slate-500">
+                                                    {pvmbgLevelText} •{' '}
+                                                    {so2StatusMeta.level}
+                                                </p>
+                                            </div>
+                                            <span
+                                                className={`h-2.5 w-2.5 shrink-0 rounded-full ${so2StatusMeta.dot} shadow-[0_0_8px_rgba(255,255,255,0.3)]`}
+                                            />
+                                        </div>
+                                        <p
+                                            className={`mt-2.5 text-[10px] leading-relaxed ${so2StatusMeta.subtext}`}
+                                        >
+                                            {so2StatusMeta.desc}
+                                        </p>
+                                    </div>
+
                                     {/* Apa itu SO2 - mudah dipahami */}
                                     <div className="rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.06] to-white/[0.02] p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
                                         <div className="flex items-center gap-2">
@@ -4672,13 +4927,21 @@ export default function Monitoring() {
                                             <span>Tinggi</span>
                                         </div>
 
-                                        {/* 5 level list */}
+                                        {/* 5 level list - highlight sesuai status */}
                                         <div className="mt-3 grid gap-1.5">
-                                            <div className="flex items-center gap-2 rounded-xl border border-emerald-400/15 bg-emerald-400/10 px-2.5 py-1.5">
+                                            <div
+                                                className={`flex items-center gap-2 rounded-xl border px-2.5 py-1.5 ${so2StatusMeta.highlight === 0 ? 'border-emerald-400/40 bg-emerald-400/20 ring-1 ring-emerald-400/30' : 'border-emerald-400/15 bg-emerald-400/10'}`}
+                                            >
                                                 <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]" />
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="text-[10px] leading-none font-bold text-emerald-200">
+                                                    <p className="flex items-center gap-1.5 text-[10px] leading-none font-bold text-emerald-200">
                                                         Latar / Normal
+                                                        {so2StatusMeta.highlight ===
+                                                            0 && (
+                                                            <span className="rounded-full bg-emerald-400 px-1.5 py-0.5 text-[7px] font-black tracking-widest text-[#0a1220] uppercase">
+                                                                Saat ini
+                                                            </span>
+                                                        )}
                                                     </p>
                                                     <p className="text-[9px] leading-tight text-emerald-300/70">
                                                         Hijau — tidak
@@ -4690,11 +4953,19 @@ export default function Monitoring() {
                                                     className="shrink-0 text-emerald-300/60"
                                                 />
                                             </div>
-                                            <div className="flex items-center gap-2 rounded-xl border border-lime-400/15 bg-lime-400/10 px-2.5 py-1.5">
+                                            <div
+                                                className={`flex items-center gap-2 rounded-xl border px-2.5 py-1.5 ${so2StatusMeta.highlight === 1 ? 'border-lime-400/40 bg-lime-400/20 ring-1 ring-lime-400/30' : 'border-lime-400/15 bg-lime-400/10'}`}
+                                            >
                                                 <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-lime-400 shadow-[0_0_6px_rgba(132,204,22,0.6)]" />
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="text-[10px] leading-none font-bold text-lime-200">
+                                                    <p className="flex items-center gap-1.5 text-[10px] leading-none font-bold text-lime-200">
                                                         Ringan
+                                                        {so2StatusMeta.highlight ===
+                                                            1 && (
+                                                            <span className="rounded-full bg-lime-400 px-1.5 py-0.5 text-[7px] font-black tracking-widest text-[#0a1220] uppercase">
+                                                                Saat ini
+                                                            </span>
+                                                        )}
                                                     </p>
                                                     <p className="text-[9px] leading-tight text-lime-300/70">
                                                         Kuning-hijau — masih
@@ -4702,11 +4973,19 @@ export default function Monitoring() {
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2 rounded-xl border border-amber-400/15 bg-amber-400/10 px-2.5 py-1.5">
+                                            <div
+                                                className={`flex items-center gap-2 rounded-xl border px-2.5 py-1.5 ${so2StatusMeta.highlight === 2 ? 'border-amber-400/40 bg-amber-400/20 ring-1 ring-amber-400/30' : 'border-amber-400/15 bg-amber-400/10'}`}
+                                            >
                                                 <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.6)]" />
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="text-[10px] leading-none font-bold text-amber-200">
+                                                    <p className="flex items-center gap-1.5 text-[10px] leading-none font-bold text-amber-200">
                                                         Sedang
+                                                        {so2StatusMeta.highlight ===
+                                                            2 && (
+                                                            <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[7px] font-black tracking-widest text-[#0a1220] uppercase">
+                                                                Saat ini
+                                                            </span>
+                                                        )}
                                                     </p>
                                                     <p className="text-[9px] leading-tight text-amber-300/70">
                                                         Kuning — kurangi
@@ -4714,11 +4993,19 @@ export default function Monitoring() {
                                                     </p>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2 rounded-xl border border-orange-400/15 bg-orange-400/10 px-2.5 py-1.5">
+                                            <div
+                                                className={`flex items-center gap-2 rounded-xl border px-2.5 py-1.5 ${so2StatusMeta.highlight === 3 ? 'border-orange-400/40 bg-orange-400/20 ring-1 ring-orange-400/30' : 'border-orange-400/15 bg-orange-400/10'}`}
+                                            >
                                                 <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-orange-500 shadow-[0_0_6px_rgba(249,115,22,0.6)]" />
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="text-[10px] leading-none font-bold text-orange-200">
+                                                    <p className="flex items-center gap-1.5 text-[10px] leading-none font-bold text-orange-200">
                                                         Tinggi
+                                                        {so2StatusMeta.highlight ===
+                                                            3 && (
+                                                            <span className="rounded-full bg-orange-400 px-1.5 py-0.5 text-[7px] font-black tracking-widest text-[#0a1220] uppercase">
+                                                                Saat ini
+                                                            </span>
+                                                        )}
                                                     </p>
                                                     <p className="text-[9px] leading-tight text-orange-300/70">
                                                         Oranye → Merah — pedih
@@ -4730,11 +5017,19 @@ export default function Monitoring() {
                                                     className="shrink-0 text-orange-300/60"
                                                 />
                                             </div>
-                                            <div className="flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-2.5 py-1.5">
+                                            <div
+                                                className={`flex items-center gap-2 rounded-xl border px-2.5 py-1.5 ${so2StatusMeta.highlight === 4 ? 'border-red-500/40 bg-red-500/20 ring-1 ring-red-500/30' : 'border-red-500/20 bg-red-500/10'}`}
+                                            >
                                                 <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.7)]" />
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="text-[10px] leading-none font-bold text-red-200">
+                                                    <p className="flex items-center gap-1.5 text-[10px] leading-none font-bold text-red-200">
                                                         Ekstrem
+                                                        {so2StatusMeta.highlight ===
+                                                            4 && (
+                                                            <span className="rounded-full bg-red-500 px-1.5 py-0.5 text-[7px] font-black tracking-widest text-white uppercase">
+                                                                Saat ini
+                                                            </span>
+                                                        )}
                                                     </p>
                                                     <p className="text-[9px] leading-tight text-red-300/70">
                                                         Merah-ungu — bahaya,
