@@ -2,7 +2,7 @@ from app.collectors.weather_collector import (
     get_weather,
     extract_forecasts,
 )
-from app.database.connection import get_db
+from app.database.connection import SessionLocal
 from sqlalchemy import text
 
 
@@ -20,7 +20,7 @@ def run_weather_collection():
 
     forecasts = extract_forecasts(data)
 
-    db = get_db()
+    db = SessionLocal()
 
     try:
         for forecast in forecasts:

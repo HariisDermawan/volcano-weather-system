@@ -315,8 +315,9 @@ function EarthquakeMarker({
                                 Lokasi
                             </dt>
                             <dd className="text-right font-semibold text-slate-300">
-                                {quake.latitude && quake.longitude
-                                    ? `${Math.abs(quake.latitude).toFixed(2)}° ${quake.latitude >= 0 ? 'LS' : 'LU'} - ${Math.abs(quake.longitude).toFixed(2)}° ${quake.longitude >= 0 ? 'BT' : 'BB'}`
+                                {quake.latitude !== null &&
+                                quake.longitude !== null
+                                    ? `${Math.abs(quake.latitude).toFixed(2)}° ${quake.latitude >= 0 ? 'LU' : 'LS'} - ${Math.abs(quake.longitude).toFixed(2)}° ${quake.longitude >= 0 ? 'BT' : 'BB'}`
                                     : '-'}
                             </dd>
                         </div>

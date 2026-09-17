@@ -504,14 +504,16 @@ class GeoHazardController extends Controller
      */
     private function buildGempaRow(array $row): array
     {
-        $coordinates = array_values(
-            array_filter(
-                array_map(
-                    'floatval',
-                    explode(',', (string) ($row['Coordinates'] ?? '')),
-                ),
-            ),
-        );
+        $coordinates = [];
+        foreach (explode(',', (string) ($row['Coordinates'] ?? '')) as $part) {
+            $trimmed = trim($part);
+            if ($trimmed === '') {
+                continue;
+            }
+            if (is_numeric($trimmed)) {
+                $coordinates[] = (float) $trimmed;
+            }
+        }
 
         return [
             'datetime' => $row['DateTime'] ?? null,
