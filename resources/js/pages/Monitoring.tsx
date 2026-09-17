@@ -17,7 +17,6 @@ import {
     AlertTriangle,
     ArrowLeft,
     Atom,
-    Beaker,
     BookOpen,
     ChevronDown,
     Cloud,
@@ -4577,47 +4576,6 @@ export default function Monitoring() {
                                         volcanoName={data.volcano.name}
                                     />
                                 </Suspense>
-
-                                {/* Ringkasan cepat - 3 badge */}
-                                <div className="mt-3 grid grid-cols-3 gap-1.5">
-                                    <div className="rounded-xl border border-white/10 bg-white/[0.04] px-2 py-2 text-center">
-                                        <p className="text-[8px] font-bold tracking-widest text-slate-500 uppercase">
-                                            Gas
-                                        </p>
-                                        <p className="mt-0.5 flex items-center justify-center gap-1 text-[11px] font-black text-white">
-                                            <Beaker
-                                                size={11}
-                                                className="text-sky-300"
-                                            />
-                                            SO₂
-                                        </p>
-                                        <p className="text-[9px] text-slate-500">
-                                            Belerang
-                                        </p>
-                                    </div>
-                                    <div className="rounded-xl border border-white/10 bg-white/[0.04] px-2 py-2 text-center">
-                                        <p className="text-[8px] font-bold tracking-widest text-slate-500 uppercase">
-                                            Sumber
-                                        </p>
-                                        <p className="mt-0.5 text-[11px] font-black text-white">
-                                            Kawah
-                                        </p>
-                                        <p className="text-[9px] text-slate-500">
-                                            + degassing
-                                        </p>
-                                    </div>
-                                    <div className="rounded-xl border border-white/10 bg-white/[0.04] px-2 py-2 text-center">
-                                        <p className="text-[8px] font-bold tracking-widest text-slate-500 uppercase">
-                                            Tanda
-                                        </p>
-                                        <p className="mt-0.5 text-[11px] font-black text-white">
-                                            Bau tajam
-                                        </p>
-                                        <p className="text-[9px] text-slate-500">
-                                            pedas / menyengat
-                                        </p>
-                                    </div>
-                                </div>
 
                                 <div className="mt-3 flex flex-col gap-2.5">
                                     {/* Apa itu SO2 - mudah dipahami */}
