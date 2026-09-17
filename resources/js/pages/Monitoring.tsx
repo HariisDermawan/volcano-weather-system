@@ -223,17 +223,6 @@ interface MonitoringData {
     ash_predictions: AshPrediction[];
     ash_active: boolean;
     ash_advisory: AshAdvisory | null;
-    gdacs: GdacsAlert | null;
-}
-
-interface GdacsAlert {
-    alert_level: 'red' | 'orange' | 'green';
-    is_current: boolean;
-    event_id: string;
-    episode_id: string;
-    volcano_name: string | null;
-    link: string;
-    occurred_at: string | null;
 }
 
 interface AshAdvisory {
@@ -2454,51 +2443,6 @@ export default function Monitoring() {
         return 'Data diambil -';
     })();
 
-    const GDACS_LEVEL_LABEL: Record<GdacsAlert['alert_level'], string> = {
-        red: 'Merah - Bahaya Tinggi',
-        orange: 'Oranye - Waspada',
-        green: 'Hijau - Normal',
-    };
-
-    const GDACS_LEVEL_COLOR: Record<GdacsAlert['alert_level'], string> = {
-        red: '#ef4444',
-        orange: '#f97316',
-        green: '#22c55e',
-    };
-
-    const gdacsState = (() => {
-        const alert = data.gdacs;
-
-        if (alert === null) {
-            return { color: '#64748b', label: 'Tidak Ada', activity: null };
-        }
-
-        const label = GDACS_LEVEL_LABEL[alert.alert_level];
-
-        if (alert.is_current) {
-            return {
-                color: GDACS_LEVEL_COLOR[alert.alert_level],
-                label,
-                activity: null,
-            };
-        }
-
-        return {
-            color: '#64748b',
-            label: `${label} (berakhir)`,
-            activity: `episode terakhir GDACS • ${formatWIBShortDate(alert.occurred_at ?? '')}`,
-        };
-    })();
-
-    const gdacsBadgeClass =
-        gdacsState.color === '#ef4444'
-            ? 'border-red-500/30 bg-red-500/10 text-red-300'
-            : gdacsState.color === '#f97316'
-              ? 'border-orange-500/30 bg-orange-500/10 text-orange-300'
-              : gdacsState.color === '#22c55e'
-                ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-                : 'border-slate-500/30 bg-slate-500/10 text-slate-300';
-
     const availPanels = PANEL_ITEMS;
 
     const active = availPanels.some((panel) => panel.key === openPanel)
@@ -3755,29 +3699,6 @@ export default function Monitoring() {
                                     <p className="mt-1 text-[9.5px] text-slate-500">
                                         {statusDataTimeLabel}
                                     </p>
-                                </div>
-
-                                <p className="mt-3 text-[9px] font-extrabold tracking-widest text-slate-500 uppercase">
-                                    Status Bahaya (GDACS)
-                                </p>
-
-                                <div
-                                    className={`mt-1 flex items-center gap-2 rounded-xl border px-3 py-2 text-[12.5px] font-extrabold shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${gdacsBadgeClass}`}
-                                >
-                                    <span
-                                        className="h-2.5 w-2.5 shrink-0 rounded-full shadow-[0_0_10px_currentColor]"
-                                        style={{ background: gdacsState.color }}
-                                    />
-
-                                    <span>
-                                        {gdacsState.label}
-
-                                        {gdacsState.activity && (
-                                            <span className="block text-[9px] font-semibold text-slate-500 normal-case">
-                                                {gdacsState.activity}
-                                            </span>
-                                        )}
-                                    </span>
                                 </div>
 
                                 <p className="mt-3 text-[9px] font-extrabold tracking-widest text-slate-500 uppercase">

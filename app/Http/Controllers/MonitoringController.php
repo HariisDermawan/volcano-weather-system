@@ -8,7 +8,6 @@ use App\Models\Eruption;
 use App\Models\Volcano;
 use App\Models\WeatherCurrent;
 use App\Models\WeatherForecast;
-use App\Services\GdacsService;
 use App\Services\MagmaService;
 use App\Services\VaacDarwinService;
 use Illuminate\Http\JsonResponse;
@@ -20,7 +19,6 @@ class MonitoringController extends Controller
         Volcano $volcano,
         VaacDarwinService $vaac,
         MagmaService $magma,
-        GdacsService $gdacs,
     ): JsonResponse {
 
         $liveStatus = $magma->getStatusForVolcano(
