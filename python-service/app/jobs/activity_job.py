@@ -42,6 +42,11 @@ def sync_activities():
                     failed += 1
                     continue
 
+                if not activity.get("occurred_at"):
+                    print("  -> SKIP: tanpa tanggal")
+                    skipped += 1
+                    continue
+
                 volcano = db.execute(
                     text(
                         """

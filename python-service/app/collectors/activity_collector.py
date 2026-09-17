@@ -198,7 +198,7 @@ def parse_report_datetime(text_content):
         r"\s+"
         r"(\d{4}),\s*"
         r"periode\s*"
-        r"(\d{2}):(\d{2})-"
+        r"(\d{2}):(\d{2})\s*[-–]\s*"
         r"(\d{2}):(\d{2})\s*"
         r"(WIB|WITA|WIT)"
     )

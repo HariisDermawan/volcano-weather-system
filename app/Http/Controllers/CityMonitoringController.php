@@ -604,8 +604,8 @@ class CityMonitoringController extends Controller
 
         usort(
             $slots,
-            fn (array $a, array $b): int => (strtotime($a['time'] ?? '') <=>
-                strtotime($b['time'] ?? '')) ?: 0,
+            fn (array $a, array $b): int => strtotime($a['time']) <=>
+                strtotime($b['time']),
         );
 
         return $slots;

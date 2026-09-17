@@ -28,6 +28,11 @@ php artisan test --compact                                  # run all tests
 php artisan test --compact tests/Feature/MonitoringTest.php # single file
 php artisan test --compact --filter=testName                # by name
 
+DANGER: `php artisan test` wipes the MySQL dev DB (`volcanoes`/`eruptions` gone) if
+`bootstrap/cache/config.php` exists — cached config makes RefreshDatabase run
+`migrate:fresh` on MySQL. ALWAYS run `php artisan config:clear` before raw
+`php artisan test`, or use `composer test` which clears config itself.
+
 npm run check      # vite-plus lint (JS/TS)
 npm run check:fix  # vite-plus lint fix
 npm run types:check # tsc --noEmit

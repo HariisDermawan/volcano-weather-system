@@ -1013,6 +1013,7 @@ export default function Monitoring() {
                 notification.close();
                 setHasNewQuake(false);
                 setQuakeAlert(null);
+                setSelectedGempa(item);
                 setOpenPanel('gempa');
             };
         } catch {}
@@ -1178,10 +1179,13 @@ export default function Monitoring() {
 
                 const eruptionKeys = new Set(
                     (result.eruptions ?? []).map((item) =>
-                        `${item.occurred_at}|${item.name ?? ''}`.replace(
-                            /null/g,
-                            '?',
-                        ),
+                        [
+                            item.occurred_at ?? '?',
+                            item.name ?? '?',
+                            item.time_label ?? '?',
+                            item.ash_height ?? '?',
+                            (item.description ?? '').slice(0, 200),
+                        ].join('|'),
                     ),
                 );
 
@@ -2834,6 +2838,7 @@ export default function Monitoring() {
                         onClick={() => {
                             setHasNewQuake(false);
                             setQuakeAlert(null);
+                            setSelectedGempa(quakeAlert);
                             setOpenPanel('gempa');
                         }}
                     >
