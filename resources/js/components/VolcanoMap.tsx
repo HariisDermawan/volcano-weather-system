@@ -658,12 +658,16 @@ function MapFly({
     fit,
     fitKey,
     focusKey = 0,
+    quakeFocus = null,
+    quakeFocusKey = null,
 }: {
     target: [number, number];
     zoom: number;
     fit?: Array<[number, number]>;
     fitKey?: string;
     focusKey?: number;
+    quakeFocus?: [number, number] | null;
+    quakeFocusKey?: string | null;
 }) {
     const map = useMap();
 
@@ -672,7 +676,13 @@ function MapFly({
     const fitRef = useRef(fit);
     fitRef.current = fit;
 
-    const prev = useRef({ lat, lng, focusKey, fitKey: '' });
+    const prev = useRef({
+        lat,
+        lng,
+        focusKey,
+        fitKey: '',
+        quakeFocusKey: null as string | null,
+    });
 
     const first = useRef(true);
 
@@ -692,7 +702,22 @@ function MapFly({
 
         const fitChanged = before.fitKey !== (fitKey ?? '');
 
-        prev.current = { lat, lng, focusKey, fitKey: fitKey ?? '' };
+        const quakeFocusChanged = before.quakeFocusKey !== quakeFocusKey;
+
+        prev.current = {
+            lat,
+            lng,
+            focusKey,
+            fitKey: fitKey ?? '',
+            quakeFocusKey: quakeFocusKey ?? null,
+        };
+
+        if (quakeFocusChanged && quakeFocus) {
+            focusedRef.current = true;
+            map.flyTo(quakeFocus, 8, { duration: 0.9 });
+
+            return;
+        }
 
         if (posChanged || focusChanged) {
             focusedRef.current = true;
@@ -918,6 +943,17 @@ export default function VolcanoMap({
         [markerVolcanoes, selectedVolcanoId],
     );
 
+    const selectedQuake = useMemo(
+        () =>
+            (earthquakes ?? []).find((quake) => quake.id === selectedQuakeId) ??
+            null,
+        [earthquakes, selectedQuakeId],
+    );
+
+    const quakeFocus: [number, number] | null = selectedQuake
+        ? [Number(selectedQuake.latitude), Number(selectedQuake.longitude)]
+        : null;
+
     const flyTarget: [number, number] = selectedVolcano
         ? [Number(selectedVolcano.latitude), Number(selectedVolcano.longitude)]
         : position;
@@ -1064,6 +1100,8 @@ export default function VolcanoMap({
                     fit={fitQuakes}
                     fitKey={fitKey}
                     focusKey={focusKey}
+                    quakeFocus={quakeFocus}
+                    quakeFocusKey={selectedQuakeId}
                 />
 
                 {}

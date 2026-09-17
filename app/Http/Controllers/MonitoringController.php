@@ -237,8 +237,6 @@ class MonitoringController extends Controller
                 })
                 ->values(),
 
-            'gdacs' => $gdacs->getAlertForVolcano($volcano->id),
-
             'weather' => $weather
                 ? [
                     'forecast_at' => $weather->forecast_at,

@@ -4768,6 +4768,10 @@ export default function Monitoring() {
                                                             className="text-slate-500"
                                                         />
                                                         Gempa terbaru lainnya
+                                                        <span className="ml-auto font-semibold tracking-normal text-slate-500/80 normal-case">
+                                                            klik untuk lihat di
+                                                            peta
+                                                        </span>
                                                     </p>
 
                                                     <ul className="flex flex-col gap-1">
@@ -4784,11 +4788,19 @@ export default function Monitoring() {
                                                                             `gempa-${index}`
                                                                         }
                                                                     >
-                                                                        <div className="w-full rounded-lg border border-white/10 bg-white/5 p-2.5 text-left text-[11px]">
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() =>
+                                                                                setSelectedGempa(
+                                                                                    item,
+                                                                                )
+                                                                            }
+                                                                            className="w-full rounded-lg border border-white/10 bg-white/5 p-2.5 text-left text-[11px] transition hover:border-sky-300/40 hover:bg-sky-300/10"
+                                                                        >
                                                                             {renderGempaCard(
                                                                                 item,
                                                                             )}
-                                                                        </div>
+                                                                        </button>
                                                                     </li>
                                                                 ),
                                                             )}
