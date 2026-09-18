@@ -2481,7 +2481,9 @@ export default function Monitoring() {
               ? 'text-red-400'
               : riskLevel === 'medium'
                 ? 'text-yellow-400'
-                : 'text-emerald-400';
+                : riskLevel === 'low'
+                  ? 'text-emerald-400'
+                  : 'text-slate-400';
 
     const statusPillText =
         data === null
