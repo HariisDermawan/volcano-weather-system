@@ -102,7 +102,7 @@ def sync_current_weather():
             temperature = current.get("temperature_2m")
             apparent = current.get("apparent_temperature")
             humidity = current.get("relative_humidity_2m")
-            pressure = current.get("surface_pressure")
+            pressure = current.get("pressure_msl")
             wind_speed = current.get("wind_speed_10m")
             wind_deg = current.get("wind_direction_10m")
             wind_gust = current.get("wind_gusts_10m")

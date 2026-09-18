@@ -48,7 +48,7 @@ def get_current_weather(latitude, longitude):
                     "temperature_2m,relative_humidity_2m,"
                     "apparent_temperature,wind_speed_10m,"
                     "wind_direction_10m,wind_gusts_10m,"
-                    "surface_pressure"
+                    "pressure_msl"
                 ),
                 "wind_speed_unit": "kmh",
                 "timezone": "UTC",

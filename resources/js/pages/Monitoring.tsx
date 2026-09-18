@@ -2613,11 +2613,11 @@ export default function Monitoring() {
 
     const statusDataTimeLabel = (() => {
         if (ashActive && data.ash_advisory?.issued_at) {
-            return `Data diambil ${formatWIBStamp(data.ash_advisory.issued_at)} WIB`;
+            return `Data diambil ${formatWIBStamp(data.ash_advisory.issued_at)}`;
         }
 
         if (data.activity?.occurred_at) {
-            return `Data diambil ${formatWIBStamp(data.activity.occurred_at)} WIB`;
+            return `Data diambil ${formatWIBStamp(data.activity.occurred_at)}`;
         }
 
         return 'Data diambil -';
@@ -3884,41 +3884,154 @@ export default function Monitoring() {
                                     Status Erupsi
                                 </PanelTitle>
 
-                                <div className="rounded-xl border border-slate-300/25 border-l-slate-300/80 bg-sky-300/[0.07] px-3 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                                    <p className="flex items-center gap-1.5 text-[9px] font-extrabold tracking-widest text-slate-300 uppercase">
-                                        <Radio size={10} strokeWidth={2.5} />
-                                        Status Erupsi
-                                    </p>
+                                {/* Kartu utama - real-time */}
+                                <div
+                                    className={`relative overflow-hidden rounded-2xl border p-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${ashActive || erupting ? 'border-red-500/20 bg-gradient-to-br from-red-500/10 via-[#0a101e] to-[#0a1220]' : 'border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-[#0a101e] to-[#0a1220]'}`}
+                                >
+                                    <span
+                                        className={`pointer-events-none absolute -top-8 -right-8 h-24 w-24 rounded-full blur-2xl ${ashActive || erupting ? 'bg-red-500/20' : 'bg-emerald-500/15'}`}
+                                    />
 
-                                    <p className="mt-1.5 text-[13px] font-black text-white">
-                                        {statusEruptionText}
-                                    </p>
+                                    <div className="relative flex items-start gap-2">
+                                        <span
+                                            className={`grid h-7 w-7 shrink-0 place-items-center rounded-lg border shadow ${ashActive || erupting ? 'border-red-400/30 bg-red-500/15 text-red-300 shadow-[0_0_12px_rgba(239,68,68,0.3)]' : 'border-emerald-400/30 bg-emerald-500/15 text-emerald-300 shadow-[0_0_12px_rgba(16,185,129,0.25)]'}`}
+                                        >
+                                            <Activity
+                                                size={14}
+                                                strokeWidth={2}
+                                            />
+                                        </span>
 
-                                    <p className="mt-1 text-[9.5px] text-slate-500">
-                                        {statusDataTimeLabel}
-                                    </p>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="flex items-center gap-1.5 text-[8.5px] font-extrabold tracking-widest uppercase">
+                                                <span
+                                                    className={`h-1 w-1 rounded-full ${ashActive || erupting ? 'animate-pulse bg-red-400 shadow-[0_0_6px_rgba(239,68,68,0.8)]' : 'bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.7)]'}`}
+                                                />
+                                                <span
+                                                    className={
+                                                        ashActive || erupting
+                                                            ? 'text-red-300'
+                                                            : 'text-emerald-300'
+                                                    }
+                                                >
+                                                    {ashActive
+                                                        ? 'Terdeteksi Aktivitas'
+                                                        : erupting
+                                                          ? 'Erupsi Berlangsung'
+                                                          : 'Tidak Ada Aktivitas'}
+                                                </span>
+                                                <span className="ml-auto text-[8.5px] font-bold tracking-wide text-slate-500 normal-case">
+                                                    {data.volcano.name}
+                                                </span>
+                                            </p>
+
+                                            <p className="mt-1 text-[11px] leading-snug font-bold text-white">
+                                                {statusEruptionText}
+                                            </p>
+
+                                            <p className="mt-1 flex items-center gap-1.5 text-[9px] text-slate-400">
+                                                <span className="h-1 w-1 rounded-full bg-slate-500" />
+                                                {statusDataTimeLabel}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {(ashActive ||
+                                        data.ash_advisory?.altitude_ft) && (
+                                        <div className="relative mt-2.5 grid grid-cols-2 gap-1.5">
+                                            <div className="rounded-xl border border-white/10 bg-white/[0.04] px-2.5 py-2">
+                                                <p className="flex items-center gap-1 text-[8px] font-bold tracking-widest text-slate-500 uppercase">
+                                                    <MountainSnow size={10} />
+                                                    Tinggi Abu (AMSL)
+                                                </p>
+                                                <p className="mt-1 text-[11px] font-black text-white">
+                                                    {ashHeightM !== null
+                                                        ? `~${(ashHeightM / 1000).toFixed(1)} km AMSL`
+                                                        : '-'}
+                                                </p>
+                                                <p className="text-[8px] text-slate-500">
+                                                    {data.ash_advisory
+                                                        ?.altitude_ft
+                                                        ? `FL${Math.round((data.ash_advisory.altitude_ft ?? 0) / 100)} • ${ashHeightM !== null && data.volcano.elevation ? `~${((ashHeightM - (data.volcano.elevation ?? 0)) / 1000).toFixed(1)} km di atas puncak` : 'AMSL'}`
+                                                        : '—'}
+                                                </p>
+                                            </div>
+
+                                            <div className="rounded-xl border border-white/10 bg-white/[0.04] px-2.5 py-2">
+                                                <p className="flex items-center gap-1 text-[8px] font-bold tracking-widest text-slate-500 uppercase">
+                                                    <Navigation size={10} />
+                                                    Arah Gerak
+                                                </p>
+                                                <p className="mt-1 text-[11px] font-black text-white">
+                                                    {ashDirectionLabel ?? '-'}
+                                                </p>
+                                                <p className="text-[8.5px] text-slate-500">
+                                                    {realTimeSpeed !== null
+                                                        ? `${realTimeSpeed.toFixed(1)} km/h`
+                                                        : data.ash_advisory
+                                                                ?.movement
+                                                          ? data.ash_advisory
+                                                                .movement
+                                                          : '—'}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
-                                <p className="mt-3 text-[9px] font-extrabold tracking-widest text-slate-500 uppercase">
-                                    Status Resmi PVMBG
-                                </p>
-
-                                <div
-                                    className={`mt-1 flex items-center gap-2 rounded-xl border px-3 py-2.5 text-[12.5px] font-extrabold shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${pvmbgClass}`}
-                                >
-                                    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/10">
+                                {/* Level PVMBG - lebih prominent */}
+                                <div className="mt-2">
+                                    <p className="mb-1 flex items-center gap-1.5 text-[8.5px] font-extrabold tracking-widest text-slate-500 uppercase">
                                         <ShieldCheck
-                                            size={15}
-                                            strokeWidth={2.5}
+                                            size={10}
+                                            className="text-slate-500"
                                         />
-                                    </span>
-
-                                    <span>
-                                        <span className="block text-[9px] font-extrabold tracking-widest uppercase opacity-70">
-                                            Level Resmi PVMBG
+                                        Status Resmi PVMBG
+                                        <span className="ml-auto text-[8px] font-bold tracking-wide text-slate-600 normal-case">
+                                            Sumber: MAGMA Indonesia
                                         </span>
-                                        {pvmbgLevelText}
-                                    </span>
+                                    </p>
+
+                                    <div
+                                        className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] ${pvmbgClass}`}
+                                    >
+                                        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/10 shadow-inner">
+                                            <ShieldCheck
+                                                size={15}
+                                                strokeWidth={2}
+                                            />
+                                        </span>
+
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-[8.5px] font-extrabold tracking-widest uppercase opacity-70">
+                                                Level Resmi PVMBG
+                                            </p>
+                                            <p className="text-[12px] leading-tight font-black">
+                                                {pvmbgLevelText}
+                                            </p>
+                                            <p className="mt-0.5 text-[8.5px] leading-tight font-medium opacity-70">
+                                                {pvmbgLevelText
+                                                    .toLowerCase()
+                                                    .includes('awas')
+                                                    ? 'Awas — bahaya, ikuti radius aman & evakuasi'
+                                                    : pvmbgLevelText
+                                                            .toLowerCase()
+                                                            .includes('siaga')
+                                                      ? 'Siaga — potensi erupsi, kurangi aktivitas di kawah'
+                                                      : pvmbgLevelText
+                                                              .toLowerCase()
+                                                              .includes(
+                                                                  'waspada',
+                                                              )
+                                                        ? 'Waspada — ada kenaikan, pantau harian'
+                                                        : 'Normal — aktivitas latar, tetap waspada'}
+                                            </p>
+                                        </div>
+
+                                        <span
+                                            className={`h-2.5 w-2.5 shrink-0 rounded-full ${pvmbgClass.includes('red') ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.7)]' : pvmbgClass.includes('orange') ? 'bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.7)]' : pvmbgClass.includes('yellow') ? 'bg-yellow-400 shadow-[0_0_8px_rgba(250,204,21,0.7)]' : 'bg-emerald-400 shadow-[0_0_8px_rgba(16,185,129,0.7)]'} ${ashActive || erupting ? 'animate-pulse' : ''}`}
+                                        />
+                                    </div>
                                 </div>
                             </section>
                         )}
@@ -3998,6 +4111,202 @@ export default function Monitoring() {
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Chart real-time 6-18 jam - naik/turun */}
+                                {(() => {
+                                    const chartKeys = LAYER_ORDER;
+                                    const chartData = chartKeys
+                                        .map((k) => forecastForLayer(k))
+                                        .filter(
+                                            (p): p is AshPrediction =>
+                                                p !== null,
+                                        );
+                                    if (chartData.length < 2) return null;
+                                    const riskToNum: Record<string, number> = {
+                                        low: 1,
+                                        medium: 2,
+                                        high: 3,
+                                        extreme: 4,
+                                    };
+                                    const points = chartData.map((p) => ({
+                                        hour: p.forecast_hour,
+                                        risk:
+                                            riskToNum[
+                                                (
+                                                    p.risk_level ?? ''
+                                                ).toLowerCase()
+                                            ] ?? 1,
+                                        label: p.risk_level ?? '-',
+                                    }));
+                                    const maxRisk = 4;
+                                    const w = 260;
+                                    const h = 56;
+                                    const pad = 12;
+                                    const stepX =
+                                        (w - pad * 2) /
+                                        Math.max(1, points.length - 1);
+                                    const getY = (risk: number) =>
+                                        h -
+                                        pad -
+                                        (risk / maxRisk) * (h - pad * 2);
+                                    const pathD = points
+                                        .map((pt, i) => {
+                                            const x = pad + i * stepX;
+                                            const y = getY(pt.risk);
+                                            return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
+                                        })
+                                        .join(' ');
+                                    const areaD = `${pathD} L ${pad + (points.length - 1) * stepX} ${h - pad} L ${pad} ${h - pad} Z`;
+                                    return (
+                                        <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
+                                            <p className="text-[8.5px] font-bold tracking-widest text-slate-500 uppercase">
+                                                Tren Sebaran 6–18 Jam
+                                            </p>
+                                            <div className="relative mt-2">
+                                                <svg
+                                                    viewBox={`0 0 ${w} ${h}`}
+                                                    className="h-[64px] w-full"
+                                                    preserveAspectRatio="none"
+                                                >
+                                                    <defs>
+                                                        <linearGradient
+                                                            id="sebaranFill"
+                                                            x1="0"
+                                                            y1="0"
+                                                            x2="0"
+                                                            y2="1"
+                                                        >
+                                                            <stop
+                                                                offset="0%"
+                                                                stopColor="#f97316"
+                                                                stopOpacity="0.35"
+                                                            />
+                                                            <stop
+                                                                offset="100%"
+                                                                stopColor="#22c55e"
+                                                                stopOpacity="0.08"
+                                                            />
+                                                        </linearGradient>
+                                                    </defs>
+                                                    {[1, 2, 3, 4].map((r) => (
+                                                        <line
+                                                            key={r}
+                                                            x1={pad}
+                                                            x2={w - pad}
+                                                            y1={getY(r)}
+                                                            y2={getY(r)}
+                                                            stroke="rgba(255,255,255,0.06)"
+                                                            strokeDasharray="2 4"
+                                                        />
+                                                    ))}
+                                                    <path
+                                                        d={areaD}
+                                                        fill="url(#sebaranFill)"
+                                                    />
+                                                    <path
+                                                        d={pathD}
+                                                        fill="none"
+                                                        stroke="#f97316"
+                                                        strokeWidth="2"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                    />
+                                                    {points.map((pt, i) => {
+                                                        const x =
+                                                            pad + i * stepX;
+                                                        const y = getY(pt.risk);
+                                                        const activeHour =
+                                                            timelinePlaying
+                                                                ? bucketHourOf(
+                                                                      timelineBucketKey,
+                                                                  )
+                                                                : (selectedForecast?.forecast_hour ??
+                                                                  points[0]
+                                                                      ?.hour);
+                                                        const isActive =
+                                                            activeHour ===
+                                                            pt.hour;
+                                                        return (
+                                                            <g key={i}>
+                                                                <circle
+                                                                    cx={x}
+                                                                    cy={y}
+                                                                    r={
+                                                                        isActive
+                                                                            ? 5
+                                                                            : 3.5
+                                                                    }
+                                                                    fill={
+                                                                        isActive
+                                                                            ? '#fff'
+                                                                            : '#0ea5e9'
+                                                                    }
+                                                                    stroke={
+                                                                        isActive
+                                                                            ? '#f97316'
+                                                                            : 'white'
+                                                                    }
+                                                                    strokeWidth={
+                                                                        isActive
+                                                                            ? 2
+                                                                            : 1.2
+                                                                    }
+                                                                    style={{
+                                                                        cursor: 'pointer',
+                                                                        filter: isActive
+                                                                            ? 'drop-shadow(0 0 6px rgba(249,115,22,0.8))'
+                                                                            : undefined,
+                                                                    }}
+                                                                    onClick={() => {
+                                                                        const found =
+                                                                            effectivePredictions?.find(
+                                                                                (
+                                                                                    p,
+                                                                                ) =>
+                                                                                    p.forecast_hour ===
+                                                                                    pt.hour,
+                                                                            );
+                                                                        if (
+                                                                            found
+                                                                        )
+                                                                            setSelectedForecastId(
+                                                                                found.id,
+                                                                            );
+                                                                    }}
+                                                                />
+                                                            </g>
+                                                        );
+                                                    })}
+                                                </svg>
+                                                <div className="mt-1 flex justify-between px-1 text-[8px] font-bold tracking-wide text-slate-500">
+                                                    {points.map((pt) => {
+                                                        const aHour =
+                                                            timelinePlaying
+                                                                ? bucketHourOf(
+                                                                      timelineBucketKey,
+                                                                  )
+                                                                : selectedForecast?.forecast_hour;
+                                                        return (
+                                                            <span
+                                                                key={pt.hour}
+                                                                className={
+                                                                    aHour ===
+                                                                    pt.hour
+                                                                        ? 'text-white'
+                                                                        : ''
+                                                                }
+                                                            >
+                                                                {pt.hour === 0
+                                                                    ? 'Obs'
+                                                                    : `+${pt.hour}j`}
+                                                            </span>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </section>
                         )}
 

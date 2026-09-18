@@ -22,7 +22,6 @@ export default function WindyMap({
         `&detailLat=${latitude}` +
         `&detailLon=${longitude}` +
         `&zoom=7` +
-        `&level=surface` +
         `&product=cams` +
         `&overlay=tcso2` +
         `&menu=` +

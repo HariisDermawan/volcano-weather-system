@@ -854,11 +854,41 @@ class MagmaService
 
     private function extractAshHeight(string $description): ?int
     {
-        if (! preg_match('/tinggi kolom abu teramati\s*(?:&plusmn;|±)?\s*(\d{1,4})\s*m/i', $description, $m)) {
-            return null;
+        $patterns = [
+            // Kuat: "tinggi ... 300 m di atas puncak / dari puncak" dengan rentang
+            '/(?:se)?(?:tinggi|ketinggian|ketinggian asap)\s*(?:sekitar|±|~|\/-)?\s*(\d{1,5}(?:[.,]\d+)?)\s*(?:[-–]\s*(\d{1,5}(?:[.,]\d+)?))?\s*(?:m|meter)\s+(?:di\s+atas\s+puncak|dari\s+puncak)/i',
+            // Angka dulu: "300 m di atas puncak"
+            '/(\d{1,5}(?:[.,]\d+)?)\s*(?:[-–]\s*(\d{1,5}(?:[.,]\d+)?))?\s*(?:m|meter)\s+(?:di\s+atas\s+puncak|dari\s+puncak)/i',
+            // Konteks asap/abu: "asap kawah ... tinggi 100 m"
+            '/(?:teramati\s+)?(?:asap|abu|kolom\s*(?:abu|asap)?)\s*(?:kawah\s*(?:utama)?|letusan|erupsi|vulkanik)?\s*(?:utama\s+)?(?:berwarna[^.]*?)?(?:dengan\s+)?(?:intensitas[^.]*?)?(?:se)?(?:ketinggian|tinggi)\s+(?:sekitar|±|~|\/-)?\s*(\d{1,5}(?:[.,]\d+)?)\s*(?:[-–]\s*(\d{1,5}(?:[.,]\d+)?))?\s*(?:m|meter)/i',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (! preg_match($pattern, $description, $m)) {
+                continue;
+            }
+
+            $v1 = (float) str_replace(',', '.', $m[1]);
+
+            if ($v1 < 1) {
+                continue;
+            }
+
+            $v2 = $v1;
+
+            if (! empty($m[2])) {
+                $v2 = (float) str_replace(',', '.', $m[2]);
+            }
+
+            return (int) max($v1, $v2);
         }
 
-        return (int) $m[1];
+        // Fallback lama: "tinggi kolom abu teramati 300 m"
+        if (preg_match('/tinggi kolom abu teramati\s*(?:&plusmn;|±)?\s*(\d{1,4})\s*m/i', $description, $m)) {
+            return (int) $m[1];
+        }
+
+        return null;
     }
 
     public function normalizeName(string $name): string

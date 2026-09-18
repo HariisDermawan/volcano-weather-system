@@ -410,11 +410,26 @@ class VaacDarwinService
             $hour = (int) substr($m[2], 0, 2);
             $minute = (int) substr($m[2], 2, 2);
 
-            return $issuedUtc->setDate(
+            $candidate = $issuedUtc->setDate(
                 (int) $issuedUtc->format('Y'),
                 (int) $issuedUtc->format('n'),
-                $day,
+                1,
             )->setTime($hour, $minute);
+
+            // Handle month rollover near month boundary (1-2 day diff)
+            $issuedDay = (int) $issuedUtc->format('j');
+            $targetMonth = (int) $issuedUtc->format('n');
+            $targetYear = (int) $issuedUtc->format('Y');
+
+            if ($day > $issuedDay + 15) {
+                // OBS from previous month (e.g., issued 1 Sep, OBS 31 Aug)
+                $candidate = $candidate->modify('-1 month');
+            } elseif ($day < $issuedDay - 15) {
+                // OBS from next month (rare, issued 30 Sep, OBS 01 Oct)
+                $candidate = $candidate->modify('+1 month');
+            }
+
+            return $candidate->setDate($targetYear, (int) $candidate->format('n'), $day);
         } catch (\Throwable) {
             return null;
         }
