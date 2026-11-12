@@ -28,7 +28,6 @@ import {
     CloudSun,
     ExternalLink,
     Eye,
-    FlaskConical,
     Gauge,
     HeartPulse,
     Info,
@@ -1171,7 +1170,7 @@ export default function Monitoring() {
             }
         };
 
-        fetchVolcanoes();
+        void fetchVolcanoes();
     }, []);
 
     useEffect(() => {
@@ -1283,7 +1282,7 @@ export default function Monitoring() {
             }
         };
 
-        fetchMonitoringData();
+        void fetchMonitoringData();
 
         return () => {
             cancelled = true;
